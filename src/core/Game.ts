@@ -28,11 +28,13 @@ import { Effects } from './Effects';
 import { InputManager } from './InputManager';
 import { SaveManager } from './SaveManager';
 import { PerformanceTierDetector } from './Performance';
+import { MobileBackHandler } from './MobileBackHandler';
 import { HUD, type SkillHUDState } from '../ui/HUD';
 import { InventoryUI } from '../ui/InventoryUI';
 import { Minimap } from '../ui/Minimap';
 import { itemTooltipHTML } from '../ui/ItemTooltip';
 import { TouchControls } from '../ui/TouchControls';
+import { isMobileDevice } from '../utils/mobile';
 
 interface Projectile {
   mesh: THREE.Mesh;
@@ -160,6 +162,8 @@ export class Game {
   private minimap: Minimap;
   private inventoryUI: InventoryUI;
   private touchControls: TouchControls | null = null;
+  private readonly mobile = isMobileDevice();
+  private readonly mobileBack = new MobileBackHandler();
 
   private floor = 1;
   private seed = Math.floor(Math.random() * 0xffffffff);
@@ -252,12 +256,19 @@ export class Game {
       this.hud.setMuted(this.audio.isMuted);
     };
     this.minimap = new Minimap(this.uiRoot);
-    if (PerformanceTierDetector.isMobile) {
+    if (this.mobile) {
       this.touchControls = new TouchControls(this.uiRoot, this.input, {
         onSkillPress: (key) => this.input.press(key),
         onSkillRelease: (key) => this.input.release(key),
         onAttackPress: () => this.input.pressMouse(0),
         onAttackRelease: () => this.input.releaseMouse(0),
+        onPausePress: () => this.togglePause(),
+        onInventoryPress: () => this.toggleInventory(),
+        onViewPress: () => {
+          this.controller.toggleView();
+          this.updatePlayerVisibility();
+        },
+        onSkillBarPress: () => this.toggleSkillBar(),
       });
     }
     this.inventoryUI = new InventoryUI(this.uiRoot);
@@ -269,16 +280,26 @@ export class Game {
     this.inventoryUI.onReforge = (index) => this.confirmReforge(index);
     this.inventoryUI.onAllocateClick = () => this.showAttributeAllocation();
     this.inventoryUI.onSellAll = (rarity) => this.confirmSellAll(rarity);
+    this.inventoryUI.onClose = () => this.mobileBack.unregister('inventory');
 
     window.addEventListener('resize', () => this.onResize());
     this.renderer.domElement.addEventListener('click', () => {
-      if (this.running && !this.inventoryUI.open) {
+      if (this.running && !this.inventoryUI.open && !this.mobile) {
         this.audio.ensure();
-        this.input.requestPointerLock(this.renderer.domElement);
+        this.requestPointerLock();
       }
     });
     document.addEventListener('pointerlockchange', () => {
       this.hud.setPointerLocked(this.input.pointerLocked);
+    });
+    this.mobileBack.setRootHandler(() => {
+      if (!this.running) return false;
+      if (this.paused) {
+        this.resumeGame();
+      } else {
+        this.pauseGame();
+      }
+      return true;
     });
   }
 
@@ -356,6 +377,40 @@ export class Game {
       button.style.background = '#2c5f8a';
     };
     return button;
+  }
+
+  private addPanelCloseButton(panel: HTMLDivElement, onClick: () => void): void {
+    if (!this.mobile) return;
+    panel.style.position = 'relative';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '✕';
+    button.className = 'panel-close-button';
+    button.style.position = 'absolute';
+    button.style.right = '10px';
+    button.style.top = '10px';
+    button.style.width = '42px';
+    button.style.height = '42px';
+    button.style.minWidth = '42px';
+    button.style.minHeight = '42px';
+    button.style.padding = '0';
+    button.style.background = 'rgba(20,28,42,0.86)';
+    button.style.color = '#e7e9ee';
+    button.style.border = '1px solid #59647a';
+    button.style.borderRadius = '6px';
+    button.style.fontSize = '18px';
+    button.style.fontWeight = 'bold';
+    button.style.cursor = 'pointer';
+    button.style.touchAction = 'manipulation';
+    button.onclick = onClick;
+    panel.appendChild(button);
+  }
+
+  private bindOverlayMaskClose(overlay: HTMLDivElement, close: () => void): void {
+    if (!this.mobile) return;
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
   }
 
   private removeStartMenu(): void {
@@ -445,7 +500,7 @@ export class Game {
     this.player.mana = Math.min(this.player.maxMana, this.player.mana || this.player.maxMana);
     this.saveGame();
     this.hud.showCenterMessage(`第 ${this.floor} 层`, this.floorData?.theme.name ?? '', 3);
-    this.input.requestPointerLock(this.renderer.domElement);
+    this.requestPointerLock();
   }
 
   private generateCurrentFloor(savedMonsters: SavedMonster[] | null = null, savedPortalActive: boolean | null = null): void {
@@ -545,6 +600,10 @@ export class Game {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  private requestPointerLock(): void {
+    if (!this.mobile) this.input.requestPointerLock(this.renderer.domElement);
   }
 
   private animate = (now: number): void => {
@@ -705,7 +764,9 @@ export class Game {
       this.player.moving = false;
       this.player.sprinting = false;
       if (document.pointerLockElement) document.exitPointerLock();
+      this.mobileBack.register('inventory', () => this.toggleInventory());
     } else {
+      this.mobileBack.unregister('inventory');
       this.lastTime = performance.now();
     }
   }
@@ -714,6 +775,7 @@ export class Game {
     this.inventoryUI.attributePoints = this.player.attributePoints;
     this.inventoryUI.materialText = this.materialStatusText();
     this.inventoryUI.show(this.equipment, this.inventory);
+    this.mobileBack.register('inventory', () => this.toggleInventory());
   }
 
   private updatePlayerVisibility(): void {
@@ -744,7 +806,7 @@ export class Game {
     this.paused = false;
     this.removePauseMenu();
     this.lastTime = performance.now();
-    this.input.requestPointerLock(this.renderer.domElement);
+    this.requestPointerLock();
   }
 
   private showPauseMenu(): void {
@@ -810,9 +872,13 @@ export class Game {
     overlay.appendChild(panel);
     this.pauseOverlay = overlay;
     this.uiRoot.appendChild(overlay);
+    this.addPanelCloseButton(panel, () => this.resumeGame());
+    this.bindOverlayMaskClose(overlay, () => this.resumeGame());
+    this.mobileBack.register('pause', () => this.resumeGame());
   }
 
   private removePauseMenu(): void {
+    this.mobileBack.unregister('pause');
     this.pauseOverlay?.remove();
     this.pauseOverlay = null;
   }
@@ -845,7 +911,15 @@ export class Game {
 
     const panel = document.createElement('div');
     panel.style.textAlign = 'center';
-    panel.style.minWidth = '300px';
+    if (this.mobile) {
+      panel.className = 'panel mobile-scroll';
+      panel.style.minWidth = '92vw';
+      panel.style.maxHeight = '84vh';
+      panel.style.overflow = 'auto';
+      panel.style.padding = '14px';
+    } else {
+      panel.style.minWidth = '300px';
+    }
     const title = document.createElement('div');
     title.textContent = `第 ${this.floor} 层已肃清`;
     title.style.fontSize = '30px';
@@ -923,23 +997,28 @@ export class Game {
     const closeBtn = this.makeMenuButton('返回');
     closeBtn.onclick = () => {
       this.closeFloorRest();
-      this.input.requestPointerLock(this.renderer.domElement);
+      this.requestPointerLock();
     };
     panel.appendChild(closeBtn);
 
     overlay.appendChild(panel);
     this.floorRestOverlay = overlay;
     this.uiRoot.appendChild(overlay);
+    this.addPanelCloseButton(panel, () => this.closeFloorRest());
+    this.bindOverlayMaskClose(overlay, () => this.closeFloorRest());
+    this.mobileBack.register('floorRest', () => this.closeFloorRest());
   }
 
   private buildShopSection(status: HTMLDivElement): HTMLDivElement {
     const section = document.createElement('div');
+    if (this.mobile) section.className = 'mobile-scroll';
     section.style.marginTop = '16px';
     section.style.paddingTop = '10px';
     section.style.borderTop = '1px solid #354156';
     section.style.textAlign = 'left';
     section.style.maxHeight = '280px';
     section.style.overflow = 'auto';
+    section.style.touchAction = this.mobile ? 'pan-y' : 'auto';
 
     const title = document.createElement('div');
     title.textContent = '深渊商店';
@@ -1040,12 +1119,14 @@ export class Game {
   }
 
   private closeFloorRest(): void {
+    this.mobileBack.unregister('floorRest');
     this.restOpen = false;
     this.floorRestOverlay?.remove();
     this.floorRestOverlay = null;
   }
 
   private removeFloorRestMenu(): void {
+    this.mobileBack.unregister('floorRest');
     this.floorRestOverlay?.remove();
     this.floorRestOverlay = null;
   }
@@ -1069,16 +1150,20 @@ export class Game {
 
     const panel = document.createElement('div');
     panel.className = 'panel';
+    if (this.mobile) panel.classList.add('mobile-scroll');
     panel.style.maxHeight = '86vh';
     panel.style.overflow = 'auto';
     panel.style.padding = '18px';
-    panel.style.minWidth = '360px';
+    panel.style.minWidth = this.mobile ? '92vw' : '360px';
     this.attributePanel = panel;
     this.renderCharacterPanel();
 
     overlay.appendChild(panel);
     this.attributeOverlay = overlay;
     this.uiRoot.appendChild(overlay);
+    this.addPanelCloseButton(panel, () => this.closeAttributeAllocation());
+    this.bindOverlayMaskClose(overlay, () => this.closeAttributeAllocation());
+    this.mobileBack.register('attribute', () => this.closeAttributeAllocation());
   }
 
   private renderCharacterPanel(): void {
@@ -1187,7 +1272,7 @@ export class Game {
     closeButton.style.marginTop = '14px';
     closeButton.onclick = () => {
       this.closeAttributeAllocation();
-      this.input.requestPointerLock(this.renderer.domElement);
+      this.requestPointerLock();
     };
     panel.appendChild(closeButton);
   }
@@ -1216,6 +1301,7 @@ export class Game {
   }
 
   private closeAttributeAllocation(): void {
+    this.mobileBack.unregister('attribute');
     this.attributeOpen = false;
     this.attributeOverlay?.remove();
     this.attributeOverlay = null;
@@ -1246,16 +1332,20 @@ export class Game {
 
     const panel = document.createElement('div');
     panel.className = 'panel';
+    if (this.mobile) panel.classList.add('mobile-scroll');
     panel.style.maxHeight = '88vh';
     panel.style.overflow = 'auto';
     panel.style.padding = '18px';
-    panel.style.minWidth = '420px';
+    panel.style.minWidth = this.mobile ? '92vw' : '420px';
     this.skillPanel = panel;
     this.renderSkillPanel();
 
     overlay.appendChild(panel);
     this.skillOverlay = overlay;
     this.uiRoot.appendChild(overlay);
+    this.addPanelCloseButton(panel, () => this.closeSkillBar());
+    this.bindOverlayMaskClose(overlay, () => this.closeSkillBar());
+    this.mobileBack.register('skillBar', () => this.closeSkillBar());
   }
 
   private renderSkillPanel(): void {
@@ -1346,11 +1436,12 @@ export class Game {
   }
 
   private closeSkillBar(): void {
+    this.mobileBack.unregister('skillBar');
     this.skillOpen = false;
     this.skillOverlay?.remove();
     this.skillOverlay = null;
     this.skillPanel = null;
-    this.input.requestPointerLock(this.renderer.domElement);
+    this.requestPointerLock();
   }
 
   private doBasicAttack(stats: DerivedStats): void {
@@ -2189,7 +2280,7 @@ export class Game {
     this.deathTimer = 0;
     this.generateCurrentFloor();
     this.hud.showCenterMessage('重新站起', `损失 ${lostGold} 金币`, 2.2);
-    this.input.requestPointerLock(this.renderer.domElement);
+    this.requestPointerLock();
   }
 
   private getTargetsInFront(aim: THREE.Vector3, range: number, halfAngle: number): Monster[] {
@@ -2372,9 +2463,12 @@ export class Game {
     overlay.appendChild(panel);
     this.sellOverlay = overlay;
     document.body.appendChild(overlay);
+    this.addPanelCloseButton(panel, () => this.closeSellOverlay());
+    this.mobileBack.register('sell', () => this.closeSellOverlay());
   }
 
   private closeSellOverlay(): void {
+    this.mobileBack.unregister('sell');
     this.sellOverlay?.remove();
     this.sellOverlay = null;
   }
@@ -2468,9 +2562,12 @@ export class Game {
     overlay.appendChild(panel);
     this.craftOverlay = overlay;
     document.body.appendChild(overlay);
+    this.addPanelCloseButton(panel, () => this.closeCraftOverlay());
+    this.mobileBack.register('craft', () => this.closeCraftOverlay());
   }
 
   private closeCraftOverlay(): void {
+    this.mobileBack.unregister('craft');
     this.craftOverlay?.remove();
     this.craftOverlay = null;
   }

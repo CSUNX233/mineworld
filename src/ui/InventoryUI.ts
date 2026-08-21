@@ -5,6 +5,7 @@ import { RARITY_COLORS } from '../data/recipes';
 import { SETS, setDisplayName } from '../data/sets';
 import { statLabel, formatValue } from '../items/AffixSystem';
 import { itemTooltipHTML } from './ItemTooltip';
+import { isMobileDevice } from '../utils/mobile';
 
 const SLOT_ORDER: Slot[] = ['weapon', 'helmet', 'chest', 'legs', 'boots', 'ring', 'ring2', 'necklace', 'offhand'];
 const SLOT_LABELS: Record<Slot, string> = {
@@ -34,7 +35,9 @@ export class InventoryUI {
   onReforge: ((inventoryIndex: number) => void) | null = null;
   onAllocateClick: (() => void) | null = null;
   onSellAll: ((maxRarity: Rarity) => void) | null = null;
+  onClose: (() => void) | null = null;
   private contextMenu: HTMLDivElement | null = null;
+  private mobile = isMobileDevice();
 
   constructor(private root: HTMLElement) {}
 
@@ -47,27 +50,37 @@ export class InventoryUI {
     this.close();
     this.open = true;
     this.equipment = equipment;
+    const mobile = this.mobile;
     this.panel = document.createElement('div');
-    this.panel.className = 'panel';
+    this.panel.className = mobile ? 'panel inventory-panel mobile-inventory' : 'panel inventory-panel';
     this.panel.style.position = 'absolute';
     this.panel.style.left = '50%';
     this.panel.style.top = '50%';
     this.panel.style.transform = 'translate(-50%, -50%)';
-    this.panel.style.width = 'calc(720px + 0.5cm)';
-    this.panel.style.maxWidth = '94vw';
-    this.panel.style.height = '540px';
-    this.panel.style.maxHeight = '90vh';
-    this.panel.style.padding = '16px';
+    this.panel.style.width = mobile ? '96vw' : 'calc(720px + 0.5cm)';
+    this.panel.style.maxWidth = mobile ? '96vw' : '94vw';
+    this.panel.style.height = mobile ? 'min(82vh, 720px)' : '540px';
+    this.panel.style.maxHeight = mobile ? '82vh' : '90vh';
+    this.panel.style.padding = mobile ? '12px 12px calc(12px + env(safe-area-inset-bottom))' : '16px';
     this.panel.style.display = 'grid';
-    this.panel.style.gridTemplateColumns = '230px 1fr';
-    this.panel.style.gap = '14px';
+    this.panel.style.gridTemplateColumns = mobile ? '1fr' : '230px 1fr';
+    this.panel.style.gridTemplateRows = mobile ? 'auto 1fr' : 'none';
+    this.panel.style.gap = mobile ? '10px' : '14px';
+    if (mobile) this.panel.style.overflow = 'hidden';
     this.root.appendChild(this.panel);
+    if (mobile) this.addCloseButton(this.panel);
 
     const equipmentPanel = document.createElement('div');
     equipmentPanel.style.display = 'grid';
-    equipmentPanel.style.gridTemplateColumns = '1fr 1fr';
+    equipmentPanel.style.gridTemplateColumns = mobile ? 'repeat(3, minmax(44px, 1fr))' : '1fr 1fr';
     equipmentPanel.style.alignContent = 'start';
     equipmentPanel.style.gap = '8px';
+    if (mobile) {
+      equipmentPanel.classList.add('mobile-scroll');
+      equipmentPanel.style.minHeight = '0';
+      equipmentPanel.style.maxHeight = '42vh';
+      equipmentPanel.style.overflow = 'auto';
+    }
     SLOT_ORDER.forEach((slot) => {
       const item = equipment.get(slot);
       const box = this.makeItemBox(item, `${SLOT_LABELS[slot]}${item ? `\n${item.name}` : ''}`);
@@ -158,6 +171,10 @@ export class InventoryUI {
     const right = document.createElement('div');
     right.style.display = 'flex';
     right.style.flexDirection = 'column';
+    if (this.mobile) {
+      right.style.minHeight = '0';
+      right.style.overflow = 'hidden';
+    }
     const title = document.createElement('div');
     title.textContent = `背包 ${inventory.items.length}/${inventory.capacity}`;
     title.style.marginBottom = '8px';
@@ -171,18 +188,53 @@ export class InventoryUI {
       right.appendChild(materials);
     }
     const grid = document.createElement('div');
+    if (this.mobile) grid.className = 'mobile-scroll';
     grid.style.flex = '1';
     grid.style.overflow = 'auto';
     grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(8, 54px)';
-    grid.style.gridAutoRows = '54px';
-    grid.style.gap = '6px';
+    grid.style.gridTemplateColumns = this.mobile ? 'repeat(auto-fill, minmax(48px, 1fr))' : 'repeat(8, 54px)';
+    grid.style.gridAutoRows = this.mobile ? '48px' : '54px';
+    grid.style.gap = this.mobile ? '8px' : '6px';
+    grid.style.touchAction = this.mobile ? 'pan-y' : 'auto';
     for (let i = 0; i < inventory.capacity; i++) {
       const item = inventory.items[i] ?? null;
       const box = this.makeItemBox(item, item?.name ?? '');
       box.dataset.inventoryIndex = String(i);
       if (item) {
-        box.onclick = () => this.onEquip?.(i);
+        let suppressClick = false;
+        let longPressTimer: number | null = null;
+        let startX = 0;
+        let startY = 0;
+        box.onclick = () => {
+          if (this.mobile && suppressClick) {
+            suppressClick = false;
+            return;
+          }
+          this.onEquip?.(i);
+        };
+        box.addEventListener('pointerdown', (event) => {
+          if (!this.mobile) return;
+          startX = event.clientX;
+          startY = event.clientY;
+          longPressTimer = window.setTimeout(() => {
+            longPressTimer = null;
+            suppressClick = true;
+            this.openContextMenuAt(i, item, startX, startY);
+          }, 450);
+        });
+        const clearLongPress = (): void => {
+          if (longPressTimer !== null) {
+            window.clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+        };
+        box.addEventListener('pointermove', (event) => {
+          if (longPressTimer !== null && Math.hypot(event.clientX - startX, event.clientY - startY) > 12) {
+            clearLongPress();
+          }
+        });
+        box.addEventListener('pointerup', clearLongPress);
+        box.addEventListener('pointercancel', clearLongPress);
         box.oncontextmenu = (event) => {
           event.preventDefault();
           this.openContextMenu(event, i, item);
@@ -193,7 +245,9 @@ export class InventoryUI {
     }
     right.appendChild(grid);
     const hint = document.createElement('div');
-    hint.textContent = '左键穿戴/替换 · 右键出售/分解/升级/重铸 · 装备栏点击卸下';
+    hint.textContent = this.mobile
+      ? '点击穿戴/替换 · 长按出售/分解/升级/重铸 · 装备栏点击卸下'
+      : '左键穿戴/替换 · 右键出售/分解/升级/重铸 · 装备栏点击卸下';
     hint.style.marginTop = '8px';
     hint.style.fontSize = '12px';
     hint.style.color = '#7f8ca0';
@@ -247,15 +301,19 @@ export class InventoryUI {
   }
 
   private openContextMenu(event: MouseEvent, index: number, item: Item): void {
+    this.openContextMenuAt(index, item, event.clientX, event.clientY);
+  }
+
+  private openContextMenuAt(index: number, item: Item, clientX: number, clientY: number): void {
     this.contextMenu?.remove();
     const menu = document.createElement('div');
-    menu.className = 'panel';
+    menu.className = 'panel context-menu';
     menu.style.position = 'fixed';
     menu.style.zIndex = '1200';
     menu.style.padding = '4px';
     menu.style.minWidth = '160px';
-    menu.style.left = `${Math.min(event.clientX, window.innerWidth - 180)}px`;
-    menu.style.top = `${Math.min(event.clientY, window.innerHeight - 220)}px`;
+    menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - 180))}px`;
+    menu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - 220))}px`;
     const actions: { label: string; color: string; action: (() => void) | null }[] = [
       { label: '出售', color: '#ffd76a', action: this.onSell ? () => this.onSell?.(index) : null },
       { label: '分解', color: '#9fd0ff', action: this.onSalvage ? () => this.onSalvage?.(index) : null },
@@ -284,13 +342,13 @@ export class InventoryUI {
     });
     document.body.appendChild(menu);
     this.contextMenu = menu;
-    const close = (event: MouseEvent): void => {
+    const close = (event: PointerEvent): void => {
       if (this.contextMenu?.contains(event.target as Node)) return;
       this.contextMenu?.remove();
       this.contextMenu = null;
-      window.removeEventListener('mousedown', close);
+      window.removeEventListener('pointerdown', close);
     };
-    window.setTimeout(() => window.addEventListener('mousedown', close), 0);
+    window.setTimeout(() => window.addEventListener('pointerdown', close), 0);
   }
 
   close(): void {
@@ -301,12 +359,38 @@ export class InventoryUI {
     this.tooltip = null;
     this.contextMenu?.remove();
     this.contextMenu = null;
+    this.onClose?.();
+  }
+
+  private addCloseButton(panel: HTMLDivElement): void {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '✕';
+    button.className = 'panel-close-button';
+    button.style.position = 'absolute';
+    button.style.right = '10px';
+    button.style.top = '10px';
+    button.style.width = '42px';
+    button.style.height = '42px';
+    button.style.minWidth = '42px';
+    button.style.minHeight = '42px';
+    button.style.padding = '0';
+    button.style.background = 'rgba(20,28,42,0.86)';
+    button.style.color = '#e7e9ee';
+    button.style.border = '1px solid #59647a';
+    button.style.borderRadius = '6px';
+    button.style.fontSize = '18px';
+    button.style.fontWeight = 'bold';
+    button.style.cursor = 'pointer';
+    button.style.touchAction = 'manipulation';
+    button.onclick = () => this.close();
+    panel.appendChild(button);
   }
 
   private makeItemBox(item: Item | null, label: string): HTMLDivElement {
     const box = document.createElement('div');
-    box.style.width = '54px';
-    box.style.height = '54px';
+    box.style.width = this.mobile ? '48px' : '54px';
+    box.style.height = this.mobile ? '48px' : '54px';
     box.style.background = '#1a2230';
     box.style.border = item ? `2px solid ${RARITY_COLORS[item.rarity]}` : '1px solid #354156';
     box.style.borderRadius = '4px';
@@ -315,9 +399,10 @@ export class InventoryUI {
     box.style.justifyContent = 'center';
     box.style.position = 'relative';
     box.style.pointerEvents = 'auto';
+    box.style.touchAction = this.mobile ? 'pan-y' : 'auto';
     box.title = label;
     if (item) {
-      box.innerHTML = `<span style="font-size:24px">${this.iconFor(item.icon)}</span>`;
+      box.innerHTML = `<span style="font-size:${this.mobile ? 21 : 24}px">${this.iconFor(item.icon)}</span>`;
       if (item.affixes.length > 0) {
         const dot = document.createElement('span');
         dot.style.position = 'absolute';

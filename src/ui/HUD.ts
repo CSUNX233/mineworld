@@ -61,6 +61,7 @@ export class HUD {
     this.container.appendChild(this.damageLayer);
 
     const bars = document.createElement('div');
+    bars.className = 'hud-bars';
     bars.style.position = 'absolute';
     bars.style.left = '18px';
     bars.style.top = '18px';
@@ -126,6 +127,7 @@ export class HUD {
     bars.appendChild(this.statusContainer);
 
     this.infoText = document.createElement('div');
+    this.infoText.className = 'hud-info';
     this.infoText.style.position = 'absolute';
     this.infoText.style.right = '180px';
     this.infoText.style.top = '18px';
@@ -135,6 +137,7 @@ export class HUD {
     this.container.appendChild(this.infoText);
 
     this.skillContainer = document.createElement('div');
+    this.skillContainer.className = 'hud-skills';
     this.skillContainer.style.position = 'absolute';
     this.skillContainer.style.left = '18px';
     this.skillContainer.style.bottom = '18px';
@@ -143,6 +146,7 @@ export class HUD {
     this.container.appendChild(this.skillContainer);
 
     this.crosshair = document.createElement('div');
+    this.crosshair.className = 'hud-crosshair';
     this.crosshair.style.position = 'absolute';
     this.crosshair.style.left = '50%';
     this.crosshair.style.top = '50%';
@@ -155,6 +159,7 @@ export class HUD {
     this.container.appendChild(this.crosshair);
 
     this.muteButton = document.createElement('div');
+    this.muteButton.className = 'hud-mute';
     this.muteButton.textContent = '🔊';
     this.muteButton.style.position = 'absolute';
     this.muteButton.style.right = '180px';

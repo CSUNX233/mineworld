@@ -80,6 +80,11 @@ export class InputManager {
     this.mouseJustPressed.add(button);
   }
 
+  addMouseDelta(dx: number, dy: number): void {
+    this.mouseDeltaX += dx;
+    this.mouseDeltaY += dy;
+  }
+
   releaseMouse(button: number): void {
     this.mouseDown.delete(button);
     this.mouseJustReleased.add(button);

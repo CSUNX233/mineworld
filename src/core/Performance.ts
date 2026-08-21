@@ -1,3 +1,5 @@
+import { isMobileDevice } from '../utils/mobile';
+
 export type PerformanceTier = 'low' | 'medium' | 'high';
 
 export class PerformanceTierDetector {
@@ -7,7 +9,7 @@ export class PerformanceTierDetector {
     if (typeof navigator === 'undefined') return 'high';
     const cores = navigator.hardwareConcurrency ?? 4;
     const dpr = window.devicePixelRatio || 1;
-    const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const mobile = isMobileDevice();
     const score = cores + (mobile ? 0 : 4) + Math.min(3, dpr);
     if (score <= 5) return 'low';
     if (score <= 9) return 'medium';
@@ -33,7 +35,6 @@ export class PerformanceTierDetector {
   }
 
   static get isMobile(): boolean {
-    if (typeof navigator === 'undefined') return false;
-    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    return isMobileDevice();
   }
 }
