@@ -52,7 +52,9 @@ function getLayout(): TouchLayout {
   const landscape = width > height;
   const scale = clamp(minDim / 420, 0.8, 1.18);
 
-  const joystickSize = Math.round(clamp(108 * scale, 88, 142));
+  const joystickLeft = Math.round(clamp(18 * scale, 14, 26));
+  const baseJoystickSize = Math.round(clamp(108 * scale, 88, 142));
+  const joystickSize = Math.max(64, Math.min(baseJoystickSize, Math.round(width * 0.25 - joystickLeft)));
   const attackSize = Math.round(clamp(102 * scale, 82, 128));
   const skillSize = Math.round(clamp(52 * scale, 48, 64));
   const utilitySize = Math.round(clamp(50 * scale, 48, 60));
@@ -61,15 +63,11 @@ function getLayout(): TouchLayout {
   const edge = Math.round(clamp(20 * scale, 16, 28));
   const bottom = Math.round(clamp(24 * scale, 20, 32));
 
-  const joystickLeft = Math.round(
-    clamp(landscape ? width * 0.09 : Math.max(34, width * 0.13), 34, 96),
-  );
-
   return {
     landscape,
     joystickSize,
     joystickLeft,
-    joystickBottom: Math.round(clamp(46 * scale, 34, 64)),
+    joystickBottom: Math.round(clamp(20 * scale, 16, 28)),
     attackSize,
     attackRight: edge,
     attackBottom: bottom,
