@@ -1,0 +1,6 @@
+[
+  { "id": "cave", "name": "地下洞穴", "wallType": "stone", "floorType": "grass", "accentType": "dirt" },
+  { "id": "dungeon", "name": "腐化地牢", "wallType": "brick", "floorType": "dungeon", "accentType": "mossy" },
+  { "id": "lava", "name": "熔岩深渊", "wallType": "darkstone", "floorType": "lavafloor", "accentType": "lava" },
+  { "id": "void", "name": "虚空遗迹", "wallType": "void", "floorType": "voidfloor", "accentType": "glow" }
+]

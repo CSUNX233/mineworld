@@ -1,0 +1,157 @@
+:root {
+  --hud-font: 'Courier New', 'Microsoft YaHei', monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #090c12;
+  color: #e7e9ee;
+  font-family: var(--hud-font);
+}
+
+canvas {
+  display: block;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+}
+
+.bar {
+  position: relative;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  transition: width 0.12s ease-out;
+}
+
+.hp-fill {
+  background: linear-gradient(180deg, #ff5a5a, #b71c1c);
+}
+
+.mp-fill {
+  background: linear-gradient(180deg, #4da3ff, #154fa8);
+}
+
+.xp-fill {
+  background: linear-gradient(180deg, #ffd54f, #b78100);
+}
+
+.panel {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid #3c475c;
+  border-radius: 6px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  max-width: 280px;
+  padding: 10px 12px;
+  background: #000;
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.damage-number {
+  position: fixed;
+  z-index: 2000;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  text-shadow: 0 0 4px #000, 0 2px 3px #000;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.hud-damage {
+  position: fixed;
+  z-index: 2500;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 0 4px #000, 0 2px 4px #000;
+  animation: hud-damage-pop 0.7s ease-out forwards;
+}
+
+@keyframes hud-damage-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -55%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120%) scale(1);
+  }
+}
+
+.center-message {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  text-shadow: 0 3px 8px #000;
+  pointer-events: none;
+}
+
+.touch-controls {
+  display: none;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  .touch-controls {
+    display: block;
+  }
+
+  .hud .bar {
+    height: 12px;
+  }
+
+  .panel {
+    max-width: 96vw;
+  }
+
+  #ui-root .panel[style*="width"] {
+    max-height: 92vh;
+  }
+
+  .center-message {
+    font-size: 0.82em;
+  }
+}

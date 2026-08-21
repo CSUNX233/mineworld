@@ -1,0 +1,391 @@
+[
+  {
+    "id": "weapon_sword",
+    "name": "旧铁剑",
+    "slot": "weapon",
+    "icon": "sword",
+    "baseStats": { "attack": 8, "attackSpeed": 1.35, "critChance": 0.03 }
+  },
+  {
+    "id": "weapon_axe",
+    "name": "沉重战斧",
+    "slot": "weapon",
+    "icon": "axe",
+    "setId": "warlord",
+    "baseStats": { "attack": 28, "attackSpeed": 0.62, "critDamage": 0.22 }
+  },
+  {
+    "id": "weapon_hammer",
+    "name": "碎岩锤",
+    "slot": "weapon",
+    "icon": "hammer",
+    "baseStats": { "attack": 16, "attackSpeed": 0.9, "critChance": 0.02, "strength": 2 }
+  },
+  {
+    "id": "weapon_dagger",
+    "name": "暗影匕首",
+    "slot": "weapon",
+    "icon": "sword",
+    "baseStats": { "attack": 5, "attackSpeed": 2.0, "critChance": 0.05 }
+  },
+  {
+    "id": "weapon_greatsword",
+    "name": "巨剑",
+    "slot": "weapon",
+    "icon": "sword",
+    "setId": "warlord",
+    "baseStats": { "attack": 20, "attackSpeed": 0.85, "critDamage": 0.15 }
+  },
+  {
+    "id": "weapon_staff",
+    "name": "霜语法杖",
+    "slot": "weapon",
+    "icon": "hammer",
+    "setId": "frost",
+    "baseStats": { "attack": 12, "attackSpeed": 0.7, "critDamage": 0.3, "intelligence": 2 }
+  },
+  {
+    "id": "helmet",
+    "name": "铁头盔",
+    "slot": "helmet",
+    "icon": "helmet",
+    "setId": "frost",
+    "baseStats": { "maxHealth": 16, "armor": 3 }
+  },
+  {
+    "id": "chest",
+    "name": "锁子胸甲",
+    "slot": "chest",
+    "icon": "chest",
+    "setId": "warlord",
+    "baseStats": { "maxHealth": 28, "armor": 6 }
+  },
+  {
+    "id": "legs",
+    "name": "板甲护腿",
+    "slot": "legs",
+    "icon": "legs",
+    "setId": "warlord",
+    "baseStats": { "maxHealth": 20, "armor": 4 }
+  },
+  {
+    "id": "boots",
+    "name": "旅者之靴",
+    "slot": "boots",
+    "icon": "boots",
+    "setId": "frost",
+    "baseStats": { "maxHealth": 12, "armor": 2, "moveSpeed": 0.04 }
+  },
+  {
+    "id": "ring",
+    "name": "黄铜戒指",
+    "slot": "ring",
+    "icon": "ring",
+    "setId": "shadow",
+    "baseStats": { "critChance": 0.02, "critDamage": 0.05 }
+  },
+  {
+    "id": "necklace",
+    "name": "护符",
+    "slot": "necklace",
+    "icon": "necklace",
+    "setId": "shadow",
+    "baseStats": { "maxHealth": 14, "manaRegen": 1 }
+  },
+  {
+    "id": "offhand",
+    "name": "符文盾牌",
+    "slot": "offhand",
+    "icon": "shield",
+    "setId": "warlord",
+    "baseStats": { "maxHealth": 20, "armor": 5 }
+  },
+  {
+    "id": "weapon_warblade",
+    "name": "破军之刃",
+    "slot": "weapon",
+    "icon": "sword",
+    "setId": "warbringer",
+    "baseStats": { "attack": 18, "attackSpeed": 1.0, "critChance": 0.06 }
+  },
+  {
+    "id": "helmet_warbringer",
+    "name": "破军战盔",
+    "slot": "helmet",
+    "icon": "helmet",
+    "setId": "warbringer",
+    "baseStats": { "maxHealth": 12, "armor": 3 }
+  },
+  {
+    "id": "chest_warbringer",
+    "name": "破军胸甲",
+    "slot": "chest",
+    "icon": "chest",
+    "setId": "warbringer",
+    "baseStats": { "maxHealth": 22, "armor": 5 }
+  },
+  {
+    "id": "legs_warbringer",
+    "name": "破军护腿",
+    "slot": "legs",
+    "icon": "legs",
+    "setId": "warbringer",
+    "baseStats": { "maxHealth": 15, "armor": 4 }
+  },
+  {
+    "id": "boots_warbringer",
+    "name": "破军战靴",
+    "slot": "boots",
+    "icon": "boots",
+    "setId": "warbringer",
+    "baseStats": { "maxHealth": 8, "moveSpeed": 0.03 }
+  },
+  {
+    "id": "ring_warbringer",
+    "name": "破军指环",
+    "slot": "ring",
+    "icon": "ring",
+    "setId": "warbringer",
+    "baseStats": { "critChance": 0.03, "critDamage": 0.08 }
+  },
+  {
+    "id": "staff_inferno",
+    "name": "炼狱法杖",
+    "slot": "weapon",
+    "icon": "hammer",
+    "setId": "inferno",
+    "baseStats": { "attack": 13, "attackSpeed": 0.78, "intelligence": 2 }
+  },
+  {
+    "id": "helmet_inferno",
+    "name": "炼狱头环",
+    "slot": "helmet",
+    "icon": "helmet",
+    "setId": "inferno",
+    "baseStats": { "maxMana": 10, "manaRegen": 0.6 }
+  },
+  {
+    "id": "chest_inferno",
+    "name": "炼狱法袍",
+    "slot": "chest",
+    "icon": "chest",
+    "setId": "inferno",
+    "baseStats": { "maxHealth": 16, "maxMana": 8 }
+  },
+  {
+    "id": "ring_inferno",
+    "name": "炼狱戒指",
+    "slot": "ring",
+    "icon": "ring",
+    "setId": "inferno",
+    "baseStats": { "intelligence": 2, "manaRegen": 0.5 }
+  },
+  {
+    "id": "necklace_inferno",
+    "name": "炼狱护符",
+    "slot": "necklace",
+    "icon": "necklace",
+    "setId": "inferno",
+    "baseStats": { "maxMana": 10, "intelligence": 2 }
+  },
+  {
+    "id": "boots_inferno",
+    "name": "炼狱之靴",
+    "slot": "boots",
+    "icon": "boots",
+    "setId": "inferno",
+    "baseStats": { "moveSpeed": 0.04, "maxHealth": 8 }
+  },
+  {
+    "id": "staff_glacier",
+    "name": "永冻法杖",
+    "slot": "weapon",
+    "icon": "hammer",
+    "setId": "glacier",
+    "baseStats": { "attack": 11, "attackSpeed": 0.7, "intelligence": 3 }
+  },
+  {
+    "id": "helmet_glacier",
+    "name": "永冻头冠",
+    "slot": "helmet",
+    "icon": "helmet",
+    "setId": "glacier",
+    "baseStats": { "maxHealth": 12, "armor": 3 }
+  },
+  {
+    "id": "chest_glacier",
+    "name": "永冻法袍",
+    "slot": "chest",
+    "icon": "chest",
+    "setId": "glacier",
+    "baseStats": { "maxHealth": 18, "armor": 4 }
+  },
+  {
+    "id": "boots_glacier",
+    "name": "永冻之靴",
+    "slot": "boots",
+    "icon": "boots",
+    "setId": "glacier",
+    "baseStats": { "moveSpeed": 0.04, "maxHealth": 8 }
+  },
+  {
+    "id": "ring_glacier",
+    "name": "永冻指环",
+    "slot": "ring",
+    "icon": "ring",
+    "setId": "glacier",
+    "baseStats": { "maxMana": 8, "manaRegen": 0.7 }
+  },
+  {
+    "id": "necklace_glacier",
+    "name": "永冻护符",
+    "slot": "necklace",
+    "icon": "necklace",
+    "setId": "glacier",
+    "baseStats": { "maxMana": 12, "intelligence": 2 }
+  },
+  {
+    "id": "weapon_venom",
+    "name": "疫毒短刃",
+    "slot": "weapon",
+    "icon": "sword",
+    "setId": "venom",
+    "baseStats": { "attack": 10, "attackSpeed": 1.3 }
+  },
+  {
+    "id": "helmet_venom",
+    "name": "疫毒头巾",
+    "slot": "helmet",
+    "icon": "helmet",
+    "setId": "venom",
+    "baseStats": { "maxHealth": 10, "armor": 2 }
+  },
+  {
+    "id": "chest_venom",
+    "name": "疫毒皮甲",
+    "slot": "chest",
+    "icon": "chest",
+    "setId": "venom",
+    "baseStats": { "maxHealth": 16, "armor": 3 }
+  },
+  {
+    "id": "ring_venom",
+    "name": "疫毒指环",
+    "slot": "ring",
+    "icon": "ring",
+    "setId": "venom",
+    "baseStats": { "attack": 3, "killHeal": 2 }
+  },
+  {
+    "id": "offhand_venom",
+    "name": "疫毒符文",
+    "slot": "offhand",
+    "icon": "shield",
+    "setId": "venom",
+    "baseStats": { "maxHealth": 12, "armor": 2 }
+  },
+  {
+    "id": "boots_venom",
+    "name": "疫毒之靴",
+    "slot": "boots",
+    "icon": "boots",
+    "setId": "venom",
+    "baseStats": { "moveSpeed": 0.04, "maxHealth": 6 }
+  },
+  {
+    "id": "weapon_sanguine",
+    "name": "血裔重剑",
+    "slot": "weapon",
+    "icon": "sword",
+    "setId": "sanguine",
+    "baseStats": { "attack": 17, "attackSpeed": 0.82, "lifeSteal": 0.03 }
+  },
+  {
+    "id": "helmet_sanguine",
+    "name": "血裔头盔",
+    "slot": "helmet",
+    "icon": "helmet",
+    "setId": "sanguine",
+    "baseStats": { "maxHealth": 16, "armor": 4 }
+  },
+  {
+    "id": "chest_sanguine",
+    "name": "血裔胸甲",
+    "slot": "chest",
+    "icon": "chest",
+    "setId": "sanguine",
+    "baseStats": { "maxHealth": 26, "armor": 6 }
+  },
+  {
+    "id": "legs_sanguine",
+    "name": "血裔护腿",
+    "slot": "legs",
+    "icon": "legs",
+    "setId": "sanguine",
+    "baseStats": { "maxHealth": 18, "armor": 5 }
+  },
+  {
+    "id": "ring_sanguine",
+    "name": "血裔指环",
+    "slot": "ring",
+    "icon": "ring",
+    "setId": "sanguine",
+    "baseStats": { "lifeSteal": 0.02, "killHeal": 2 }
+  },
+  {
+    "id": "offhand_sanguine",
+    "name": "血裔护符",
+    "slot": "offhand",
+    "icon": "shield",
+    "setId": "sanguine",
+    "baseStats": { "maxHealth": 18, "armor": 4 }
+  },
+  {
+    "id": "weapon_storm",
+    "name": "风暴短剑",
+    "slot": "weapon",
+    "icon": "sword",
+    "setId": "storm",
+    "baseStats": { "attack": 7, "attackSpeed": 1.8 }
+  },
+  {
+    "id": "boots_storm",
+    "name": "风暴之靴",
+    "slot": "boots",
+    "icon": "boots",
+    "setId": "storm",
+    "baseStats": { "moveSpeed": 0.06, "attackSpeed": 0.04 }
+  },
+  {
+    "id": "ring_storm",
+    "name": "风暴指环",
+    "slot": "ring",
+    "icon": "ring",
+    "setId": "storm",
+    "baseStats": { "attackSpeed": 0.05, "critChance": 0.03 }
+  },
+  {
+    "id": "necklace_storm",
+    "name": "风暴护符",
+    "slot": "necklace",
+    "icon": "necklace",
+    "setId": "storm",
+    "baseStats": { "attackSpeed": 0.04, "moveSpeed": 0.02 }
+  },
+  {
+    "id": "helmet_storm",
+    "name": "风暴头环",
+    "slot": "helmet",
+    "icon": "helmet",
+    "setId": "storm",
+    "baseStats": { "attackSpeed": 0.05, "maxMana": 8 }
+  },
+  {
+    "id": "chest_storm",
+    "name": "风暴皮甲",
+    "slot": "chest",
+    "icon": "chest",
+    "setId": "storm",
+    "baseStats": { "maxHealth": 12, "attackSpeed": 0.04 }
+  }
+]

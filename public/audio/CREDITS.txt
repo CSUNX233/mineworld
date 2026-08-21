@@ -1,0 +1,27 @@
+MineWorld bundled audio credits
+
+All bundled audio is used under permissive open-source/public-domain terms.
+
+Kenney audio packs (CC0 1.0 Universal):
+- RPG Audio
+  https://kenney.nl/assets/rpg-audio
+- Impact Sounds
+  https://kenney.nl/assets/impact-sounds
+- Interface Sounds
+  https://kenney.nl/assets/interface-sounds
+- Digital Audio
+  https://kenney.nl/assets/digital-audio
+- Sci-fi Sounds
+  https://kenney.nl/assets/sci-fi-sounds
+- Music Jingles
+  https://kenney.nl/assets/music-jingles
+
+Kenney assets are CC0. No attribution is required.
+
+OpenGameArt music (CC0 1.0 Universal):
+- Elevator To Reactor (Loop) by Hazmat Harry
+  https://opengameart.org/content/elevator-to-reactor-loop
+- Purgatory Store Closed
+  https://opengameart.org/content/purgatory-store-closed
+
+Both OpenGameArt tracks are CC0. No attribution is required, but attribution is appreciated.

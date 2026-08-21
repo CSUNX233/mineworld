@@ -1,0 +1,18 @@
+[
+  { "id": "sharp", "name": "锐利的", "stat": "attack", "min": 3, "max": 10, "weight": 10, "slots": ["weapon", "ring", "necklace"] },
+  { "id": "fierce", "name": "狂暴的", "stat": "attackSpeed", "min": 0.03, "max": 0.12, "weight": 8, "slots": ["weapon", "boots", "ring"] },
+  { "id": "precise", "name": "精准的", "stat": "critChance", "min": 0.02, "max": 0.08, "weight": 8, "slots": ["weapon", "helmet", "ring", "necklace"] },
+  { "id": "deadly", "name": "致命之", "stat": "critDamage", "min": 0.08, "max": 0.25, "weight": 7, "slots": ["weapon", "ring", "necklace"] },
+  { "id": "colossal", "name": "巨像的", "stat": "maxHealth", "min": 10, "max": 38, "weight": 12, "slots": ["helmet", "chest", "legs", "boots", "offhand", "necklace"] },
+  { "id": "ironclad", "name": "铁壁之", "stat": "armor", "min": 2, "max": 9, "weight": 10, "slots": ["helmet", "chest", "legs", "boots", "offhand"] },
+  { "id": "swift", "name": "疾风之", "stat": "moveSpeed", "min": 0.02, "max": 0.08, "weight": 8, "slots": ["boots", "legs"] },
+  { "id": "vampiric", "name": "吸血鬼的", "stat": "lifeSteal", "min": 0.02, "max": 0.08, "weight": 6, "slots": ["weapon", "ring", "necklace"] },
+  { "id": "giant", "name": "泰坦的", "stat": "strength", "min": 2, "max": 9, "weight": 9, "slots": ["weapon", "chest", "helmet", "ring"] },
+  { "id": "windwalker", "name": "轻盈的", "stat": "agility", "min": 2, "max": 9, "weight": 8, "slots": ["boots", "legs", "ring"] },
+  { "id": "vital", "name": "生机之", "stat": "vitality", "min": 2, "max": 9, "weight": 9, "slots": ["chest", "legs", "helmet", "boots"] },
+  { "id": "scholar", "name": "博学的", "stat": "intelligence", "min": 2, "max": 9, "weight": 8, "slots": ["helmet", "necklace", "ring", "offhand"] },
+  { "id": "lucky", "name": "幸运的", "stat": "luck", "min": 3, "max": 18, "weight": 5, "slots": ["ring", "necklace", "boots"] },
+  { "id": "hunter", "name": "猎手的", "stat": "killHeal", "min": 1, "max": 6, "weight": 6, "slots": ["weapon", "chest", "ring", "necklace"] },
+  { "id": "arcane", "name": "奥术的", "stat": "manaRegen", "min": 0.4, "max": 1.8, "weight": 6, "slots": ["helmet", "necklace", "offhand"] },
+  { "id": "renewing", "name": "回春的", "stat": "lifeRegen", "min": 2, "max": 20, "weight": 7, "slots": ["necklace", "ring"] }
+]

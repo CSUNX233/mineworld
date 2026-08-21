@@ -1,0 +1,56 @@
+import type { Rarity } from '../types';
+
+export const RARITY_COLORS: Record<Rarity, string> = {
+  common: '#c9ced6',
+  magic: '#4da3ff',
+  rare: '#ffe14d',
+  epic: '#c05bff',
+  legendary: '#ff8a1e',
+};
+
+export const RARITY_ORDER: Rarity[] = ['common', 'magic', 'rare', 'epic', 'legendary'];
+
+export const RARITY_AFFIX_COUNT: Record<Rarity, [number, number]> = {
+  common: [0, 0],
+  magic: [1, 2],
+  rare: [2, 4],
+  epic: [4, 5],
+  legendary: [5, 6],
+};
+
+export function monsterHealth(base: number, floor: number): number {
+  return Math.round(base * (1 + 0.18 * Math.max(0, floor - 1)));
+}
+
+export function monsterAttack(base: number, floor: number): number {
+  return Math.round(base * (1 + 0.12 * Math.max(0, floor - 1)));
+}
+
+export function monsterXp(base: number, floor: number): number {
+  return Math.round(base * (1 + 0.1 * Math.max(0, floor - 1)));
+}
+
+export function itemLevelForFloor(floor: number, variance: number): number {
+  return Math.max(1, floor + Math.round((Math.random() * 2 - 1) * variance));
+}
+
+export function xpToNext(level: number): number {
+  return Math.round(60 + level * 28 + level * level * 5);
+}
+
+export function armorReduction(armor: number, floor: number): number {
+  return armor / (armor + 100 + Math.max(0, floor - 1) * 5);
+}
+
+export function rarityWeightsForFloor(floor: number): { rarity: Rarity; weight: number }[] {
+  const depth = Math.max(0, floor - 1);
+  const epicWeight = 3.5 + depth * 0.55;
+  const legendaryWeight = 0.5 + depth * 0.16;
+  return [
+    { rarity: 'common', weight: 60 - depth * 0.4 },
+    { rarity: 'magic', weight: 25 },
+    { rarity: 'rare', weight: 11 + depth * 0.18 },
+    { rarity: 'epic', weight: epicWeight },
+    { rarity: 'legendary', weight: legendaryWeight },
+  ];
+}
