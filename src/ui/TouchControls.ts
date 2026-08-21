@@ -39,6 +39,7 @@ interface TouchLayout {
 
 const SKILL_SLOT_COUNT = 4;
 const SKILL_ANGLES = [130, 170, 210, 250];
+const LOOK_SENSITIVITY = 1.2;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -485,7 +486,7 @@ export class TouchControls {
     const dy = event.clientY - this.activeLookPointer.lastY;
     if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
 
-    this.input.addMouseDelta(dx, dy);
+    this.input.addMouseDelta(dx * LOOK_SENSITIVITY, dy * LOOK_SENSITIVITY);
     this.activeLookPointer.lastX = event.clientX;
     this.activeLookPointer.lastY = event.clientY;
   };
