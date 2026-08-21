@@ -260,7 +260,9 @@ export class Game {
       this.touchControls = new TouchControls(this.uiRoot, this.input, {
         onSkillPress: (key) => this.input.press(key),
         onSkillRelease: (key) => this.input.release(key),
-        onAttackPress: () => this.input.pressMouse(0),
+        onAttackPress: () => {
+          if (!this.tryInteract()) this.input.pressMouse(0);
+        },
         onAttackRelease: () => this.input.releaseMouse(0),
         onPausePress: () => this.togglePause(),
         onInventoryPress: () => this.toggleInventory(),
@@ -2226,8 +2228,8 @@ export class Game {
     return false;
   }
 
-  private tryInteract(): void {
-    if (!this.floorData) return;
+  private tryInteract(): boolean {
+    if (!this.floorData) return false;
     const playerX = Math.floor(this.player.position.x);
     const playerZ = Math.floor(this.player.position.z);
 
@@ -2236,7 +2238,7 @@ export class Game {
       const dz = playerZ - this.floorData.portal.z;
       if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) {
         this.showFloorRestMenu();
-        return;
+        return true;
       }
     }
 
@@ -2258,8 +2260,10 @@ export class Game {
           this.spawnDrop(new THREE.Vector3(chest.x + 0.5, 0, chest.z + 0.5), { kind: 'item', item });
           this.hud.showCenterMessage('背包已满', '宝箱装备已掉落在地面', 1.4);
         }
+        return true;
       }
     }
+    return false;
   }
 
   private advanceFloor(): void {
