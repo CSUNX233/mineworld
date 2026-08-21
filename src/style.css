@@ -27,6 +27,8 @@ canvas {
 #app {
   position: fixed;
   inset: 0;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 #ui-root {

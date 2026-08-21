@@ -39,7 +39,8 @@ interface TouchLayout {
 
 const SKILL_SLOT_COUNT = 4;
 const SKILL_ANGLES = [130, 170, 210, 250];
-const LOOK_SENSITIVITY = 1.2;
+const LOOK_SENSITIVITY = 1.8;
+const HALF_CM_PX = 19;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -53,8 +54,8 @@ function getLayout(): TouchLayout {
   const scale = clamp(minDim / 420, 0.8, 1.18);
 
   const joystickLeft = Math.round(clamp(18 * scale, 14, 26));
-  const baseJoystickSize = Math.round(clamp(108 * scale, 88, 142));
-  const joystickSize = Math.max(64, Math.min(baseJoystickSize, Math.round(width * 0.25 - joystickLeft)));
+  const baseJoystickSize = Math.round(clamp(108 * scale, 88, 142) * 1.2);
+  const joystickSize = Math.max(76, Math.min(baseJoystickSize, Math.round(width * 0.3 - joystickLeft)));
   const attackSize = Math.round(clamp(102 * scale, 82, 128));
   const skillSize = Math.round(clamp(52 * scale, 48, 64));
   const utilitySize = Math.round(clamp(50 * scale, 48, 60));
@@ -67,15 +68,15 @@ function getLayout(): TouchLayout {
     landscape,
     joystickSize,
     joystickLeft,
-    joystickBottom: Math.round(clamp(20 * scale, 16, 28)),
+    joystickBottom: Math.round(clamp(20 * scale, 16, 28)) + HALF_CM_PX,
     attackSize,
     attackRight: edge,
-    attackBottom: bottom,
+    attackBottom: bottom + HALF_CM_PX,
     skillSize,
     skillGap,
     skillRadius: attackSize / 2 + skillSize / 2 + skillGap,
     utilityTop: Math.round(clamp(76 * scale, 66, 92)),
-    utilityBottom: bottom + attackSize + skillGap + 16,
+    utilityBottom: Math.round(clamp(8 * scale, 6, 12)),
     utilitySize,
     pauseSize,
     pauseRight: edge,

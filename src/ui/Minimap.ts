@@ -2,11 +2,12 @@ import type { FloorData } from '../types';
 import type { Monster } from '../monsters/Monster';
 import type { Player } from '../player/Player';
 import { BlockKind } from '../world/Block';
+import { isMobileDevice } from '../utils/mobile';
 
 export class Minimap {
   readonly element: HTMLCanvasElement;
   private context: CanvasRenderingContext2D;
-  readonly size = 150;
+  readonly size = isMobileDevice() ? 75 : 150;
   private baseCanvas: HTMLCanvasElement | null = null;
   private baseFloor: FloorData | null = null;
 
