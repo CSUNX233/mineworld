@@ -701,6 +701,7 @@ export class Game {
     this.updateCombo(rawDt);
     this.hud.setState(this.hudState());
     this.hud.updateSkills(this.skillHudStates());
+    this.touchControls?.updateSkillStates(this.skillHudStates());
     this.hud.setStatuses(this.player.statuses);
     this.minimap.update(this.floorData, this.player, this.monsters);
 

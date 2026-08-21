@@ -176,6 +176,27 @@ html.mobile-ui button {
   border-color: rgba(145, 205, 255, 0.7);
 }
 
+.touch-button.touch-skill.is-empty {
+  background: rgba(10, 14, 20, 0.36);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.touch-button.touch-skill.is-cooldown {
+  filter: saturate(0.55);
+}
+
+.touch-skill-label {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.touch-skill-cooldown {
+  pointer-events: none;
+  z-index: 1;
+}
+
 .touch-button.touch-utility,
 .touch-button.touch-pause {
   background: rgba(10, 14, 20, 0.7);

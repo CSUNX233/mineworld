@@ -12,7 +12,14 @@ export interface TouchCallbacks {
   onSkillBarPress: () => void;
 }
 
+export interface TouchSkillState {
+  key: string;
+  cooldown: number;
+  cooldownRemaining: number;
+}
+
 interface TouchLayout {
+  landscape: boolean;
   joystickSize: number;
   joystickLeft: number;
   joystickBottom: number;
@@ -21,16 +28,17 @@ interface TouchLayout {
   attackBottom: number;
   skillSize: number;
   skillGap: number;
-  skillRight: number;
-  skillBottom: number;
+  skillRadius: number;
   utilityTop: number;
+  utilityBottom: number;
   utilitySize: number;
   pauseSize: number;
   pauseRight: number;
   pauseTop: number;
 }
 
-const SKILL_KEYS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'];
+const SKILL_SLOT_COUNT = 4;
+const SKILL_ANGLES = [130, 170, 210, 250];
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -40,28 +48,35 @@ function getLayout(): TouchLayout {
   const width = window.innerWidth;
   const height = window.innerHeight;
   const minDim = Math.min(width, height);
-  const scale = clamp(minDim / 420, 0.82, 1.18);
-  const joystickSize = Math.round(clamp(118 * scale, 96, 150));
-  const attackSize = Math.round(clamp(76 * scale, 54, 90));
-  const skillSize = Math.round(clamp(48 * scale, 48, 58));
-  const utilitySize = Math.round(clamp(48 * scale, 48, 56));
-  const pauseSize = Math.round(clamp(48 * scale, 48, 56));
-  const skillGap = Math.round(clamp(7 * scale, 6, 9));
-  const edge = Math.round(clamp(15 * scale, 12, 20));
-  const bottom = Math.round(clamp(22 * scale, 18, 28));
+  const landscape = width > height;
+  const scale = clamp(minDim / 420, 0.8, 1.18);
+
+  const joystickSize = Math.round(clamp(108 * scale, 88, 142));
+  const attackSize = Math.round(clamp(102 * scale, 82, 128));
+  const skillSize = Math.round(clamp(52 * scale, 48, 64));
+  const utilitySize = Math.round(clamp(50 * scale, 48, 60));
+  const pauseSize = Math.round(clamp(50 * scale, 48, 60));
+  const skillGap = Math.round(clamp(8 * scale, 6, 10));
+  const edge = Math.round(clamp(20 * scale, 16, 28));
+  const bottom = Math.round(clamp(24 * scale, 20, 32));
+
+  const joystickLeft = Math.round(
+    clamp(landscape ? width * 0.09 : Math.max(34, width * 0.13), 34, 96),
+  );
 
   return {
+    landscape,
     joystickSize,
-    joystickLeft: Math.round(clamp(16 * scale, 14, 22)),
-    joystickBottom: bottom,
+    joystickLeft,
+    joystickBottom: Math.round(clamp(46 * scale, 34, 64)),
     attackSize,
     attackRight: edge,
     attackBottom: bottom,
     skillSize,
     skillGap,
-    skillRight: edge + attackSize + skillGap,
-    skillBottom: bottom,
-    utilityTop: Math.round(clamp(78 * scale, 70, 96)),
+    skillRadius: attackSize / 2 + skillSize / 2 + skillGap,
+    utilityTop: Math.round(clamp(76 * scale, 66, 92)),
+    utilityBottom: bottom + attackSize + skillGap + 16,
     utilitySize,
     pauseSize,
     pauseRight: edge,
@@ -75,6 +90,9 @@ export class TouchControls {
   private stick: HTMLDivElement;
   private activePointer: number | null = null;
   private activeLookPointer: { pointerId: number; lastX: number; lastY: number } | null = null;
+  private skillButtons: HTMLDivElement[] = [];
+  private skillLabels: HTMLDivElement[] = [];
+  private skillOverlays: HTMLDivElement[] = [];
   private mobile = isMobileDevice();
 
   constructor(parent: HTMLElement, private input: InputManager, private callbacks: TouchCallbacks) {
@@ -123,6 +141,37 @@ export class TouchControls {
     }
   }
 
+  updateSkillStates(states: TouchSkillState[]): void {
+    const equipped = states.slice(0, SKILL_SLOT_COUNT);
+    for (let i = 0; i < SKILL_SLOT_COUNT; i++) {
+      const state = equipped[i] ?? null;
+      const button = this.skillButtons[i];
+      const label = this.skillLabels[i];
+      const overlay = this.skillOverlays[i];
+      if (!button || !label || !overlay) continue;
+
+      if (state) {
+        button.dataset.key = state.key;
+        button.classList.remove('is-empty');
+        label.textContent = state.key.replace('Digit', '');
+        const ready = state.cooldownRemaining <= 0;
+        button.classList.toggle('is-cooldown', !ready);
+        const ratio = state.cooldown > 0 ? state.cooldownRemaining / state.cooldown : 0;
+        overlay.style.height = `${Math.max(0, Math.min(100, ratio * 100))}%`;
+        overlay.style.opacity = ready ? '0' : '0.72';
+        button.style.color = ready ? '#ffffff' : '#a7c7e6';
+      } else {
+        button.dataset.key = '';
+        button.classList.add('is-empty');
+        button.classList.remove('is-cooldown');
+        label.textContent = '';
+        overlay.style.height = '0%';
+        overlay.style.opacity = '0';
+        button.style.color = '';
+      }
+    }
+  }
+
   private createJoystick(layout: TouchLayout): HTMLDivElement {
     const joystick = document.createElement('div');
     joystick.className = 'touch-joystick';
@@ -132,8 +181,8 @@ export class TouchControls {
     joystick.style.width = `${layout.joystickSize}px`;
     joystick.style.height = `${layout.joystickSize}px`;
     joystick.style.borderRadius = '50%';
-    joystick.style.background = 'rgba(10,14,20,0.42)';
-    joystick.style.border = '1px solid rgba(255,255,255,0.28)';
+    joystick.style.background = 'rgba(10,14,20,0.46)';
+    joystick.style.border = '1px solid rgba(255,255,255,0.34)';
     joystick.style.pointerEvents = 'auto';
     joystick.style.touchAction = 'none';
     joystick.style.userSelect = 'none';
@@ -163,30 +212,66 @@ export class TouchControls {
     const cluster = document.createElement('div');
     cluster.className = 'touch-skill-cluster';
     cluster.style.position = 'absolute';
-    cluster.style.right = `calc(${layout.skillRight}px + env(safe-area-inset-right))`;
-    cluster.style.bottom = `calc(${layout.skillBottom}px + env(safe-area-inset-bottom))`;
-    cluster.style.display = 'grid';
-    cluster.style.gridTemplateColumns = `repeat(2, ${layout.skillSize}px)`;
-    cluster.style.gridAutoRows = `${layout.skillSize}px`;
-    cluster.style.gap = `${layout.skillGap}px`;
+    cluster.style.inset = '0';
     cluster.style.pointerEvents = 'none';
 
-    SKILL_KEYS.forEach((key, index) => {
-      const button = this.makeButton(String(index + 1), layout.skillSize, 'touch-button touch-skill');
-      button.dataset.key = key;
+    const attackCenterX = window.innerWidth - layout.attackRight - layout.attackSize / 2;
+    const attackCenterY = window.innerHeight - layout.attackBottom - layout.attackSize / 2;
+
+    for (let i = 0; i < SKILL_SLOT_COUNT; i++) {
+      const angle = SKILL_ANGLES[i];
+      const rad = (angle * Math.PI) / 180;
+      const radius = layout.skillRadius;
+      const left = attackCenterX + Math.cos(rad) * radius - layout.skillSize / 2;
+      const top = attackCenterY - Math.sin(rad) * radius - layout.skillSize / 2;
+
+      const button = this.makeButton('', layout.skillSize, 'touch-button touch-skill is-empty');
+      button.style.left = `${Math.round(left)}px`;
+      button.style.top = `${Math.round(top)}px`;
+
+      const label = document.createElement('div');
+      label.className = 'touch-skill-label';
+      label.style.position = 'relative';
+      label.style.zIndex = '2';
+      label.style.fontWeight = 'bold';
+      label.style.fontSize = `${Math.max(18, Math.round(layout.skillSize * 0.36))}px`;
+      label.textContent = '';
+      button.appendChild(label);
+
+      const overlay = document.createElement('div');
+      overlay.className = 'touch-skill-cooldown';
+      overlay.style.position = 'absolute';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.height = '0%';
+      overlay.style.background =
+        'linear-gradient(0deg, rgba(0,0,0,0.82), rgba(18,35,58,0.72))';
+      overlay.style.transition = 'height 0.12s linear, opacity 0.12s linear';
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      button.appendChild(overlay);
+
       button.addEventListener('pointerdown', (event) => {
         event.preventDefault();
         button.setPointerCapture(event.pointerId);
-        this.callbacks.onSkillPress(key);
+        const key = button.dataset.key;
+        if (key) this.callbacks.onSkillPress(key);
       });
       const release = (event: PointerEvent): void => {
         if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
-        this.callbacks.onSkillRelease(key);
+        const key = button.dataset.key;
+        if (key) this.callbacks.onSkillRelease(key);
       };
       button.addEventListener('pointerup', release);
       button.addEventListener('pointercancel', release);
+
       cluster.appendChild(button);
-    });
+      this.skillButtons.push(button);
+      this.skillLabels.push(label);
+      this.skillOverlays.push(overlay);
+    }
+
     this.root.appendChild(cluster);
   }
 
@@ -195,11 +280,15 @@ export class TouchControls {
     row.className = 'touch-utility-row';
     row.style.position = 'absolute';
     row.style.left = '50%';
-    row.style.top = `calc(${layout.utilityTop}px + env(safe-area-inset-top))`;
     row.style.transform = 'translateX(-50%)';
     row.style.display = 'flex';
     row.style.gap = `${layout.skillGap + 3}px`;
     row.style.pointerEvents = 'none';
+    if (layout.landscape) {
+      row.style.bottom = `calc(${layout.utilityBottom}px + env(safe-area-inset-bottom))`;
+    } else {
+      row.style.top = `calc(${layout.utilityTop}px + env(safe-area-inset-top))`;
+    }
 
     const inventory = this.makeButton('🎒', layout.utilitySize, 'touch-button touch-utility');
     inventory.title = '背包';
@@ -229,16 +318,9 @@ export class TouchControls {
   }
 
   private bindTap(button: HTMLDivElement, action: () => void): void {
-    button.addEventListener('pointerdown', (event) => {
+    button.addEventListener('click', (event) => {
       event.preventDefault();
-      button.setPointerCapture(event.pointerId);
       action();
-    });
-    button.addEventListener('pointerup', (event) => {
-      if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
-    });
-    button.addEventListener('pointercancel', (event) => {
-      if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
     });
   }
 
@@ -251,6 +333,8 @@ export class TouchControls {
     button.style.display = 'flex';
     button.style.alignItems = 'center';
     button.style.justifyContent = 'center';
+    button.style.position = 'relative';
+    button.style.overflow = 'hidden';
     button.style.background = 'rgba(10,14,20,0.62)';
     button.style.border = '1px solid rgba(255,255,255,0.42)';
     button.style.borderRadius = '50%';
