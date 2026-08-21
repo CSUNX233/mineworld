@@ -88,11 +88,16 @@ export class TouchControls {
   private root: HTMLDivElement;
   private joystick: HTMLDivElement;
   private stick: HTMLDivElement;
-  private activePointer: number | null = null;
-  private activeLookPointer: { pointerId: number; lastX: number; lastY: number } | null = null;
+  private attackButton: HTMLDivElement;
+  private skillCluster: HTMLDivElement;
+  private utilityRow: HTMLDivElement;
+  private pauseButton: HTMLDivElement;
+  private utilityButtons: HTMLDivElement[] = [];
   private skillButtons: HTMLDivElement[] = [];
   private skillLabels: HTMLDivElement[] = [];
   private skillOverlays: HTMLDivElement[] = [];
+  private activePointer: number | null = null;
+  private activeLookPointer: { pointerId: number; lastX: number; lastY: number } | null = null;
   private mobile = isMobileDevice();
 
   constructor(parent: HTMLElement, private input: InputManager, private callbacks: TouchCallbacks) {
@@ -104,40 +109,33 @@ export class TouchControls {
     this.root.style.zIndex = '40';
     if (!this.mobile) this.root.style.display = 'none';
 
-    const layout = getLayout();
-
-    this.joystick = this.createJoystick(layout);
-    this.stick = document.createElement('div');
-    this.stick.className = 'touch-stick';
-    this.stick.style.position = 'absolute';
-    this.stick.style.left = '50%';
-    this.stick.style.top = '50%';
-    this.stick.style.width = `${Math.round(layout.joystickSize * 0.42)}px`;
-    this.stick.style.height = `${Math.round(layout.joystickSize * 0.42)}px`;
-    this.stick.style.borderRadius = '50%';
-    this.stick.style.background = 'rgba(255,255,255,0.72)';
-    this.stick.style.boxShadow = '0 0 8px rgba(0,0,0,0.35)';
-    this.stick.style.transform = 'translate(-50%, -50%)';
-    this.stick.style.pointerEvents = 'none';
+    this.joystick = this.createJoystick();
+    this.stick = this.createStick();
     this.joystick.appendChild(this.stick);
+    this.attachJoystickListeners();
 
-    this.joystick.addEventListener('pointerdown', (event) => this.onJoystickDown(event));
-    this.joystick.addEventListener('pointermove', (event) => this.onJoystickMove(event));
-    this.joystick.addEventListener('pointerup', () => this.onJoystickUp());
-    this.joystick.addEventListener('pointercancel', () => this.onJoystickUp());
+    this.attackButton = this.createAttackButton();
+    this.skillCluster = this.createSkillCluster();
+    this.utilityRow = this.createUtilityRow();
+    this.pauseButton = this.createPauseButton();
 
-    this.buildAttackButton(layout);
-    this.buildSkillCluster(layout);
-    this.buildUtilityRow(layout);
-    this.buildPauseButton(layout);
+    this.root.appendChild(this.joystick);
+    this.root.appendChild(this.attackButton);
+    this.root.appendChild(this.skillCluster);
+    this.root.appendChild(this.utilityRow);
+    this.root.appendChild(this.pauseButton);
 
     parent.appendChild(this.root);
+    this.applyLayout(getLayout());
 
     if (this.mobile) {
       window.addEventListener('pointerdown', this.onWindowPointerDown, { passive: false });
       window.addEventListener('pointermove', this.onWindowPointerMove);
       window.addEventListener('pointerup', this.onWindowPointerUp);
       window.addEventListener('pointercancel', this.onWindowPointerCancel);
+      window.addEventListener('resize', this.onResize);
+      window.addEventListener('orientationchange', this.onResize);
+      window.visualViewport?.addEventListener('resize', this.onResize);
     }
   }
 
@@ -172,14 +170,10 @@ export class TouchControls {
     }
   }
 
-  private createJoystick(layout: TouchLayout): HTMLDivElement {
+  private createJoystick(): HTMLDivElement {
     const joystick = document.createElement('div');
     joystick.className = 'touch-joystick';
     joystick.style.position = 'absolute';
-    joystick.style.left = `calc(${layout.joystickLeft}px + env(safe-area-inset-left))`;
-    joystick.style.bottom = `calc(${layout.joystickBottom}px + env(safe-area-inset-bottom))`;
-    joystick.style.width = `${layout.joystickSize}px`;
-    joystick.style.height = `${layout.joystickSize}px`;
     joystick.style.borderRadius = '50%';
     joystick.style.background = 'rgba(10,14,20,0.46)';
     joystick.style.border = '1px solid rgba(255,255,255,0.34)';
@@ -190,10 +184,30 @@ export class TouchControls {
     return joystick;
   }
 
-  private buildAttackButton(layout: TouchLayout): void {
-    const button = this.makeButton('⚔', layout.attackSize, 'touch-button touch-attack');
-    button.style.right = `calc(${layout.attackRight}px + env(safe-area-inset-right))`;
-    button.style.bottom = `calc(${layout.attackBottom}px + env(safe-area-inset-bottom))`;
+  private createStick(): HTMLDivElement {
+    const stick = document.createElement('div');
+    stick.className = 'touch-stick';
+    stick.style.position = 'absolute';
+    stick.style.left = '50%';
+    stick.style.top = '50%';
+    stick.style.borderRadius = '50%';
+    stick.style.background = 'rgba(255,255,255,0.72)';
+    stick.style.boxShadow = '0 0 8px rgba(0,0,0,0.35)';
+    stick.style.transform = 'translate(-50%, -50%)';
+    stick.style.pointerEvents = 'none';
+    return stick;
+  }
+
+  private attachJoystickListeners(): void {
+    this.joystick.addEventListener('pointerdown', (event) => this.onJoystickDown(event));
+    this.joystick.addEventListener('pointermove', (event) => this.onJoystickMove(event));
+    this.joystick.addEventListener('pointerup', () => this.onJoystickUp());
+    this.joystick.addEventListener('pointercancel', () => this.onJoystickUp());
+  }
+
+  private createAttackButton(): HTMLDivElement {
+    const button = this.makeButton('⚔', 'touch-button touch-attack');
+    button.style.position = 'absolute';
     button.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       button.setPointerCapture(event.pointerId);
@@ -205,37 +219,25 @@ export class TouchControls {
     };
     button.addEventListener('pointerup', release);
     button.addEventListener('pointercancel', release);
-    this.root.appendChild(button);
+    return button;
   }
 
-  private buildSkillCluster(layout: TouchLayout): void {
+  private createSkillCluster(): HTMLDivElement {
     const cluster = document.createElement('div');
     cluster.className = 'touch-skill-cluster';
     cluster.style.position = 'absolute';
     cluster.style.inset = '0';
     cluster.style.pointerEvents = 'none';
 
-    const attackCenterX = window.innerWidth - layout.attackRight - layout.attackSize / 2;
-    const attackCenterY = window.innerHeight - layout.attackBottom - layout.attackSize / 2;
-
     for (let i = 0; i < SKILL_SLOT_COUNT; i++) {
-      const angle = SKILL_ANGLES[i];
-      const rad = (angle * Math.PI) / 180;
-      const radius = layout.skillRadius;
-      const left = attackCenterX + Math.cos(rad) * radius - layout.skillSize / 2;
-      const top = attackCenterY - Math.sin(rad) * radius - layout.skillSize / 2;
-
-      const button = this.makeButton('', layout.skillSize, 'touch-button touch-skill is-empty');
-      button.style.left = `${Math.round(left)}px`;
-      button.style.top = `${Math.round(top)}px`;
+      const button = this.makeButton('', 'touch-button touch-skill is-empty');
+      button.style.position = 'absolute';
 
       const label = document.createElement('div');
       label.className = 'touch-skill-label';
       label.style.position = 'relative';
       label.style.zIndex = '2';
       label.style.fontWeight = 'bold';
-      label.style.fontSize = `${Math.max(18, Math.round(layout.skillSize * 0.36))}px`;
-      label.textContent = '';
       button.appendChild(label);
 
       const overlay = document.createElement('div');
@@ -272,49 +274,45 @@ export class TouchControls {
       this.skillOverlays.push(overlay);
     }
 
-    this.root.appendChild(cluster);
+    return cluster;
   }
 
-  private buildUtilityRow(layout: TouchLayout): void {
+  private createUtilityRow(): HTMLDivElement {
     const row = document.createElement('div');
     row.className = 'touch-utility-row';
     row.style.position = 'absolute';
     row.style.left = '50%';
     row.style.transform = 'translateX(-50%)';
     row.style.display = 'flex';
-    row.style.gap = `${layout.skillGap + 3}px`;
     row.style.pointerEvents = 'none';
-    if (layout.landscape) {
-      row.style.bottom = `calc(${layout.utilityBottom}px + env(safe-area-inset-bottom))`;
-    } else {
-      row.style.top = `calc(${layout.utilityTop}px + env(safe-area-inset-top))`;
-    }
 
-    const inventory = this.makeButton('🎒', layout.utilitySize, 'touch-button touch-utility');
+    const inventory = this.makeButton('🎒', 'touch-button touch-utility');
     inventory.title = '背包';
     this.bindTap(inventory, () => this.callbacks.onInventoryPress());
     row.appendChild(inventory);
+    this.utilityButtons.push(inventory);
 
-    const view = this.makeButton('👁', layout.utilitySize, 'touch-button touch-utility');
+    const view = this.makeButton('👁', 'touch-button touch-utility');
     view.title = '切换人称';
     this.bindTap(view, () => this.callbacks.onViewPress());
     row.appendChild(view);
+    this.utilityButtons.push(view);
 
-    const skills = this.makeButton('✦', layout.utilitySize, 'touch-button touch-utility');
+    const skills = this.makeButton('✦', 'touch-button touch-utility');
     skills.title = '技能配置';
     this.bindTap(skills, () => this.callbacks.onSkillBarPress());
     row.appendChild(skills);
+    this.utilityButtons.push(skills);
 
-    this.root.appendChild(row);
+    return row;
   }
 
-  private buildPauseButton(layout: TouchLayout): void {
-    const button = this.makeButton('⏸', layout.pauseSize, 'touch-button touch-pause');
-    button.style.right = `calc(${layout.pauseRight}px + env(safe-area-inset-right))`;
-    button.style.top = `calc(${layout.pauseTop}px + env(safe-area-inset-top))`;
+  private createPauseButton(): HTMLDivElement {
+    const button = this.makeButton('⏸', 'touch-button touch-pause');
+    button.style.position = 'absolute';
     button.title = '暂停';
     this.bindTap(button, () => this.callbacks.onPausePress());
-    this.root.appendChild(button);
+    return button;
   }
 
   private bindTap(button: HTMLDivElement, action: () => void): void {
@@ -324,22 +322,18 @@ export class TouchControls {
     });
   }
 
-  private makeButton(label: string, size: number, className: string): HTMLDivElement {
+  private makeButton(label: string, className: string): HTMLDivElement {
     const button = document.createElement('div');
     button.className = className;
     button.textContent = label;
-    button.style.width = `${size}px`;
-    button.style.height = `${size}px`;
     button.style.display = 'flex';
     button.style.alignItems = 'center';
     button.style.justifyContent = 'center';
-    button.style.position = 'relative';
     button.style.overflow = 'hidden';
     button.style.background = 'rgba(10,14,20,0.62)';
     button.style.border = '1px solid rgba(255,255,255,0.42)';
     button.style.borderRadius = '50%';
     button.style.color = '#fff';
-    button.style.fontSize = `${Math.max(17, Math.round(size * 0.4))}px`;
     button.style.fontWeight = 'bold';
     button.style.pointerEvents = 'auto';
     button.style.touchAction = 'none';
@@ -347,6 +341,62 @@ export class TouchControls {
     button.style.webkitUserSelect = 'none';
     button.style.setProperty('-webkit-tap-highlight-color', 'transparent');
     return button;
+  }
+
+  private applyLayout(layout: TouchLayout): void {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    this.joystick.style.left = `calc(${layout.joystickLeft}px + env(safe-area-inset-left))`;
+    this.joystick.style.bottom = `calc(${layout.joystickBottom}px + env(safe-area-inset-bottom))`;
+    this.joystick.style.width = `${layout.joystickSize}px`;
+    this.joystick.style.height = `${layout.joystickSize}px`;
+    this.stick.style.width = `${Math.round(layout.joystickSize * 0.42)}px`;
+    this.stick.style.height = `${Math.round(layout.joystickSize * 0.42)}px`;
+
+    this.attackButton.style.right = `calc(${layout.attackRight}px + env(safe-area-inset-right))`;
+    this.attackButton.style.bottom = `calc(${layout.attackBottom}px + env(safe-area-inset-bottom))`;
+    this.attackButton.style.width = `${layout.attackSize}px`;
+    this.attackButton.style.height = `${layout.attackSize}px`;
+    this.attackButton.style.fontSize = `${Math.max(28, Math.round(layout.attackSize * 0.42))}px`;
+
+    const attackCenterX = width - layout.attackRight - layout.attackSize / 2;
+    const attackCenterY = height - layout.attackBottom - layout.attackSize / 2;
+    for (let i = 0; i < SKILL_SLOT_COUNT; i++) {
+      const angle = SKILL_ANGLES[i];
+      const rad = (angle * Math.PI) / 180;
+      const radius = layout.skillRadius;
+      const left = attackCenterX + Math.cos(rad) * radius - layout.skillSize / 2;
+      const top = attackCenterY - Math.sin(rad) * radius - layout.skillSize / 2;
+      const button = this.skillButtons[i];
+      const label = this.skillLabels[i];
+      if (!button || !label) continue;
+      button.style.left = `${Math.round(left)}px`;
+      button.style.top = `${Math.round(top)}px`;
+      button.style.width = `${layout.skillSize}px`;
+      button.style.height = `${layout.skillSize}px`;
+      label.style.fontSize = `${Math.max(18, Math.round(layout.skillSize * 0.36))}px`;
+    }
+
+    this.utilityRow.style.gap = `${layout.skillGap + 3}px`;
+    this.utilityButtons.forEach((button) => {
+      button.style.width = `${layout.utilitySize}px`;
+      button.style.height = `${layout.utilitySize}px`;
+      button.style.fontSize = `${Math.max(18, Math.round(layout.utilitySize * 0.38))}px`;
+    });
+    if (layout.landscape) {
+      this.utilityRow.style.top = '';
+      this.utilityRow.style.bottom = `calc(${layout.utilityBottom}px + env(safe-area-inset-bottom))`;
+    } else {
+      this.utilityRow.style.bottom = '';
+      this.utilityRow.style.top = `calc(${layout.utilityTop}px + env(safe-area-inset-top))`;
+    }
+
+    this.pauseButton.style.right = `calc(${layout.pauseRight}px + env(safe-area-inset-right))`;
+    this.pauseButton.style.top = `calc(${layout.pauseTop}px + env(safe-area-inset-top))`;
+    this.pauseButton.style.width = `${layout.pauseSize}px`;
+    this.pauseButton.style.height = `${layout.pauseSize}px`;
+    this.pauseButton.style.fontSize = `${Math.max(18, Math.round(layout.pauseSize * 0.38))}px`;
   }
 
   private onJoystickDown(event: PointerEvent): void {
@@ -454,11 +504,19 @@ export class TouchControls {
     return clientX > window.innerWidth * 0.5;
   }
 
+  private onResize = (): void => {
+    if (!this.mobile) return;
+    this.applyLayout(getLayout());
+  };
+
   dispose(): void {
     window.removeEventListener('pointerdown', this.onWindowPointerDown);
     window.removeEventListener('pointermove', this.onWindowPointerMove);
     window.removeEventListener('pointerup', this.onWindowPointerUp);
     window.removeEventListener('pointercancel', this.onWindowPointerCancel);
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('orientationchange', this.onResize);
+    window.visualViewport?.removeEventListener('resize', this.onResize);
     this.root.remove();
   }
 }
