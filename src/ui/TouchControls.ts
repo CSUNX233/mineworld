@@ -39,7 +39,6 @@ interface TouchLayout {
 
 const SKILL_SLOT_COUNT = 4;
 const SKILL_ANGLES = [130, 170, 210, 250];
-const LOOK_SENSITIVITY = 1.8;
 const HALF_CM_PX = 19;
 
 function clamp(value: number, min: number, max: number): number {
@@ -430,6 +429,12 @@ export class TouchControls {
     } else if (Math.abs(dy) > deadZone) {
       this.input.press(dy > 0 ? 'KeyS' : 'KeyW');
     }
+
+    if (length >= rect.width * 0.5) {
+      this.input.press('ShiftLeft');
+    } else {
+      this.input.release('ShiftLeft');
+    }
   }
 
   private onJoystickUp(): void {
@@ -439,6 +444,7 @@ export class TouchControls {
     this.input.release('KeyS');
     this.input.release('KeyA');
     this.input.release('KeyD');
+    this.input.release('ShiftLeft');
   }
 
   private isInteractiveTarget(target: EventTarget | null): boolean {
@@ -485,7 +491,7 @@ export class TouchControls {
     const dy = event.clientY - this.activeLookPointer.lastY;
     if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
 
-    this.input.addMouseDelta(dx * LOOK_SENSITIVITY, dy * LOOK_SENSITIVITY);
+    this.input.addMouseDelta(dx, dy);
     this.activeLookPointer.lastX = event.clientX;
     this.activeLookPointer.lastY = event.clientY;
   };
@@ -501,7 +507,7 @@ export class TouchControls {
   };
 
   private isCameraLookArea(clientX: number): boolean {
-    return clientX > window.innerWidth * 0.5;
+    return true;
   }
 
   private onResize = (): void => {

@@ -27,6 +27,7 @@ import { AudioManager } from './AudioManager';
 import { Effects } from './Effects';
 import { InputManager } from './InputManager';
 import { SaveManager } from './SaveManager';
+import { SettingsManager } from './SettingsManager';
 import { PerformanceTierDetector } from './Performance';
 import { MobileBackHandler } from './MobileBackHandler';
 import { HUD, type SkillHUDState } from '../ui/HUD';
@@ -65,6 +66,7 @@ interface SkillState {
   id: string;
   name: string;
   key: string;
+  baseCooldown: number;
   cooldown: number;
   cooldownRemaining: number;
   manaCost: number;
@@ -79,6 +81,8 @@ interface TalentDef {
   desc: string;
   cost: number;
   requiredAllocated: number;
+  group: string;
+  requires?: string[];
   passive?: StatMap;
   skill?: { name: string; key: string; cooldown: number; manaCost: number };
 }
@@ -89,15 +93,55 @@ const TALENT_DEFS: TalentDef[] = [
     name: '老兵之力',
     desc: '力量 +3',
     cost: 1,
-    requiredAllocated: 2,
+    requiredAllocated: 0,
+    group: '力量',
     passive: { strength: 3 },
+  },
+  {
+    id: 'keen_reflexes',
+    name: '敏锐反射',
+    desc: '敏捷 +3',
+    cost: 1,
+    requiredAllocated: 0,
+    group: '敏捷',
+    passive: { agility: 3 },
+  },
+  {
+    id: 'scholar_insight',
+    name: '学者洞见',
+    desc: '智力 +3',
+    cost: 1,
+    requiredAllocated: 0,
+    group: '奥术',
+    passive: { intelligence: 3 },
+  },
+  {
+    id: 'sturdy_bones',
+    name: '坚韧骨骼',
+    desc: '体力 +3',
+    cost: 1,
+    requiredAllocated: 0,
+    group: '生存',
+    passive: { vitality: 3 },
+  },
+  {
+    id: 'titan_grip',
+    name: '泰坦之握',
+    desc: '攻击 +5',
+    cost: 1,
+    requiredAllocated: 2,
+    group: '力量',
+    requires: ['veteran_strength'],
+    passive: { attack: 5 },
   },
   {
     id: 'swift_strikes',
     name: '迅捷打击',
     desc: '攻击速度 +8%',
     cost: 1,
-    requiredAllocated: 4,
+    requiredAllocated: 2,
+    group: '敏捷',
+    requires: ['keen_reflexes'],
     passive: { attackSpeed: 0.08 },
   },
   {
@@ -105,7 +149,9 @@ const TALENT_DEFS: TalentDef[] = [
     name: '钢铁意志',
     desc: '护甲 +6',
     cost: 1,
-    requiredAllocated: 5,
+    requiredAllocated: 2,
+    group: '生存',
+    requires: ['sturdy_bones'],
     passive: { armor: 6 },
   },
   {
@@ -113,8 +159,60 @@ const TALENT_DEFS: TalentDef[] = [
     name: '吸血',
     desc: '生命偷取 +4%',
     cost: 1,
-    requiredAllocated: 7,
+    requiredAllocated: 4,
+    group: '力量',
+    requires: ['titan_grip'],
     passive: { lifeSteal: 0.04 },
+  },
+  {
+    id: 'precision',
+    name: '精准',
+    desc: '暴击率 +4%',
+    cost: 1,
+    requiredAllocated: 3,
+    group: '敏捷',
+    requires: ['swift_strikes'],
+    passive: { critChance: 0.04 },
+  },
+  {
+    id: 'assassin',
+    name: '刺客本能',
+    desc: '暴击伤害 +15%',
+    cost: 2,
+    requiredAllocated: 5,
+    group: '敏捷',
+    requires: ['precision'],
+    passive: { critDamage: 0.15 },
+  },
+  {
+    id: 'mana_spring',
+    name: '法力之泉',
+    desc: '法力回复 +1.2/s',
+    cost: 1,
+    requiredAllocated: 2,
+    group: '奥术',
+    requires: ['scholar_insight'],
+    passive: { manaRegen: 1.2 },
+  },
+  {
+    id: 'arcane_reservoir',
+    name: '奥术池',
+    desc: '最大法力 +20',
+    cost: 1,
+    requiredAllocated: 3,
+    group: '奥术',
+    requires: ['mana_spring'],
+    passive: { maxMana: 20 },
+  },
+  {
+    id: 'cooldown_flow',
+    name: '冷却流转',
+    desc: '技能冷却缩减 +8%',
+    cost: 2,
+    requiredAllocated: 5,
+    group: '奥术',
+    requires: ['arcane_reservoir'],
+    passive: { cooldown: 0.08 },
   },
   {
     id: 'frost_nova',
@@ -122,6 +220,8 @@ const TALENT_DEFS: TalentDef[] = [
     desc: '解锁技能：冰霜新星',
     cost: 2,
     requiredAllocated: 8,
+    group: '奥术',
+    requires: ['cooldown_flow'],
     skill: { name: '冰霜新星', key: 'Digit4', cooldown: 6, manaCost: 18 },
   },
   {
@@ -130,6 +230,8 @@ const TALENT_DEFS: TalentDef[] = [
     desc: '解锁技能：闪电链',
     cost: 2,
     requiredAllocated: 10,
+    group: '奥术',
+    requires: ['frost_nova'],
     skill: { name: '闪电链', key: 'Digit5', cooldown: 5, manaCost: 16 },
   },
   {
@@ -137,10 +239,44 @@ const TALENT_DEFS: TalentDef[] = [
     name: '血怒',
     desc: '暴击率 +4%',
     cost: 1,
-    requiredAllocated: 9,
+    requiredAllocated: 5,
+    group: '力量',
+    requires: ['vampirism'],
     passive: { critChance: 0.04 },
   },
+  {
+    id: 'fortress',
+    name: '堡垒',
+    desc: '最大生命 +30',
+    cost: 2,
+    requiredAllocated: 5,
+    group: '生存',
+    requires: ['iron_will'],
+    passive: { maxHealth: 30 },
+  },
+  {
+    id: 'lifebloom',
+    name: '生命绽放',
+    desc: '生命回复 +1.5/s',
+    cost: 1,
+    requiredAllocated: 6,
+    group: '生存',
+    requires: ['fortress'],
+    passive: { lifeRegen: 1.5 },
+  },
+  {
+    id: 'lucky_coin',
+    name: '幸运硬币',
+    desc: '幸运 +12',
+    cost: 1,
+    requiredAllocated: 4,
+    group: '敏捷',
+    requires: ['keen_reflexes'],
+    passive: { luck: 12 },
+  },
 ];
+
+const TALENT_GROUPS = ['力量', '敏捷', '奥术', '生存'];
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -183,6 +319,7 @@ export class Game {
   private pendingPortalActive: boolean | null = null;
   private shopStock: ShopStockEntry[] = [];
   private shopFloor = 0;
+  private saveSlot = 0;
   private kills = 0;
   private bonusAttributes: StatMap = {};
   private attackTimer = 0;
@@ -337,21 +474,32 @@ export class Game {
     subtitle.style.fontSize = '20px';
     panel.appendChild(subtitle);
 
-    if (SaveManager.hasSave()) {
-      const continueBtn = this.makeMenuButton('继续游戏');
-      continueBtn.onclick = () => {
+    const slots = SaveManager.listSlots();
+    const slotTitle = document.createElement('div');
+    slotTitle.textContent = '存档位';
+    slotTitle.style.marginTop = '22px';
+    slotTitle.style.color = '#9fb4d0';
+    slotTitle.style.fontSize = '14px';
+    panel.appendChild(slotTitle);
+
+    slots.forEach((slot) => {
+      const button = this.makeMenuButton(
+        slot.exists
+          ? `存档 ${slot.slot + 1} · 第 ${slot.floor} 层 · Lv.${slot.level}`
+          : `存档 ${slot.slot + 1} · 空`,
+      );
+      button.onclick = () => {
         this.removeStartMenu();
-        const save = SaveManager.load();
-        if (save) this.loadGame(save);
+        this.saveSlot = slot.slot;
+        if (slot.exists) {
+          const save = SaveManager.load(slot.slot);
+          if (save) this.loadGame(save);
+        } else {
+          this.startNewGame();
+        }
       };
-      panel.appendChild(continueBtn);
-    }
-    const newBtn = this.makeMenuButton('新游戏');
-    newBtn.onclick = () => {
-      this.removeStartMenu();
-      this.startNewGame();
-    };
-    panel.appendChild(newBtn);
+      panel.appendChild(button);
+    });
 
     overlay.appendChild(panel);
     this.startOverlay = overlay;
@@ -421,7 +569,7 @@ export class Game {
   }
 
   private startNewGame(): void {
-    SaveManager.clear();
+    SaveManager.clear(this.saveSlot);
     this.floor = 1;
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.gold = 0;
@@ -840,6 +988,22 @@ export class Game {
     exitBtn.onclick = () => this.exitToMainMenu();
     panel.appendChild(exitBtn);
 
+    const lookLabel = document.createElement('div');
+    lookLabel.textContent = '视角灵敏度';
+    lookLabel.style.marginTop = '18px';
+    lookLabel.style.color = '#b8c8de';
+    lookLabel.style.fontSize = '14px';
+    panel.appendChild(lookLabel);
+    const lookSensitivity = document.createElement('input');
+    lookSensitivity.type = 'range';
+    lookSensitivity.min = '0.5';
+    lookSensitivity.max = '2.5';
+    lookSensitivity.step = '0.1';
+    lookSensitivity.value = String(SettingsManager.getLookSensitivity());
+    lookSensitivity.style.width = '220px';
+    lookSensitivity.oninput = () => SettingsManager.setLookSensitivity(Number(lookSensitivity.value));
+    panel.appendChild(lookSensitivity);
+
     const sfxLabel = document.createElement('div');
     sfxLabel.textContent = '音效音量';
     sfxLabel.style.marginTop = '18px';
@@ -1237,29 +1401,74 @@ export class Game {
     });
 
     panel.appendChild(sectionTitle('天赋'));
-    TALENT_DEFS.forEach((talent) => {
-      const unlocked = this.unlockedTalents.has(talent.id);
-      const affordable = !unlocked && this.talentPoints >= talent.cost && this.attributeAllocated >= talent.requiredAllocated;
-      const button = document.createElement('button');
-      button.textContent = unlocked
-        ? `✓ ${talent.name}`
-        : `${talent.name}（${talent.cost}天赋点）${this.attributeAllocated < talent.requiredAllocated ? ` · 需已分配 ${talent.requiredAllocated}` : ''}`;
-      button.title = talent.desc;
-      button.style.display = 'block';
-      button.style.width = '100%';
-      button.style.margin = '4px 0';
-      button.style.padding = '8px 14px';
-      button.style.fontFamily = 'inherit';
-      button.style.background = unlocked ? '#315c42' : affordable ? '#5a4a1f' : '#28303d';
-      button.style.color = '#fff';
-      button.style.border = '1px solid #8b7a3f';
-      button.style.borderRadius = '4px';
-      button.style.cursor = affordable ? 'pointer' : 'default';
-      button.onclick = () => {
-        if (!affordable) return;
-        this.unlockTalent(talent);
-      };
-      panel.appendChild(button);
+    TALENT_GROUPS.forEach((group) => {
+      const groupTitle = document.createElement('div');
+      groupTitle.textContent = group;
+      groupTitle.style.margin = '10px 0 6px';
+      groupTitle.style.paddingLeft = '4px';
+      groupTitle.style.color = '#ffd76a';
+      groupTitle.style.fontWeight = 'bold';
+      groupTitle.style.fontSize = '13px';
+      panel.appendChild(groupTitle);
+
+      const groupGrid = document.createElement('div');
+      groupGrid.style.display = 'grid';
+      groupGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(190px, 1fr))';
+      groupGrid.style.gap = '7px';
+
+      TALENT_DEFS.filter((talent) => talent.group === group).forEach((talent) => {
+        const unlocked = this.unlockedTalents.has(talent.id);
+        const prerequisitesMet = !talent.requires || talent.requires.every((id) => this.unlockedTalents.has(id));
+        const affordable =
+          !unlocked &&
+          prerequisitesMet &&
+          this.talentPoints >= talent.cost &&
+          this.attributeAllocated >= talent.requiredAllocated;
+
+        const node = document.createElement('button');
+        node.type = 'button';
+        node.style.display = 'block';
+        node.style.textAlign = 'left';
+        node.style.minHeight = '48px';
+        node.style.padding = '8px 10px';
+        node.style.fontFamily = 'inherit';
+        node.style.background = unlocked ? '#315c42' : affordable ? '#5a4a1f' : '#28303d';
+        node.style.color = '#fff';
+        node.style.border = unlocked ? '1px solid #7ee8a2' : affordable ? '1px solid #c5a03b' : '1px solid #43516a';
+        node.style.borderRadius = '5px';
+        node.style.cursor = affordable ? 'pointer' : 'default';
+        node.style.opacity = prerequisitesMet || unlocked ? '1' : '0.48';
+
+        const name = document.createElement('div');
+        name.style.fontWeight = 'bold';
+        name.style.fontSize = '13px';
+        name.textContent = unlocked ? `✓ ${talent.name}` : talent.name;
+        node.appendChild(name);
+
+        const desc = document.createElement('div');
+        desc.style.marginTop = '3px';
+        desc.style.fontSize = '11px';
+        desc.style.color = '#b8c8de';
+        desc.textContent = talent.desc;
+        node.appendChild(desc);
+
+        const meta = document.createElement('div');
+        meta.style.marginTop = '4px';
+        meta.style.fontSize = '10px';
+        meta.style.color = prerequisitesMet ? '#7f8ca0' : '#ff9a9a';
+        meta.textContent = `${talent.cost} 天赋点${talent.requiredAllocated > 0 ? ` · 需已分配 ${talent.requiredAllocated}` : ''}${
+          prerequisitesMet ? '' : ' · 需前置天赋'
+        }`;
+        node.appendChild(meta);
+
+        node.title = `${talent.desc} · ${meta.textContent}`;
+        node.onclick = () => {
+          if (!affordable) return;
+          this.unlockTalent(talent);
+        };
+        groupGrid.appendChild(node);
+      });
+      panel.appendChild(groupGrid);
     });
 
     const skillButton = this.makeMenuButton('技能栏配置');
@@ -1281,7 +1490,15 @@ export class Game {
   }
 
   private unlockTalent(talent: TalentDef): void {
-    if (this.unlockedTalents.has(talent.id) || this.talentPoints < talent.cost) return;
+    const requirementsMet = !talent.requires || talent.requires.every((id) => this.unlockedTalents.has(id));
+    if (
+      this.unlockedTalents.has(talent.id) ||
+      this.talentPoints < talent.cost ||
+      this.attributeAllocated < talent.requiredAllocated ||
+      !requirementsMet
+    ) {
+      return;
+    }
     this.unlockedTalents.add(talent.id);
     this.talentPoints -= talent.cost;
     if (talent.passive) {
@@ -1638,6 +1855,7 @@ export class Game {
 
   private tryUseSkill(skill: SkillState, stats: DerivedStats): void {
     if (skill.cooldownRemaining > 0 || this.player.mana < skill.manaCost) return;
+    skill.cooldown = Math.max(0.3, skill.baseCooldown * (1 - stats.cooldownReduction));
     skill.cooldownRemaining = skill.cooldown;
     this.player.mana -= skill.manaCost;
     if (skill.id === 'whirlwind') this.useWhirlwind(stats, skill);
@@ -2379,6 +2597,7 @@ export class Game {
         id: def.id,
         name: def.name,
         key: def.key,
+        baseCooldown: def.cooldown,
         cooldown: def.cooldown,
         cooldownRemaining: 0,
         manaCost: def.manaCost,
@@ -2756,6 +2975,6 @@ export class Game {
       shopFloor: this.shopFloor,
       playerStatuses: this.player.statuses,
     };
-    SaveManager.save(data);
+    SaveManager.save(data, this.saveSlot);
   }
 }

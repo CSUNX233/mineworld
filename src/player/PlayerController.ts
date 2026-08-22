@@ -5,6 +5,7 @@ import type { InputManager } from '../core/InputManager';
 import type { Player } from './Player';
 import type { DerivedStats } from '../items/EquipmentManager';
 import { clamp, damp } from '../utils/math';
+import { SettingsManager } from '../core/SettingsManager';
 
 const GRAVITY = -24;
 const JUMP_SPEED = 8;
@@ -88,8 +89,9 @@ export class PlayerController {
       return;
     }
 
-    this.cameraYaw -= this.input.mouseDeltaX * 0.0022;
-    const pitchDelta = -this.input.mouseDeltaY * 0.0022;
+    const lookScale = 0.0022 * SettingsManager.getLookSensitivity();
+    this.cameraYaw -= this.input.mouseDeltaX * lookScale;
+    const pitchDelta = -this.input.mouseDeltaY * lookScale;
     if (this.firstPerson) {
       this.cameraPitch = clamp(this.cameraPitch + pitchDelta, -1.35, 1.35);
     } else {

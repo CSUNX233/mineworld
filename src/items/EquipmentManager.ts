@@ -17,6 +17,7 @@ export interface DerivedStats {
   pickupRange: number;
   manaRegen: number;
   lifeRegen: number;
+  cooldownReduction: number;
 }
 
 const ALL_SLOTS: Slot[] = ['weapon', 'helmet', 'chest', 'legs', 'boots', 'ring', 'ring2', 'necklace', 'offhand'];
@@ -164,6 +165,7 @@ export class EquipmentManager {
       pickupRange: stats.pickupRange ?? 2.2,
       manaRegen: stats.manaRegen ?? 1,
       lifeRegen: stats.lifeRegen ?? 1,
+      cooldownReduction: Math.max(0, Math.min(0.6, stats.cooldown ?? 0)),
     };
   }
 }
