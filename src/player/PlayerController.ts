@@ -115,6 +115,10 @@ export class PlayerController {
       p.yaw = lerpAngle(p.yaw, targetYaw, 1 - Math.exp(-12 * dt));
     }
 
+    if (!this.firstPerson && SettingsManager.getCameraFollow() && p.moving) {
+      this.cameraYaw = lerpAngle(this.cameraYaw, p.yaw, 1 - Math.exp(-7.5 * dt));
+    }
+
     const speed = stats.moveSpeed * (p.sprinting ? 1.65 : 1) * 5.5;
     const targetVelocity = moveDir.multiplyScalar(speed);
     if (this.dashTime > 0) {

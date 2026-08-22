@@ -4,10 +4,12 @@ const SETTINGS_KEY = 'mineworld_settings_v1';
 
 export interface GameSettings {
   lookSensitivity: number;
+  cameraFollow: boolean;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
   lookSensitivity: 1,
+  cameraFollow: false,
 };
 
 export class SettingsManager {
@@ -25,6 +27,7 @@ export class SettingsManager {
           typeof parsed.lookSensitivity === 'number' && parsed.lookSensitivity > 0
             ? parsed.lookSensitivity
             : defaultSettings.lookSensitivity,
+        cameraFollow: parsed.cameraFollow === true,
       };
     } catch {
       return defaultSettings;
@@ -46,6 +49,16 @@ export class SettingsManager {
   static setLookSensitivity(value: number): void {
     const settings = SettingsManager.load();
     settings.lookSensitivity = value;
+    SettingsManager.save(settings);
+  }
+
+  static getCameraFollow(): boolean {
+    return SettingsManager.load().cameraFollow;
+  }
+
+  static setCameraFollow(value: boolean): void {
+    const settings = SettingsManager.load();
+    settings.cameraFollow = value;
     SettingsManager.save(settings);
   }
 }

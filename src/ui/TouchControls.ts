@@ -291,7 +291,7 @@ export class TouchControls {
     row.appendChild(inventory);
     this.utilityButtons.push(inventory);
 
-    const view = this.makeButton('👁', 'touch-button touch-utility');
+    const view = this.makeButton('视角', 'touch-button touch-utility');
     view.title = '切换人称';
     this.bindTap(view, () => this.callbacks.onViewPress());
     row.appendChild(view);

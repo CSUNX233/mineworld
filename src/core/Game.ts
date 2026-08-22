@@ -1004,6 +1004,24 @@ export class Game {
     lookSensitivity.oninput = () => SettingsManager.setLookSensitivity(Number(lookSensitivity.value));
     panel.appendChild(lookSensitivity);
 
+    const followRow = document.createElement('label');
+    followRow.style.display = 'flex';
+    followRow.style.alignItems = 'center';
+    followRow.style.justifyContent = 'center';
+    followRow.style.gap = '8px';
+    followRow.style.marginTop = '12px';
+    followRow.style.color = '#b8c8de';
+    followRow.style.fontSize = '14px';
+    followRow.textContent = '第三人称视角跟随角色';
+    const followToggle = document.createElement('input');
+    followToggle.type = 'checkbox';
+    followToggle.checked = SettingsManager.getCameraFollow();
+    followToggle.style.width = '18px';
+    followToggle.style.height = '18px';
+    followToggle.onchange = () => SettingsManager.setCameraFollow(followToggle.checked);
+    followRow.appendChild(followToggle);
+    panel.appendChild(followRow);
+
     const sfxLabel = document.createElement('div');
     sfxLabel.textContent = '音效音量';
     sfxLabel.style.marginTop = '18px';
