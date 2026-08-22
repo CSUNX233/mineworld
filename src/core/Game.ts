@@ -460,6 +460,13 @@ export class Game {
 
     const panel = document.createElement('div');
     panel.style.textAlign = 'center';
+    if (this.mobile) {
+      panel.className = 'panel mobile-scroll';
+      panel.style.minWidth = '92vw';
+      panel.style.maxHeight = '82vh';
+      panel.style.overflow = 'auto';
+      panel.style.padding = '16px';
+    }
     const title = document.createElement('div');
     title.textContent = 'MineWorld';
     title.style.fontSize = '52px';

@@ -51,20 +51,21 @@ export class InventoryUI {
     this.open = true;
     this.equipment = equipment;
     const mobile = this.mobile;
+    const mobileLandscape = mobile && window.innerWidth > window.innerHeight;
     this.panel = document.createElement('div');
     this.panel.className = mobile ? 'panel inventory-panel mobile-inventory' : 'panel inventory-panel';
     this.panel.style.position = 'absolute';
     this.panel.style.left = '50%';
     this.panel.style.top = '50%';
     this.panel.style.transform = 'translate(-50%, -50%)';
-    this.panel.style.width = mobile ? '96vw' : 'calc(720px + 0.5cm)';
-    this.panel.style.maxWidth = mobile ? '96vw' : '94vw';
+    this.panel.style.width = mobileLandscape ? '94vw' : mobile ? '96vw' : 'calc(720px + 0.5cm)';
+    this.panel.style.maxWidth = mobileLandscape ? '94vw' : mobile ? '96vw' : '94vw';
     this.panel.style.height = mobile ? 'min(82vh, 720px)' : '540px';
     this.panel.style.maxHeight = mobile ? '82vh' : '90vh';
     this.panel.style.padding = mobile ? '12px 12px calc(12px + env(safe-area-inset-bottom))' : '16px';
     this.panel.style.display = 'grid';
-    this.panel.style.gridTemplateColumns = mobile ? '1fr' : '230px 1fr';
-    this.panel.style.gridTemplateRows = mobile ? 'auto 1fr' : 'none';
+    this.panel.style.gridTemplateColumns = mobileLandscape ? 'minmax(220px, 0.9fr) minmax(0, 1.4fr)' : mobile ? '1fr' : '230px 1fr';
+    this.panel.style.gridTemplateRows = mobileLandscape ? 'minmax(0, 1fr)' : mobile ? 'auto 1fr' : 'none';
     this.panel.style.gap = mobile ? '10px' : '14px';
     if (mobile) this.panel.style.overflow = 'hidden';
     this.root.appendChild(this.panel);
@@ -72,14 +73,18 @@ export class InventoryUI {
 
     const equipmentPanel = document.createElement('div');
     equipmentPanel.style.display = 'grid';
-    equipmentPanel.style.gridTemplateColumns = mobile ? 'repeat(3, minmax(44px, 1fr))' : '1fr 1fr';
+    equipmentPanel.style.gridTemplateColumns = mobileLandscape
+      ? 'repeat(2, minmax(48px, 1fr))'
+      : mobile
+        ? 'repeat(3, minmax(44px, 1fr))'
+        : '1fr 1fr';
     equipmentPanel.style.alignContent = 'start';
     equipmentPanel.style.gap = '8px';
     if (mobile) {
       equipmentPanel.classList.add('mobile-scroll');
       equipmentPanel.style.minHeight = '0';
-      equipmentPanel.style.maxHeight = '42vh';
       equipmentPanel.style.overflow = 'auto';
+      equipmentPanel.style.maxHeight = mobileLandscape ? '100%' : '42vh';
     }
     SLOT_ORDER.forEach((slot) => {
       const item = equipment.get(slot);
