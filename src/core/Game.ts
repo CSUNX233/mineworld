@@ -2535,6 +2535,10 @@ export class Game {
       );
       const distance = offset.length();
       if (distance <= range) {
+        if (distance < 0.7) {
+          targets.push(monster);
+          continue;
+        }
         const dot = aim.dot(offset.normalize());
         const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
         if (angle <= halfAngle) {
