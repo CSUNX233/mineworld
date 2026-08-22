@@ -64,9 +64,9 @@ export class InventoryUI {
     this.panel.style.maxHeight = mobile ? '82vh' : '90vh';
     this.panel.style.padding = mobile ? '12px 12px calc(12px + env(safe-area-inset-bottom))' : '16px';
     this.panel.style.display = 'grid';
-    this.panel.style.gridTemplateColumns = mobileLandscape ? 'minmax(220px, 0.9fr) minmax(0, 1.4fr)' : mobile ? '1fr' : '230px 1fr';
+    this.panel.style.gridTemplateColumns = mobileLandscape ? 'minmax(150px, 0.7fr) minmax(0, 1.3fr)' : mobile ? '1fr' : '230px 1fr';
     this.panel.style.gridTemplateRows = mobileLandscape ? 'minmax(0, 1fr)' : mobile ? 'auto 1fr' : 'none';
-    this.panel.style.gap = mobile ? '10px' : '14px';
+    this.panel.style.gap = mobileLandscape ? '8px' : mobile ? '10px' : '14px';
     if (mobile) this.panel.style.overflow = 'hidden';
     this.root.appendChild(this.panel);
     if (mobile) this.addCloseButton(this.panel);
@@ -79,7 +79,7 @@ export class InventoryUI {
         ? 'repeat(3, minmax(44px, 1fr))'
         : '1fr 1fr';
     equipmentPanel.style.alignContent = 'start';
-    equipmentPanel.style.gap = '8px';
+    equipmentPanel.style.gap = mobileLandscape ? '4px' : '8px';
     if (mobile) {
       equipmentPanel.classList.add('mobile-scroll');
       equipmentPanel.style.minHeight = '0';
