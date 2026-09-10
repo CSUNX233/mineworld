@@ -85,6 +85,7 @@ export class MonsterSpawner {
     if (!spot) return null;
     const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
     if (saved.elite && saved.eliteModifiers.length > 0) monster.setElite(saved.eliteModifiers);
+    monster.statuses = structuredClone(saved.statuses ?? []);
     monster.roomId = saved.roomId ?? '';
     monster.maxHealth = Math.max(1, saved.maxHealth);
     monster.health = Math.min(monster.maxHealth, Math.max(0, saved.health));

@@ -4,6 +4,7 @@ import type { Monster } from './Monster';
 import { BlockKind } from '../world/Block';
 import { worldRayDistance } from '../world/SpatialQueries';
 import { directionToPlayer } from '../world/Navigation';
+import { encounterBarrierBlocksCylinder } from '../world/EncounterBarriers';
 
 export class MonsterAI {
   static update(monster: Monster, dt: number, player: Player, floor: FloorData): void {
@@ -186,6 +187,7 @@ export class MonsterAI {
   }
 
   private static hitsWall(floor: FloorData, x: number, z: number, radius: number): boolean {
+    if (encounterBarrierBlocksCylinder(floor, x, z, radius)) return true;
     const minX = Math.floor(x - radius);
     const maxX = Math.floor(x + radius);
     const minZ = Math.floor(z - radius);

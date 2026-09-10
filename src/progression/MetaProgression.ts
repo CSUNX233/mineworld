@@ -11,7 +11,7 @@ export const META_NODES: readonly {
   {
     id: 'vanguard',
     name: '破阵剑术',
-    description: '以近战连击与护盾为核心的起始配置。',
+    description: '近战武器起步；当前可搭配火系局内树，近战新树后续接入。',
     cost: 0,
   },
   {
@@ -23,7 +23,7 @@ export const META_NODES: readonly {
   {
     id: 'summoner',
     name: '亡者契约',
-    description: '以召唤单位协同作战为核心的起始配置。',
+    description: '保留召唤研究方向；召唤新树后续接入，当前使用火系原型。',
     cost: 2,
   },
 ] as const;

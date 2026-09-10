@@ -211,7 +211,7 @@ export class InventoryUI {
     }
     const allocate = document.createElement('button');
     allocate.className = 'inventory-allocate';
-    allocate.textContent = this.attributePoints > 0 ? `角色加点 · 属性点 ${this.attributePoints}` : '角色加点 / 天赋';
+    allocate.textContent = this.attributePoints > 0 ? `局内天赋 · 可用 ${this.attributePoints} 点` : '局内天赋';
     allocate.style.gridColumn = '1 / -1';
     allocate.style.marginTop = '4px';
     allocate.style.padding = '8px';

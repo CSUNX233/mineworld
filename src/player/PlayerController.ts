@@ -7,6 +7,7 @@ import type { DerivedStats } from '../items/EquipmentManager';
 import { clamp, damp } from '../utils/math';
 import { SettingsManager } from '../core/SettingsManager';
 import { worldRayDistance } from '../world/SpatialQueries';
+import { encounterBarrierBlocksCylinder } from '../world/EncounterBarriers';
 
 const GRAVITY = -24;
 const JUMP_SPEED = 8;
@@ -275,6 +276,9 @@ export class PlayerController {
     const maxZ = Math.floor(z + PLAYER_RADIUS);
     const minY = y;
     const maxY = y + PLAYER_HEIGHT;
+    if (encounterBarrierBlocksCylinder(
+      floor, x, z, PLAYER_RADIUS, minY, maxY, p.position.x, p.position.z,
+    )) return true;
     for (let gz = minZ; gz <= maxZ; gz++) {
       for (let gx = minX; gx <= maxX; gx++) {
         if (gz < 0 || gz >= floor.size || gx < 0 || gx >= floor.size) return true;

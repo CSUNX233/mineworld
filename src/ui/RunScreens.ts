@@ -64,6 +64,7 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
   points.style.cssText = 'padding:12px;border:1px solid #6876a0;border-radius:6px;background:#252d46;color:#e6d4ff';
   root.append(points, paragraph(`再获得 ${Math.max(0, XP_PER_POINT - profile.researchXp)} 研究经验可得到 1 个天赋点。`));
   notice(root, message);
+  root.append(paragraph('当前先开放火系局内树原型，任一起始武器均可使用火球并选择蔓延或引爆；近战与召唤新树将在后续阶段接入。旧层间专精已移除。'));
 
   if (envelope.activeRun) {
     const run = envelope.activeRun;

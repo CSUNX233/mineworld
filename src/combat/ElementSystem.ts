@@ -74,7 +74,7 @@ export function elementalDamage(
   return Math.max(1, Math.round(damage));
 }
 
-export function updateStatuses(actor: StatusedActor, dt: number): {
+export function updateStatuses(actor: StatusedActor, dt: number, resistances?: ResistanceMap): {
   damage: number;
   slowMultiplier: number;
   extraLightningMultiplier: number;
@@ -84,12 +84,13 @@ export function updateStatuses(actor: StatusedActor, dt: number): {
   let extraLightningMultiplier = 1;
   for (let i = actor.statuses.length - 1; i >= 0; i--) {
     const status = actor.statuses[i];
+    const activeTime = Math.min(Math.max(0, status.duration), Math.max(0, dt));
+    damage += status.damagePerTick * activeTime * resistanceMultiplier(status.sourceElement ?? 'physical', resistances);
     status.duration -= dt;
     if (status.duration <= 0) {
       actor.statuses.splice(i, 1);
       continue;
     }
-    damage += status.damagePerTick * dt;
     if (status.slowMultiplier && status.slowMultiplier < slowMultiplier) slowMultiplier = status.slowMultiplier;
     if (status.extraLightningMultiplier && status.extraLightningMultiplier > extraLightningMultiplier) {
       extraLightningMultiplier = status.extraLightningMultiplier;

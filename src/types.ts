@@ -1,3 +1,4 @@
+import type { RunTalentState } from './progression/RunTalents';
 export type Rarity = 'common' | 'magic' | 'rare' | 'epic' | 'legendary';
 
 export type Slot =
@@ -138,6 +139,7 @@ export interface ShopStockEntry {
 }
 
 export interface SavedMonster {
+  statuses?: ActorStatus[];
   roomId?: string;
   defId: string;
   x: number;
@@ -156,6 +158,7 @@ export interface FloorProgress {
 }
 
 export interface SaveData {
+  runTalents?: RunTalentState;
   runtime?: {
     elapsed: number;
     shield: number;

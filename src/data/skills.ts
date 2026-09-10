@@ -1,5 +1,8 @@
 import type { ElementType } from '../types';
 
+export type SkillTrigger = 'active';
+export type SkillTag = 'area' | 'consume' | 'fire' | 'frost' | 'lightning' | 'melee' | 'movement' | 'physical' | 'projectile' | 'status';
+
 export interface SkillDefinition {
   id: string;
   name: string;
@@ -10,6 +13,8 @@ export interface SkillDefinition {
   statusChance?: number;
   icon: string;
   description: string;
+  trigger: SkillTrigger;
+  tags: readonly SkillTag[];
   talentId?: string;
   maxSlots?: number;
 }
@@ -24,6 +29,8 @@ export const SKILLS: SkillDefinition[] = [
     element: 'physical',
     icon: '🌀',
     description: '横扫前方敌人，造成物理伤害并可能流血。',
+    trigger: 'active',
+    tags: ['physical', 'melee', 'area', 'status'],
   },
   {
     id: 'dash',
@@ -34,16 +41,33 @@ export const SKILLS: SkillDefinition[] = [
     element: 'physical',
     icon: '💨',
     description: '向前冲刺并斩击路径上的敌人。',
+    trigger: 'active',
+    tags: ['physical', 'melee', 'movement'],
   },
   {
     id: 'fireball',
     name: '火球术',
     key: 'Digit3',
-    cooldown: 5,
-    manaCost: 14,
+    cooldown: 2.5,
+    manaCost: 10,
     element: 'fire',
     icon: '🔥',
-    description: '发射火球，造成火焰伤害并可能燃烧。',
+    description: '发射火球；火种使其可点燃敌人。',
+    trigger: 'active',
+    tags: ['fire', 'projectile', 'status'],
+  },
+  {
+    id: 'detonate',
+    name: '焚火引爆',
+    key: 'Digit4',
+    cooldown: 4,
+    manaCost: 12,
+    element: 'fire',
+    icon: '💥',
+    description: '吞噬目标剩余燃烧，立即造成火焰伤害。',
+    trigger: 'active',
+    tags: ['fire', 'consume', 'status'],
+    talentId: 'consuming_flame',
   },
   {
     id: 'frost_nova',
@@ -54,6 +78,8 @@ export const SKILLS: SkillDefinition[] = [
     element: 'frost',
     icon: '❄️',
     description: '冻结周围敌人，造成冰霜伤害。',
+    trigger: 'active',
+    tags: ['frost', 'area', 'status'],
     talentId: 'frost_nova',
   },
   {
@@ -65,6 +91,8 @@ export const SKILLS: SkillDefinition[] = [
     element: 'lightning',
     icon: '⚡',
     description: '连锁闪电打击多个敌人并可能感电。',
+    trigger: 'active',
+    tags: ['lightning', 'projectile', 'status'],
     talentId: 'lightning_chain',
   },
 ];

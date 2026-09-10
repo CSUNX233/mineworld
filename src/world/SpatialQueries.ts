@@ -1,6 +1,7 @@
 import type { Vector3 } from 'three';
 import type { FloorData } from '../types';
 import { BlockKind } from './Block';
+import { encounterBarrierRayDistance } from './EncounterBarriers';
 
 /** Distance to the first solid wall (height 2), map edge or ground.
  * Expanding the boxes gives the camera clearance for its near clipping plane. */
@@ -40,5 +41,5 @@ export function worldRayDistance(
       if (entry <= exit) nearest = Math.min(nearest, entry);
     }
   }
-  return nearest;
+  return encounterBarrierRayDistance(floor, origin, direction, nearest, radius);
 }

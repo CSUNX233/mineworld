@@ -378,7 +378,7 @@ export class Monster {
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     this.lostTargetTimer = Math.max(0, this.lostTargetTimer - dt);
 
-    const statusResult = updateStatuses(this, dt);
+    const statusResult = updateStatuses(this, dt, this.def.resistances);
     this.slowMultiplier = statusResult.slowMultiplier;
     this.extraLightningMultiplier = statusResult.extraLightningMultiplier;
     if (statusResult.damage > 0 && !this.dead) {

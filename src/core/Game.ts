@@ -1,3 +1,7 @@
+import { deriveFireModifiers, createBurn, consumeBurn, type FireModifiers } from '../combat/FireBuild';
+import { createRunTalents, talentBudget, spentTalentPoints, canUnlockTalent, unlockRunTalent, resetRunTalents, resetTalentCost, talentStats, type RunTalentState } from '../progression/RunTalents';
+import { buildRunTalentPanel } from '../ui/RunTalentPanel';
+import { findEncounterRoomPosition } from '../world/EncounterBarriers';
 import * as THREE from 'three';
 import type { DerivedStats } from '../items/EquipmentManager';
 import { EquipmentManager } from '../items/EquipmentManager';
@@ -21,7 +25,7 @@ import { RARITY_COLORS, RARITY_ORDER, xpToNext } from '../data/recipes';
 import type { ActorStatus, ElementType, Item, MaterialId, Rarity, SaveData, SavedMonster, ShopStockEntry, Slot, StatMap } from '../types';
 import { DEFAULT_SKILL_LOADOUT, SKILLS, keyToLabel, skillById } from '../data/skills';
 import { MATERIALS, MATERIAL_ORDER } from '../data/materials';
-import { elementalDamage, applyElementalHit, type StatusedActor } from '../combat/ElementSystem';
+import { elementalDamage, applyElementalHit, applyStatus, type StatusedActor } from '../combat/ElementSystem';
 import { ShopSystem, SHOP_SLOTS } from '../items/ShopSystem';
 import { buildShopView } from '../ui/ShopUI';
 import { CraftingSystem } from '../items/CraftingSystem';
@@ -40,10 +44,7 @@ import { itemTooltipHTML } from '../ui/ItemTooltip';
 import { TouchControls } from '../ui/TouchControls';
 import { isMobileDevice } from '../utils/mobile';
 import { EncounterDirector } from './EncounterDirector';
-import { BuildSystem } from '../items/BuildSystem';
-import { buildChoices } from '../ui/BuildChoices';
 import { ROOM_LABELS } from '../data/rooms';
-import { TALENT_DEFS, TALENT_GROUPS, type TalentDef } from '../data/talents';
 import { stepProjectile, type Projectile } from '../combat/ProjectileSystem';
 import { RunManager } from './RunManager';
 import { archetypeAllowed, unlockNode } from '../progression/MetaProgression';
@@ -101,7 +102,10 @@ export class Game {
   private readonly playtestRecorder = new PlaytestRecorder();
 
   private encounters: EncounterDirector | null = null;
-  private builds = new BuildSystem();
+  private runTalents: RunTalentState = createRunTalents();
+  private fireModifiers = deriveFireModifiers(this.runTalents);
+  private skillCooldowns: Record<string, number> = {};
+  private migratedRunTalents = false;
   private pendingResume: SaveData | null = null;
   private hudTimer = 0;
   private floor = 1;
@@ -158,9 +162,6 @@ export class Game {
   private skillOverlay: HTMLDivElement | null = null;
   private skillPanel: HTMLDivElement | null = null;
   private skillOpen = false;
-  private talentPoints = 0;
-  private unlockedTalents = new Set<string>();
-  private attributeAllocated = 0;
   private skillLoadout: string[] = [...DEFAULT_SKILL_LOADOUT];
   private skills: SkillState[] = [];
   private envelope: SaveEnvelopeV3 | null = null;
@@ -723,7 +724,11 @@ export class Game {
   }
 
   private startNewGame(archetype: ArchetypeId): void {
-    this.builds.restore({ [archetype]: 1 });
+    this.runTalents = createRunTalents();
+    this.fireModifiers = deriveFireModifiers(this.runTalents);
+    this.skillCooldowns = {};
+    this.skills = [];
+    this.migratedRunTalents = false;
     this.pendingResume = null;
     this.player.alive = true;
     this.player.statuses = [];
@@ -741,15 +746,12 @@ export class Game {
     this.skillLoadout = [...DEFAULT_SKILL_LOADOUT];
     this.skills = this.buildSkillStates();
     this.kills = 0;
-    this.bonusAttributes = {};
+    this.bonusAttributes = talentStats(this.runTalents);
     this.inventory.items = [];
     this.equipment.equipment = { weapon: starterWeapon(archetype) };
     this.player.level = 1;
     this.player.xp = 0;
     this.player.attributePoints = 0;
-    this.attributeAllocated = 0;
-    this.talentPoints = 0;
-    this.unlockedTalents.clear();
     this.controller.setFirstPerson(false);
     this.player.health = 9999;
     this.player.mana = 9999;
@@ -775,7 +777,11 @@ export class Game {
 
   private loadGame(save: SaveData): void {
     this.pendingResume = save;
-    this.builds.restore(save.buildRanks, save.buildChoiceFloor);
+    this.runTalents = save.runTalents ? structuredClone(save.runTalents) : createRunTalents();
+    this.migratedRunTalents = !save.runTalents;
+    this.fireModifiers = deriveFireModifiers(this.runTalents);
+    this.skillCooldowns = { ...(save.runtime?.skillCooldowns ?? {}) };
+    this.skills = [];
     this.player.alive = true;
     this.floor = save.floor;
     this.seed = save.seed;
@@ -785,7 +791,7 @@ export class Game {
     this.reforgeTickets = save.reforgeTickets ?? 0;
     this.pendingSavedMonsters = Array.isArray(save.monsters) ? save.monsters : null;
     this.pendingPortalActive = save.portalActive ?? null;
-    this.skillLoadout = Array.isArray(save.skillLoadout) && save.skillLoadout.length > 0 ? [...save.skillLoadout] : [...DEFAULT_SKILL_LOADOUT];
+    this.skillLoadout = [...new Set(save.skillLoadout ?? DEFAULT_SKILL_LOADOUT)].filter(id => this.isSkillUnlocked(id)).slice(0, 4);
     this.shopStock = Array.isArray(save.shopStock) ? [...save.shopStock] : [];
     this.shopFloor = save.shopFloor ?? 0;
     this.shopRefreshes = save.shopRefreshes ?? 0;
@@ -798,17 +804,14 @@ export class Game {
     this.equipment.equipment = { ...save.equipment };
     this.player.level = save.player.level;
     this.player.xp = save.player.xp;
-    this.player.attributePoints = save.player.attributePoints;
-    this.attributeAllocated = save.player.attributeAllocated ?? 0;
-    this.talentPoints = save.player.talentPoints ?? 0;
-    this.unlockedTalents = new Set(save.player.unlockedTalents ?? []);
+    this.player.attributePoints = 0;
     this.skills = this.buildSkillStates();
     const runtime = save.runtime;
     this.skills.forEach((skill) => {
       skill.cooldownRemaining = Math.max(0, runtime?.skillCooldowns?.[skill.id] ?? 0);
     });
     this.controller.setFirstPerson(Boolean(save.player.firstPerson));
-    this.bonusAttributes = { ...(save.player.stats ?? {}) };
+    this.bonusAttributes = talentStats(this.runTalents);
     this.player.health = save.player.health;
     this.player.mana = save.player.mana;
     this.player.statuses = Array.isArray(save.playerStatuses) ? [...save.playerStatuses] : [];
@@ -916,7 +919,37 @@ export class Game {
       if (spot) this.player.position.set(spot.x + 0.5, Math.max(0, resume.player.position.y), spot.z + 0.5);
       this.controller.resetView(data);
     }
+    if (resume?.floorProgress) this.restoreEncounterBoundary();
+    this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     this.world.setPortalActive(this.portalActive);
+  }
+
+  private restoreEncounterBoundary(): void {
+    if (!this.floorData || !this.encounters) return;
+    const active = this.floorData.rooms.filter(room => this.encounters!.lockedRoomIds.includes(room.id!));
+    if (!active.length) return;
+    const current = this.encounters.roomAt(this.player.position.x, this.player.position.z);
+    const keep = active.find(room => room === current) ?? active.sort((a, b) =>
+      Math.hypot(a.x + a.width / 2 - this.player.position.x, a.z + a.depth / 2 - this.player.position.z)
+      - Math.hypot(b.x + b.width / 2 - this.player.position.x, b.z + b.depth / 2 - this.player.position.z))[0];
+    const reset = new Set(active.filter(room => room !== keep).map(room => room.id!));
+    this.encounters.state.started = this.encounters.state.started.filter(id => !reset.has(id));
+    this.monsters = this.monsters.filter(monster => {
+      if (!reset.has(monster.roomId)) return true;
+      this.disposeObject(monster.group);
+      return false;
+    });
+    const playerSpot = findEncounterRoomPosition(this.floorData, keep, this.player.position.x, this.player.position.z);
+    if (playerSpot) {
+      this.player.position.set(playerSpot.x, 0, playerSpot.z);
+      this.player.velocity.set(0, 0, 0);
+    }
+    for (const monster of this.monsters) {
+      if (monster.dead || monster.roomId !== keep.id) continue;
+      const spot = findEncounterRoomPosition(this.floorData, keep, monster.position.x, monster.position.z);
+      if (spot) monster.position.set(spot.x, 0, spot.z);
+    }
+    this.controller.resetView(this.floorData);
   }
 
   private updateEncounters(): boolean {
@@ -939,9 +972,10 @@ export class Game {
         required: Boolean(room.required),
         monsterCount: wave.length,
       });
-      this.hud.showCenterMessage(ROOM_LABELS[room.kind!], room.required ? '主线目标 · 清除本房守卫' : '可选挑战 · 清除后获得额外装备', 1.5);
+      this.hud.showCenterMessage(ROOM_LABELS[room.kind!], room.required ? '屏障已封闭 · 清除本房守卫后解锁' : '屏障已封闭 · 清除后解锁并获得奖励', 1.5);
     }
     const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
+    if (room || completedRooms.length) this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     for (const cleared of completedRooms) {
       const rewardGold = cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
       this.changeGold(rewardGold, 'encounter_reward', { encounterId: cleared.id ?? 'unknown', kind: cleared.kind ?? 'unknown' });
@@ -962,7 +996,7 @@ export class Game {
       if (cleared.required && cleared.id && this.envelope?.activeRun) {
         RunManager.completeObjective(this.envelope.activeRun, `${this.floor}-${cleared.id}`, this.investmentSample());
       }
-      this.hud.showCenterMessage('房间已清理', cleared.required ? '主线推进 · 可继续前进' : '获得额外金币与奖励', 1.4);
+      this.hud.showCenterMessage('房间已清理', cleared.required ? '屏障已解除 · 主线推进' : '屏障已解除 · 获得额外金币与奖励', 1.4);
     }
     if (this.floor === BASIC_RUN_DEFINITION.floorCount && this.envelope?.activeRun && hasVictoryObjectives(this.envelope.activeRun)) {
       this.finishRun('victory');
@@ -1025,6 +1059,7 @@ export class Game {
         maxHealth: monster.maxHealth,
         elite: monster.elite,
         eliteModifiers: [...monster.eliteModifiers],
+        statuses: structuredClone(monster.statuses),
       }));
   }
 
@@ -1271,7 +1306,7 @@ export class Game {
   private toggleInventory(): void {
     if (!this.inventoryUI.open && this.isGameplayPaused()) return;
     this.inventoryUI.playerLevel = this.player.level;
-    this.inventoryUI.attributePoints = this.player.attributePoints;
+    this.inventoryUI.attributePoints = this.currentTalentBudget() - spentTalentPoints(this.runTalents);
     this.inventoryUI.materialText = this.materialStatusText();
     this.inventoryUI.toggle(this.equipment, this.inventory);
     if (this.inventoryUI.open) {
@@ -1288,7 +1323,7 @@ export class Game {
 
   private showInventory(): void {
     this.inventoryUI.playerLevel = this.player.level;
-    this.inventoryUI.attributePoints = this.player.attributePoints;
+    this.inventoryUI.attributePoints = this.currentTalentBudget() - spentTalentPoints(this.runTalents);
     this.inventoryUI.materialText = this.materialStatusText();
     this.inventoryUI.show(this.equipment, this.inventory);
     this.mobileBack.register('inventory', () => this.toggleInventory());
@@ -1527,13 +1562,11 @@ export class Game {
         extract.onclick = () => this.confirmExtraction();
         panel.appendChild(extract);
       }
-      panel.appendChild(buildChoices(this.builds, this.floor, () => {
-        if (this.saveGame()) this.showFloorRestMenu();
-      }));
-      const next = this.makeMenuButton(this.builds.canChoose(this.floor) ? '先选择本层专精' : `继续深入 · 第 ${this.floor + 1} 层`);
-      next.disabled = this.builds.canChoose(this.floor);
+      const talents = this.makeMenuButton('查看局内天赋');
+      talents.onclick = () => this.showAttributeAllocation();
+      panel.appendChild(talents);
+      const next = this.makeMenuButton(`继续深入 · 第 ${this.floor + 1} 层`);
       next.onclick = () => {
-        if (this.builds.canChoose(this.floor)) return;
         this.closeFloorRest();
         this.advanceFloor();
       };
@@ -1673,7 +1706,9 @@ export class Game {
     panel.style.maxHeight = '86vh';
     panel.style.overflow = 'auto';
     panel.style.padding = '18px';
-    panel.style.minWidth = this.mobile ? '92vw' : '360px';
+    panel.style.width = 'min(960px, 94vw)';
+    panel.style.minWidth = '0';
+    panel.style.boxSizing = 'border-box';
     this.attributePanel = panel;
     this.renderCharacterPanel();
 
@@ -1684,194 +1719,67 @@ export class Game {
     this.mobileBack.register('attribute', () => this.closeAttributeAllocation());
   }
 
+  private currentTalentBudget(): number {
+    return talentBudget(this.player.level, this.envelope?.activeRun?.completedObjectives ?? []);
+  }
+
+  private canEditRunTalents(): boolean {
+    if (!this.running || !this.player.alive || this.failedSaveCandidate || !this.encounters) return false;
+    if (this.encounters.lockedRoomIds.length || this.monsters.some(monster => !monster.dead)) return false;
+    const room = this.encounters.roomAt(this.player.position.x, this.player.position.z);
+    return Boolean(room && (['start', 'sanctuary', 'treasure'].includes(room.kind!)
+      || this.encounters.state.cleared.includes(room.id!)));
+  }
+
   private renderCharacterPanel(): void {
     const panel = this.attributePanel;
     if (!panel) return;
-    panel.innerHTML = '';
-    if (panel === this.attributePanel) this.addPanelCloseButton(panel, () => this.closeAttributeAllocation());
-    if (panel === this.skillPanel) this.addPanelCloseButton(panel, () => this.closeSkillBar());
-    const title = document.createElement('div');
-    title.textContent = '角色加点 / 天赋';
-    title.style.fontSize = '26px';
-    title.style.fontWeight = 'bold';
-    title.style.color = '#fff';
-    title.style.textAlign = 'center';
-    panel.appendChild(title);
-
-    const stats = this.effectiveStats();
-    const status = document.createElement('div');
-    status.style.margin = '10px 0 14px';
-    status.style.color = '#b8c8de';
-    status.style.fontSize = '13px';
-    status.style.textAlign = 'center';
-    status.textContent = `属性点 ${this.player.attributePoints} · 已分配 ${this.attributeAllocated} · 天赋点 ${this.talentPoints} · 攻击 ${Math.round(stats.attack)} · 生命 ${Math.round(stats.maxHealth)}`;
-    panel.appendChild(status);
-
-    const sectionTitle = (text: string): HTMLDivElement => {
-      const el = document.createElement('div');
-      el.textContent = text;
-      el.style.margin = '12px 0 8px';
-      el.style.color = '#dce8ff';
-      el.style.fontWeight = 'bold';
-      el.style.fontSize = '15px';
-      return el;
-    };
-
-    panel.appendChild(sectionTitle(`战斗专精：${this.builds.summary}`));
-    panel.appendChild(sectionTitle('属性'));
-    const rows: { label: string; stat: keyof StatMap }[] = [
-      { label: '力量', stat: 'strength' },
-      { label: '敏捷', stat: 'agility' },
-      { label: '体力', stat: 'vitality' },
-      { label: '智力', stat: 'intelligence' },
-      { label: '幸运', stat: 'luck' },
-    ];
-    rows.forEach((row) => {
-      const button = document.createElement('button');
-      button.textContent = `${row.label} +1`;
-      button.style.display = 'block';
-      button.style.width = '100%';
-      button.style.margin = '4px 0';
-      button.style.padding = '8px 14px';
-      button.style.fontFamily = 'inherit';
-      button.style.background = this.player.attributePoints > 0 ? '#2c5f8a' : '#28303d';
-      button.style.color = '#fff';
-      button.style.border = '1px solid #6fa9d8';
-      button.style.borderRadius = '4px';
-      button.style.cursor = this.player.attributePoints > 0 ? 'pointer' : 'default';
-      button.onclick = () => {
-        if (this.player.attributePoints <= 0) return;
-        this.bonusAttributes = {
-          ...this.bonusAttributes,
-          [row.stat]: (this.bonusAttributes[row.stat] ?? 0) + 1,
-        };
-        this.player.attributePoints--;
-        this.attributeAllocated++;
-        this.talentPoints++;
-        this.updatePlayerStats(this.effectiveStats());
-        this.renderCharacterPanel();
-      };
-      panel.appendChild(button);
-    });
-
-    panel.appendChild(sectionTitle('天赋'));
-    TALENT_GROUPS.forEach((group) => {
-      const groupTitle = document.createElement('div');
-      groupTitle.textContent = group;
-      groupTitle.style.margin = '10px 0 6px';
-      groupTitle.style.paddingLeft = '4px';
-      groupTitle.style.color = '#ffd76a';
-      groupTitle.style.fontWeight = 'bold';
-      groupTitle.style.fontSize = '13px';
-      panel.appendChild(groupTitle);
-
-      const groupGrid = document.createElement('div');
-      groupGrid.style.display = 'grid';
-      groupGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(190px, 1fr))';
-      groupGrid.style.gap = '7px';
-
-      TALENT_DEFS.filter((talent) => talent.group === group).forEach((talent) => {
-        const unlocked = this.unlockedTalents.has(talent.id);
-        const prerequisitesMet = !talent.requires || talent.requires.every((id) => this.unlockedTalents.has(id));
-        const affordable =
-          !unlocked &&
-          prerequisitesMet &&
-          this.talentPoints >= talent.cost &&
-          this.attributeAllocated >= talent.requiredAllocated;
-
-        const node = document.createElement('button');
-        node.type = 'button';
-        node.style.display = 'block';
-        node.style.textAlign = 'left';
-        node.style.minHeight = '48px';
-        node.style.padding = '8px 10px';
-        node.style.fontFamily = 'inherit';
-        node.style.background = unlocked ? '#315c42' : affordable ? '#5a4a1f' : '#28303d';
-        node.style.color = '#fff';
-        node.style.border = unlocked ? '1px solid #7ee8a2' : affordable ? '1px solid #c5a03b' : '1px solid #43516a';
-        node.style.borderRadius = '5px';
-        node.style.cursor = affordable ? 'pointer' : 'default';
-        node.style.opacity = prerequisitesMet || unlocked ? '1' : '0.48';
-
-        const name = document.createElement('div');
-        name.style.fontWeight = 'bold';
-        name.style.fontSize = '13px';
-        name.textContent = unlocked ? `✓ ${talent.name}` : talent.name;
-        node.appendChild(name);
-
-        const desc = document.createElement('div');
-        desc.style.marginTop = '3px';
-        desc.style.fontSize = '11px';
-        desc.style.color = '#b8c8de';
-        desc.textContent = talent.desc;
-        node.appendChild(desc);
-
-        const meta = document.createElement('div');
-        meta.style.marginTop = '4px';
-        meta.style.fontSize = '10px';
-        meta.style.color = prerequisitesMet ? '#7f8ca0' : '#ff9a9a';
-        meta.textContent = `${talent.cost} 天赋点${talent.requiredAllocated > 0 ? ` · 需已分配 ${talent.requiredAllocated}` : ''}${
-          prerequisitesMet ? '' : ' · 需前置天赋'
-        }`;
-        node.appendChild(meta);
-
-        node.title = `${talent.desc} · ${meta.textContent}`;
-        node.onclick = () => {
-          if (!affordable) return;
-          this.unlockTalent(talent);
-        };
-        groupGrid.appendChild(node);
-      });
-      panel.appendChild(groupGrid);
-    });
-
-    const skillButton = this.makeMenuButton('技能栏配置');
-    skillButton.style.marginTop = '14px';
-    skillButton.onclick = () => {
-      this.closeAttributeAllocation();
-      this.showSkillBar();
-    };
-    panel.appendChild(skillButton);
-
-    const closeButton = this.makeMenuButton('关闭');
-    closeButton.style.display = 'block';
-    closeButton.style.marginTop = '14px';
-    closeButton.onclick = () => {
-      this.closeAttributeAllocation();
-      this.requestPointerLock();
-    };
-    panel.appendChild(closeButton);
+    panel.replaceChildren();
+    this.addPanelCloseButton(panel, () => this.closeAttributeAllocation());
+    if (this.migratedRunTalents) {
+      const note = document.createElement('p');
+      note.textContent = '本局已接续新天赋规则：旧属性、天赋和层间专精已归并，按等级与已完成 Boss 目标恢复可用点数，请在安全房重新规划。装备和局外档案保留。';
+      note.style.color = '#ffd391';
+      panel.appendChild(note);
+    }
+    panel.appendChild(buildRunTalentPanel(this.runTalents, this.currentTalentBudget(), this.canEditRunTalents(),
+      id => this.allocateRunTalent(id), () => this.confirmTalentReset()));
+    const skills = this.makeMenuButton('技能栏配置');
+    skills.onclick = () => { this.closeAttributeAllocation(); this.showSkillBar(); };
+    const close = this.makeMenuButton('关闭');
+    close.onclick = () => { this.closeAttributeAllocation(); this.requestPointerLock(); };
+    panel.append(skills, close);
   }
 
-  private unlockTalent(talent: TalentDef): void {
-    const requirementsMet = !talent.requires || talent.requires.every((id) => this.unlockedTalents.has(id));
-    if (
-      this.unlockedTalents.has(talent.id) ||
-      this.talentPoints < talent.cost ||
-      this.attributeAllocated < talent.requiredAllocated ||
-      !requirementsMet
-    ) {
-      return;
-    }
-    this.unlockedTalents.add(talent.id);
-    this.talentPoints -= talent.cost;
-    if (talent.passive) {
-      for (const [stat, value] of Object.entries(talent.passive)) {
-        this.bonusAttributes = {
-          ...this.bonusAttributes,
-          [stat]: (this.bonusAttributes[stat as keyof StatMap] ?? 0) + value,
-        };
-      }
-    }
-    if (talent.skill) {
-      const skillDef = skillById(talent.id);
-      if (skillDef && !this.skillLoadout.includes(skillDef.id) && this.skillLoadout.length < 4) {
-        this.skillLoadout.push(skillDef.id);
-      }
-      this.skills = this.buildSkillStates();
-    }
+  private allocateRunTalent(id: string): void {
+    if (!this.canEditRunTalents() || !canUnlockTalent(this.runTalents, id, this.currentTalentBudget())) return;
+    this.runTalents = unlockRunTalent(this.runTalents, id, this.currentTalentBudget());
+    this.migratedRunTalents = false;
+    if (id === 'consuming_flame' && !this.skillLoadout.includes('detonate') && this.skillLoadout.length < 4) this.skillLoadout.push('detonate');
+    this.refreshTalentEffects();
+    if (this.saveGame()) this.renderCharacterPanel();
+  }
+
+  private confirmTalentReset(): void {
+    if (!this.canEditRunTalents() || !this.runTalents.unlocked.length) return;
+    const cost = resetTalentCost(this.runTalents);
+    this.showCraftOverlay('确认重置局内天赋',
+      `将清空本局全部 ${this.runTalents.unlocked.length} 个已选节点，退回 ${spentTalentPoints(this.runTalents)} 点。<br>费用：${cost === 0 ? '免费' : cost + ' 金币'}；不会恢复生命、法力或技能冷却。`,
+      () => {
+        if (!this.canEditRunTalents() || this.gold < cost) return;
+        this.changeGold(-cost, 'talent_reset');
+        this.runTalents = resetRunTalents(this.runTalents);
+        this.refreshTalentEffects();
+        if (this.saveGame()) this.renderCharacterPanel();
+      }, this.gold < cost);
+  }
+
+  private refreshTalentEffects(): void {
+    this.fireModifiers = deriveFireModifiers(this.runTalents);
+    this.bonusAttributes = talentStats(this.runTalents);
+    this.skillLoadout = this.skillLoadout.filter(id => this.isSkillUnlocked(id));
+    this.skills = this.buildSkillStates();
     this.updatePlayerStats(this.effectiveStats());
-    this.renderCharacterPanel();
   }
 
   private closeAttributeAllocation(): void {
@@ -1910,7 +1818,9 @@ export class Game {
     panel.style.maxHeight = '88vh';
     panel.style.overflow = 'auto';
     panel.style.padding = '18px';
-    panel.style.minWidth = this.mobile ? '92vw' : '420px';
+    panel.style.width = 'min(640px, 94vw)';
+    panel.style.minWidth = '0';
+    panel.style.boxSizing = 'border-box';
     this.skillPanel = panel;
     this.renderSkillPanel();
 
@@ -1936,7 +1846,7 @@ export class Game {
     panel.appendChild(title);
 
     const hint = document.createElement('div');
-    hint.textContent = `已装备 ${this.skillLoadout.length}/4 · 点击技能分配，再次点击卸载`;
+    hint.textContent = `已装备 ${this.skillLoadout.length}/4 · ${this.canEditRunTalents() ? '安全房可调整技能栏' : '战斗或通道中仅可查看'}`;
     hint.style.margin = '10px 0 14px';
     hint.style.color = '#b8c8de';
     hint.style.fontSize = '13px';
@@ -1963,7 +1873,9 @@ export class Game {
 
       const info = document.createElement('div');
       info.style.flex = '1';
-      info.innerHTML = `<div style="font-weight:bold;color:#e7f4ff">${skill.name} <span style="color:#8fa7c5">[${keyToLabel(skill.key)}]</span></div><div style="font-size:12px;color:#8296ad;margin-top:2px">${skill.description} · ${skill.cooldown}s · 法力 ${skill.manaCost}</div>`;
+      const cooldown = Math.max(.3, skill.cooldown * (skill.id === 'fireball' ? this.fireModifiers.fireballCooldownMultiplier : 1) * (1 - this.effectiveStats().cooldownReduction));
+      const manaCost = Math.max(0, Math.round(skill.manaCost * (skill.id === 'fireball' ? this.fireModifiers.fireballManaCostMultiplier : 1)));
+      info.innerHTML = `<div style="font-weight:bold;color:#e7f4ff">${skill.name} <span style="color:#8fa7c5">[${keyToLabel(skill.key)}]</span></div><div style="font-size:12px;color:#8296ad;margin-top:2px">${skill.description} · ${cooldown.toFixed(1)}s · 法力 ${manaCost}</div>`;
       row.appendChild(info);
 
       const button = document.createElement('button');
@@ -1980,7 +1892,10 @@ export class Game {
         button.style.borderRadius = '4px';
         button.style.padding = '6px 10px';
         button.style.cursor = 'pointer';
+        button.style.minHeight = '44px';
+        button.disabled = !this.canEditRunTalents();
         button.onclick = () => {
+          if (!this.canEditRunTalents()) return;
           if (equipped) this.removeSkillFromLoadout(skill.id);
           else this.addSkillToLoadout(skill.id);
           this.renderSkillPanel();
@@ -1998,13 +1913,14 @@ export class Game {
   }
 
   private addSkillToLoadout(id: string): void {
-    if (!this.isSkillUnlocked(id) || this.skillLoadout.includes(id) || this.skillLoadout.length >= 4) return;
+    if (!this.canEditRunTalents() || !this.isSkillUnlocked(id) || this.skillLoadout.includes(id) || this.skillLoadout.length >= 4) return;
     this.skillLoadout.push(id);
     this.skills = this.buildSkillStates();
     this.saveGame();
   }
 
   private removeSkillFromLoadout(id: string): void {
+    if (!this.canEditRunTalents()) return;
     this.skillLoadout = this.skillLoadout.filter((skillId) => skillId !== id);
     this.skills = this.buildSkillStates();
     this.saveGame();
@@ -2055,7 +1971,7 @@ export class Game {
       profile.scale,
     );
 
-    targets.slice(0, this.builds.rank('vanguard') > 0 ? 5 : 3).forEach((target, index) => {
+    targets.slice(0, 3).forEach((target, index) => {
       const falloff = Math.max(0.65, 1 - index * 0.12);
       const result = CombatSystem.rollDamage(
         stats.attack * falloff * fullHealthBonus,
@@ -2068,16 +1984,8 @@ export class Game {
         target.statuses,
       );
       this.applyMonsterDamage(target, result.damage, result.crit, profile.scale * 0.55);
-      applyElementalHit(target, element, stats.attack * falloff, statusChance, target.def.immunities);
+      this.applyPlayerElementalHit(target, element, stats.attack * falloff, statusChance);
     });
-
-    if (this.builds.meleeEcho(targets.length > 0)) {
-      const rank = this.builds.rank('vanguard');
-      this.effects.whirlwind(this.player.position.clone().addScaledVector(aim,1.5),aim);
-      for (const target of this.getTargetsInFront(aim,5,1.2)) this.applyMonsterDamage(target,Math.round(stats.attack*(0.5+rank*0.25)),false);
-      this.player.shield = Math.min(this.player.maxHealth*.25,this.player.shield + rank*8);
-      this.hud.showCenterMessage('破阵震荡', '第三次命中释放震荡斩并获得护盾', .7);
-    }
 
     if (targets.length > 0 && this.equipment.hasSpecial('chainLightning') && Math.random() < 0.15) {
       const target = targets[0];
@@ -2130,6 +2038,8 @@ export class Game {
       position,
       velocity: aim.clone().multiplyScalar(projectileSpeed),
       damage: Math.max(1, Math.round(stats.attack * 1.25)),
+      sourceSkillId: 'staff_attack',
+      fireModifiers: { ...this.fireModifiers },
       life: 2.6,
       friendly: true,
       element,
@@ -2175,7 +2085,7 @@ export class Game {
         monster.statuses,
       );
       this.applyMonsterDamage(monster, result.damage, result.crit);
-      applyElementalHit(monster, 'fire', stats.attack * 1.1, 0.2, monster.def.immunities);
+      this.applyPlayerElementalHit(monster, 'fire', stats.attack * 1.1, 0.2);
     });
   }
 
@@ -2210,7 +2120,7 @@ export class Game {
           monster.statuses,
         );
         this.applyMonsterDamage(monster, result.damage, result.crit);
-        applyElementalHit(monster, 'fire', stats.attack * 0.22, 0.12, monster.def.immunities);
+        this.applyPlayerElementalHit(monster, 'fire', stats.attack * 0.22, 0.12);
       });
     window.setTimeout(() => {
       this.scene.remove(mesh);
@@ -2221,15 +2131,21 @@ export class Game {
 
   private tryUseSkill(skill: SkillState, stats: DerivedStats): void {
     if (skill.cooldownRemaining > 0 || this.player.mana < skill.manaCost) return;
+    if (skill.id === 'detonate' && !this.detonationTargets().length) {
+      this.hud.showCenterMessage('没有可引爆的目标', '先用火球点燃视线内的敌人', 1.2);
+      return;
+    }
     this.controller.faceAim();
-    skill.cooldown = Math.max(0.3, skill.baseCooldown * (1 - stats.cooldownReduction) * (skill.id === 'fireball' ? 1 - this.builds.rank('arcanist') * 0.1 : 1));
+    skill.cooldown = Math.max(0.3, skill.baseCooldown * (1 - stats.cooldownReduction));
     skill.cooldownRemaining = skill.cooldown;
+    this.skillCooldowns[skill.id] = skill.cooldown;
     this.player.mana -= skill.manaCost;
     if (skill.id === 'whirlwind') this.useWhirlwind(stats, skill);
     if (skill.id === 'dash') this.useDash(stats, skill);
     if (skill.id === 'fireball') this.useFireball(stats, skill);
     if (skill.id === 'frost_nova') this.useFrostNova(stats, skill);
     if (skill.id === 'lightning_chain') this.useLightningChain(stats, skill);
+    if (skill.id === 'detonate') this.useDetonate();
   }
 
   private useWhirlwind(stats: DerivedStats, skill: SkillState): void {
@@ -2253,7 +2169,7 @@ export class Game {
         target.statuses,
       );
       this.applyMonsterDamage(target, result.damage, result.crit);
-      applyElementalHit(target, skill.element, stats.attack * 1.6, skill.statusChance, target.def.immunities);
+      this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.6, skill.statusChance);
     });
   }
 
@@ -2276,7 +2192,7 @@ export class Game {
         target.statuses,
       );
       this.applyMonsterDamage(target, result.damage, result.crit);
-      applyElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance, target.def.immunities);
+      this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance);
     });
     if (this.equipment.hasSpecial('dashInvincibility')) {
       this.player.invulnerable = 0.8;
@@ -2296,7 +2212,11 @@ export class Game {
       mesh,
       position,
       velocity: direction.multiplyScalar(16),
-      damage: Math.round(stats.attack * 1.8),
+      damage: Math.round(stats.attack * 1.8 * this.fireModifiers.fireDamageMultiplier),
+      sourceSkillId: 'fireball',
+      fireModifiers: { ...this.fireModifiers },
+      piercesRemaining: this.fireModifiers.projectilePierces,
+      hitMonsterIds: new Set<number>(),
       life: 2.5,
       friendly: true,
       element: skill.element,
@@ -2305,6 +2225,62 @@ export class Game {
       maxDistance: 10,
     });
     this.audio.shoot();
+  }
+
+  private applyPlayerElementalHit(monster: Monster, element: ElementType, damage: number, chance?: number): void {
+    if (monster.dead) return;
+    if (element === 'fire' && this.fireModifiers.enabled) this.igniteMonster(monster, damage, this.fireModifiers);
+    else applyElementalHit(monster, element, damage, chance, monster.def.immunities);
+  }
+
+  private igniteMonster(monster: Monster, damage: number, mods: FireModifiers): void {
+    if (monster.dead) return;
+    const burn = createBurn(damage, mods, monster.def.immunities);
+    if (burn) applyStatus(monster, burn);
+  }
+
+  private hasLineOfSight(from: THREE.Vector3, to: THREE.Vector3): boolean {
+    const origin = from.clone().add(new THREE.Vector3(0, 1, 0));
+    const offset = to.clone().sub(from);
+    const distance = offset.length();
+    return !this.floorData || distance < 0.01 || worldRayDistance(this.floorData, origin, offset.normalize(), distance) >= distance - 0.05;
+  }
+
+  private spreadFire(source: Monster, damage: number, mods: FireModifiers): void {
+    if (mods.spreadLimit <= 0) return;
+    const nearby = this.monsters.filter(target => target !== source && !target.dead
+      && target.position.distanceTo(source.position) <= mods.spreadRadius
+      && this.hasLineOfSight(source.position, target.position))
+      .sort((a, b) => a.position.distanceToSquared(source.position) - b.position.distanceToSquared(source.position))
+      .slice(0, mods.spreadLimit);
+    for (const target of nearby) {
+      this.igniteMonster(target, damage * mods.spreadDamageMultiplier, mods);
+      this.effects.burst(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xffa439, 5, 2);
+    }
+  }
+
+  private detonationTargets(): Monster[] {
+    if (!this.isSkillUnlocked('detonate')) return [];
+    return this.getTargetsInFront(this.controller.getAimDirection(), 8, 1.35)
+      .filter(target => target.statuses.some(status => status.type === 'burning' && status.duration > 0));
+  }
+
+  private useDetonate(): void {
+    const targets = this.detonationTargets();
+    let refund = 0;
+    let shield = 0;
+    for (const target of targets) {
+      const result = consumeBurn(target, this.fireModifiers, { healthRatio: target.health / target.maxHealth, isBoss: target.def.behavior === 'boss' });
+      if (!result.consumed) continue;
+      refund = Math.max(refund, result.manaRefund);
+      shield = Math.max(shield, result.shieldGain);
+      this.applyMonsterDamage(target, elementalDamage(result.rawDamage, 'fire', target.def.resistances, target.statuses), false, 1.1);
+      this.effects.explosion(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff401a);
+    }
+    this.player.addMana(refund);
+    if (shield > 0) this.player.shield = Math.max(this.player.shield, Math.min(this.player.maxHealth * this.fireModifiers.detonateShieldCapMaxHealthRatio, this.player.shield + shield));
+    this.audio.explosion();
+    this.controller.addShake(0.12);
   }
 
   private useFrostNova(stats: DerivedStats, skill: SkillState): void {
@@ -2325,7 +2301,7 @@ export class Game {
           target.statuses,
         );
         this.applyMonsterDamage(target, result.damage, result.crit);
-        applyElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance, target.def.immunities);
+        this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance);
       });
   }
 
@@ -2346,7 +2322,7 @@ export class Game {
         target.statuses,
       );
       this.applyMonsterDamage(target, result.damage, result.crit);
-      applyElementalHit(target, skill.element, stats.attack * Math.max(0.45, 1.35 - index * 0.25), skill.statusChance, target.def.immunities);
+      this.applyPlayerElementalHit(target, skill.element, stats.attack * Math.max(0.45, 1.35 - index * 0.25), skill.statusChance);
       this.effects.explosion(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x8ed4ff);
     });
   }
@@ -2477,11 +2453,15 @@ export class Game {
   private spawnBossMinion(position: THREE.Vector3): void {
     if (!this.floorData) return;
     const rng = new RNG(((this.currentFloorSeed ^ Math.floor(position.x * 7919) ^ Math.floor(position.z * 7919)) >>> 0));
-    const minion = MonsterSpawner.spawnMinionAt(this.floorData, position, rng);
+    const boss = this.monsters.find(monster => monster.def.behavior === 'boss' && !monster.dead);
+    const room = this.floorData.rooms.find(candidate => candidate.id === boss?.roomId);
+    const spawnPosition = room ? findEncounterRoomPosition(this.floorData, room, position.x, position.z) : position;
+    if (!spawnPosition) return;
+    const minion = MonsterSpawner.spawnMinionAt(this.floorData, spawnPosition, rng);
     if (!minion) return;
     minion.maxHealth = Math.round(minion.maxHealth * 0.7);
     minion.health = minion.maxHealth;
-    minion.roomId = this.monsters.find(monster => monster.def.behavior === 'boss' && !monster.dead)?.roomId ?? '';
+    minion.roomId = boss?.roomId ?? '';
     this.monsters.push(minion);
     this.scene.add(minion.group);
     this.effects.burst(minion.position.clone().add(new THREE.Vector3(0, 0.8, 0)), minion.def.color, 12, 3);
@@ -2498,23 +2478,18 @@ export class Game {
       if (hitMonster) {
         const crit = Math.random() < this.effectiveStats().critChance;
         const element = projectile.element ?? 'physical';
-        const raw = projectile.damage * (crit ? 1.5 : 1);
+        const raw = projectile.damage * (crit ? this.effectiveStats().critDamage : 1);
         const damage = elementalDamage(raw, element, hitMonster.def.resistances, hitMonster.statuses);
         this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7);
         if (this.isGameplayPaused()) return;
-        applyElementalHit(hitMonster, element, projectile.damage, projectile.statusChance, hitMonster.def.immunities);
-        if (element === 'fire' && this.builds.rank('arcanist') > 0) {
-          const rank = this.builds.rank('arcanist');
-          this.effects.explosion(projectile.position,0xff8c35);
-          for (const target of this.monsters) {
-            if (target.dead) continue;
-            const offset = target.position.clone().add(new THREE.Vector3(0,1,0)).sub(projectile.position);
-            const distance = offset.length();
-            if (distance > 2.5 + rank*.25) continue;
-            if (this.floorData && distance > 0 && worldRayDistance(this.floorData,projectile.position,offset.normalize(),distance)<distance-.05) continue;
-            this.applyMonsterDamage(target,Math.round(projectile.damage*(.2+rank*.15)),false);
-            applyElementalHit(target,'fire',projectile.damage,1,target.def.immunities);
-          }
+        const fire = projectile.fireModifiers ?? this.fireModifiers;
+        if (element === 'fire' && fire.enabled) {
+          this.igniteMonster(hitMonster, raw, fire);
+          if (projectile.sourceSkillId === 'fireball') this.spreadFire(hitMonster, raw, fire);
+        } else applyElementalHit(hitMonster, element, projectile.damage, projectile.statusChance, hitMonster.def.immunities);
+        if ((projectile.piercesRemaining ?? 0) > 0 && !expired) {
+          projectile.piercesRemaining!--;
+          remove = false;
         }
       } else if (hitPlayer) {
         const wasAlive = this.player.alive;
@@ -2529,7 +2504,8 @@ export class Game {
         this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
         if (hitWall) this.audio.explosion();
       } else if (expired) {
-        this.detonateProjectile(projectile);
+        if (projectile.sourceSkillId === 'fireball') this.effects.explosion(projectile.position, 0xff8c1e);
+        else this.detonateProjectile(projectile);
         remove = true;
       }
       if (remove) {
@@ -2563,7 +2539,7 @@ export class Game {
           monster.statuses,
         );
         this.applyMonsterDamage(monster, result.damage, result.crit, projectile.impact ?? 0.7);
-        applyElementalHit(monster, element, projectile.damage * 0.6, projectile.statusChance, monster.def.immunities);
+        this.applyPlayerElementalHit(monster, element, projectile.damage * 0.6, projectile.statusChance);
       });
       return;
     }
@@ -2608,8 +2584,7 @@ export class Game {
       });
     }
 
-    this.player.addMana(this.builds.rank('summoner') * 2);
-    const summonCap = Math.max(this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0, this.builds.rank('summoner') > 0 ? 1 + this.builds.rank('summoner') : 0);
+    const summonCap = this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0;
     if (this.summons.length < summonCap) {
       this.spawnSummonedSkeleton(monster.position.clone());
     }
@@ -2691,7 +2666,6 @@ export class Game {
     while (this.player.xp >= xpToNext(this.player.level)) {
       this.player.xp -= xpToNext(this.player.level);
       this.player.level++;
-      this.player.attributePoints++;
       this.player.health = this.player.maxHealth;
       this.player.mana = this.player.maxMana;
       leveled = true;
@@ -2699,13 +2673,7 @@ export class Game {
     }
     if (leveled) {
       this.updatePlayerStats(this.effectiveStats());
-      this.hud.showCenterMessage('升级！', `达到 Lv.${this.player.level}，获得 ${this.player.attributePoints} 点属性`, 2.2);
-      // The final kill may also level the player. Do not pause the pending win
-      // behind an allocation panel when every final-floor objective is defeated.
-      const finalClear = this.floor % 5 === 0 && this.floorData?.rooms.filter(room => room.required).every(room =>
-        room.id && this.encounters?.state.started.includes(room.id)
-        && !this.monsters.some(monster => !monster.dead && monster.roomId === room.id));
-      if (!finalClear) this.showAttributeAllocation();
+      this.hud.showCenterMessage('升级！', `达到 Lv.${this.player.level} · 可用局内天赋 ${this.currentTalentBudget() - spentTalentPoints(this.runTalents)} 点，安全房可分配`, 2.2);
     }
   }
 
@@ -2986,8 +2954,9 @@ export class Game {
   }
 
   private updateSkills(dt: number): void {
+    for (const id of Object.keys(this.skillCooldowns)) this.skillCooldowns[id] = Math.max(0, this.skillCooldowns[id] - dt);
     this.skills.forEach((skill) => {
-      skill.cooldownRemaining = Math.max(0, skill.cooldownRemaining - dt);
+      skill.cooldownRemaining = this.skillCooldowns[skill.id] ?? 0;
     });
   }
 
@@ -3149,6 +3118,7 @@ export class Game {
   }
 
   private buildSkillStates(): SkillState[] {
+    for (const skill of this.skills) this.skillCooldowns[skill.id] = skill.cooldownRemaining;
     const states: SkillState[] = [];
     for (const id of this.skillLoadout.slice(0, 4)) {
       const def = skillById(id);
@@ -3157,10 +3127,10 @@ export class Game {
         id: def.id,
         name: def.name,
         key: def.key,
-        baseCooldown: def.cooldown,
-        cooldown: def.cooldown,
-        cooldownRemaining: 0,
-        manaCost: def.manaCost,
+        baseCooldown: def.cooldown * (def.id === 'fireball' ? this.fireModifiers.fireballCooldownMultiplier : 1),
+        cooldown: def.cooldown * (def.id === 'fireball' ? this.fireModifiers.fireballCooldownMultiplier : 1),
+        cooldownRemaining: this.skillCooldowns[def.id] ?? 0,
+        manaCost: Math.max(0, Math.round(def.manaCost * (def.id === 'fireball' ? this.fireModifiers.fireballManaCostMultiplier : 1))),
         element: def.element,
         statusChance: def.statusChance,
         icon: def.icon,
@@ -3173,7 +3143,7 @@ export class Game {
     const def = skillById(id);
     if (!def) return false;
     if (!def.talentId) return true;
-    return this.unlockedTalents.has(def.talentId);
+    return def.id === 'detonate' && this.runTalents.unlocked.includes('consuming_flame');
   }
 
   private equipFromInventory(index: number): void {
@@ -3327,7 +3297,7 @@ export class Game {
     info.style.lineHeight = '1.55';
     info.innerHTML = infoHTML;
     panel.appendChild(info);
-    const confirm = this.makeMenuButton(confirmDisabled ? '材料不足' : '确认');
+    const confirm = this.makeMenuButton(confirmDisabled ? '资源不足' : '确认');
     confirm.disabled = confirmDisabled;
     confirm.style.opacity = confirmDisabled ? '0.55' : '1';
     confirm.onclick = () => {
@@ -3566,18 +3536,14 @@ export class Game {
       version: 2,
       floorProgress: this.encounters?.state,
       openedChests: [...this.openedChests],
-      buildRanks: this.builds.ranks,
-      buildChoiceFloor: this.builds.choiceFloor,
+      runTalents: structuredClone(this.runTalents),
       floor: this.floor,
       seed: this.seed,
       player: {
         level: this.player.level,
         xp: this.player.xp,
         xpToNext: xpToNext(this.player.level),
-        attributePoints: this.player.attributePoints,
-        attributeAllocated: this.attributeAllocated,
-        talentPoints: this.talentPoints,
-        unlockedTalents: [...this.unlockedTalents],
+        attributePoints: 0,
         firstPerson: this.controller.isFirstPerson,
         stats: this.bonusAttributes,
         position: {
@@ -3612,7 +3578,7 @@ export class Game {
         comboCount: Math.max(0, this.comboCount),
         comboTimer: Math.max(0, this.comboTimer),
         lowHealthShieldCooldown: Math.max(0, this.lowHealthShieldCooldown),
-        skillCooldowns: Object.fromEntries(this.skills.map(skill => [skill.id, Math.max(0, skill.cooldownRemaining)])),
+        skillCooldowns: { ...this.skillCooldowns },
       },
     };
     return data;
@@ -3631,6 +3597,8 @@ export class Game {
       this.removeStartMenu();
       this.paused = false;
       this.lastTime = performance.now();
+      if (this.attributeOpen) this.renderCharacterPanel();
+      if (this.skillOpen) this.renderSkillPanel();
       if (this.running) this.requestPointerLock();
     };
     const result = SaveManager.saveEnvelope(candidate, this.saveSlot);

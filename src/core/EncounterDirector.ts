@@ -35,5 +35,10 @@ export class EncounterDirector {
     return this.floor.rooms.filter(room => room.required && !this.state.cleared.includes(room.id!));
   }
 
+  /** Rooms whose encounter has started but is not yet cleared. */
+  get lockedRoomIds(): readonly string[] {
+    return this.state.started.filter(id => !this.state.cleared.includes(id));
+  }
+
   get portalReady(): boolean { return this.remainingObjectives.length === 0; }
 }

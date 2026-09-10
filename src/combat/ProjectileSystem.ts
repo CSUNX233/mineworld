@@ -3,6 +3,7 @@ import type { ElementType, FloorData } from '../types';
 import type { Monster } from '../monsters/Monster';
 import type { Player } from '../player/Player';
 import { worldRayDistance } from '../world/SpatialQueries';
+import type { FireModifiers } from './FireBuild';
 
 export interface Projectile {
   mesh: THREE.Mesh;
@@ -17,6 +18,10 @@ export interface Projectile {
   impact?: number;
   traveled: number;
   maxDistance?: number;
+  sourceSkillId?: string;
+  fireModifiers?: FireModifiers;
+  piercesRemaining?: number;
+  hitMonsterIds?: Set<number>;
 }
 
 /** Physics produces impacts; Game chooses damage, sound, particles and rewards. */
@@ -42,7 +47,7 @@ export function stepProjectile(projectile: Projectile, dt: number, floor: FloorD
   };
   if (projectile.friendly) {
     for (const monster of monsters) {
-      if (monster.dead) continue;
+      if (monster.dead || projectile.hitMonsterIds?.has(monster.id)) continue;
       const distance = actorDistance(monster.position, projectile.radius ?? 1.1,
         monster.def.behavior === 'boss' ? 3.2 : 2.2);
       if (distance < travel || (!hitWall && distance <= travel)) {
@@ -58,6 +63,9 @@ export function stepProjectile(projectile: Projectile, dt: number, floor: FloorD
       hitPlayer = true;
       hitWall = false;
     }
+  }
+  if (hitMonster) {
+    (projectile.hitMonsterIds ??= new Set<number>()).add(hitMonster.id);
   }
   projectile.position.addScaledVector(direction, travel);
   projectile.traveled += travel;

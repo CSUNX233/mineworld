@@ -1,3 +1,4 @@
+import { findEncounterRoomPosition, getEncounterBarriers } from '../world/EncounterBarriers';
 import * as THREE from 'three';
 import type { FloorData, ElementType } from '../types';
 import type { Monster } from './Monster';
@@ -132,6 +133,16 @@ export class BossController {
 
   private clampBossToFloor(boss: Monster, floor: FloorData | null): void {
     if (!floor) return;
+    const room = floor.rooms.find(candidate => candidate.id === boss.roomId);
+    if (room && getEncounterBarriers(floor).some(barrier => barrier.roomId === boss.roomId)) {
+      boss.position.x = Math.max(room.x + .8, Math.min(room.x + room.width - .8, boss.position.x));
+      boss.position.z = Math.max(room.z + .8, Math.min(room.z + room.depth - .8, boss.position.z));
+      if (!MonsterSpawner.isWalkableCell(floor, boss.position.x, boss.position.z)) {
+        const spot = findEncounterRoomPosition(floor, room, boss.position.x, boss.position.z);
+        if (spot) { boss.position.x = spot.x; boss.position.z = spot.z; }
+      }
+      return;
+    }
     const max = floor.size - 0.5;
     boss.position.x = Math.max(0.5, Math.min(max, boss.position.x));
     boss.position.z = Math.max(0.5, Math.min(max, boss.position.z));

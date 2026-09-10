@@ -3,11 +3,17 @@ import type { FloorData } from '../types';
 import { BlockKind } from './Block';
 import { getBlock, initBlockRegistry } from './BlockRegistry';
 import { ROOM_COLORS } from '../data/rooms';
+import {
+  clearEncounterBarriers,
+  ENCOUNTER_BARRIER_HEIGHT,
+  setEncounterBarrierRooms,
+} from './EncounterBarriers';
 
 export class World {
   readonly group = new THREE.Group();
   private floorData: FloorData | null = null;
   private portalMesh: THREE.Mesh | null = null;
+  private encounterBarrierMesh: THREE.InstancedMesh | null = null;
 
   constructor(scene: THREE.Scene) {
     initBlockRegistry();
@@ -125,6 +131,46 @@ export class World {
     if (this.portalMesh) (this.portalMesh.material as THREE.MeshBasicMaterial).color.setHex(active ? 0xb56bff : 0x444958);
   }
 
+  /** Synchronizes visible doors and the collision/raycast barrier registry. */
+  setEncounterBarriers(roomIds: Iterable<string>): void {
+    if (!this.floorData) return;
+    this.removeEncounterBarrierMesh();
+    const barriers = setEncounterBarrierRooms(this.floorData, roomIds);
+    if (barriers.length === 0) return;
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x65d9ff,
+      transparent: true,
+      opacity: 0.58,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.InstancedMesh(geometry, material, barriers.length);
+    mesh.name = 'encounter-barriers';
+    const matrix = new THREE.Matrix4();
+    barriers.forEach((barrier, index) => {
+      matrix.compose(
+        new THREE.Vector3(
+          (barrier.minX + barrier.maxX) / 2,
+          ENCOUNTER_BARRIER_HEIGHT / 2,
+          (barrier.minZ + barrier.maxZ) / 2,
+        ),
+        new THREE.Quaternion(),
+        new THREE.Vector3(
+          barrier.maxX - barrier.minX,
+          ENCOUNTER_BARRIER_HEIGHT,
+          barrier.maxZ - barrier.minZ,
+        ),
+      );
+      mesh.setMatrixAt(index, matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.renderOrder = 2;
+    this.encounterBarrierMesh = mesh;
+    this.group.add(mesh);
+  }
+
   removeChest(x: number, z: number): void {
     const chest = this.group.children.find(
       (child) =>
@@ -147,6 +193,10 @@ export class World {
       this.portalMesh.rotation.y += dt * 1.6;
       this.portalMesh.position.y = 1 + Math.sin(elapsed * 2.5) * 0.08;
     }
+    if (this.encounterBarrierMesh) {
+      const material = this.encounterBarrierMesh.material as THREE.MeshBasicMaterial;
+      material.opacity = 0.5 + Math.sin(elapsed * 4) * 0.1;
+    }
     this.group.children.forEach((child) => {
       if (child.name === 'chest') {
         child.rotation.y += dt * 0.8;
@@ -155,6 +205,8 @@ export class World {
   }
 
   private clear(): void {
+    if (this.floorData) clearEncounterBarriers(this.floorData);
+    this.encounterBarrierMesh = null;
     while (this.group.children.length > 0) {
       const child = this.group.children[0];
       this.group.remove(child);
@@ -168,5 +220,15 @@ export class World {
       }
     }
     this.portalMesh = null;
+  }
+
+  private removeEncounterBarrierMesh(): void {
+    if (!this.encounterBarrierMesh) return;
+    this.group.remove(this.encounterBarrierMesh);
+    this.encounterBarrierMesh.geometry.dispose();
+    const materials = Array.isArray(this.encounterBarrierMesh.material)
+      ? this.encounterBarrierMesh.material : [this.encounterBarrierMesh.material];
+    materials.forEach(material => material.dispose());
+    this.encounterBarrierMesh = null;
   }
 }

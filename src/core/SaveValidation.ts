@@ -1,3 +1,4 @@
+import { isValidRunTalentState, spentTalentPoints, talentBudget } from '../progression/RunTalents';
 import type {
   EncounterInvestment,
   ProfileData,
@@ -106,6 +107,11 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
     || !['elapsed', 'shield', 'invulnerable', 'attackTimer', 'comboCount', 'comboTimer', 'lowHealthShieldCooldown']
       .every(field => isNonNegativeNumber(runtime[field]))
     || !isNumericRecord(runtime.skillCooldowns))) return false;
+  if (snapshot.runTalents !== undefined && !isValidRunTalentState(snapshot.runTalents)) return false;
+  if (snapshot.monsters?.some(monster => monster.statuses !== undefined && (!Array.isArray(monster.statuses) || monster.statuses.some(status =>
+    !isRecord(status) || !['burning', 'frozen', 'shocked', 'poisoned', 'bleeding'].includes(status.type)
+    || (status.sourceElement !== undefined && !['physical', 'fire', 'frost', 'lightning', 'poison', 'shadow'].includes(status.sourceElement))
+    || !isNonNegativeNumber(status.duration) || !isNonNegativeNumber(status.maxDuration) || !isNonNegativeNumber(status.damagePerTick))))) return false;
   return snapshot.seed === runSeed
     && Number.isInteger(snapshot.floor)
     && snapshot.floor >= 1
@@ -142,6 +148,8 @@ function validateRun(value: unknown): value is RunState {
     && snapshotIsValid
     && isStringArray(value.completedObjectives)
     && hasUniqueEntries(value.completedObjectives)
+    && (value.snapshot === null || !(value.snapshot as SaveData).runTalents
+      || spentTalentPoints((value.snapshot as SaveData).runTalents!) <= talentBudget((value.snapshot as SaveData).player.level, value.completedObjectives))
     && Array.isArray(value.investments)
     && value.investments.every(validateInvestment)
     && isNonNegativeNumber(value.maxLevel)
