@@ -1,3 +1,4 @@
+import { DAMAGE_COLORS } from '../ui/DamageStyle';
 import { EncounterMechanics } from '../monsters/EncounterMechanics';
 import { roomCenter } from '../world/RoomGeometry';
 import { FinalBossController } from '../monsters/FinalBossController';
@@ -1918,7 +1919,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit, profile.scale * 0.55, this.player.position);
+      this.applyMonsterDamage(target, result.damage, result.crit, profile.scale * 0.55, this.player.position, element);
       this.applyPlayerElementalHit(target, element, stats.attack * falloff, statusChance);
     });
 
@@ -2019,7 +2020,7 @@ export class Game {
         monster.def.resistances,
         monster.statuses,
       );
-      this.applyMonsterDamage(monster, result.damage, result.crit, 1.3);
+      this.applyMonsterDamage(monster, result.damage, result.crit, 1.3, undefined, 'fire');
       this.applyPlayerElementalHit(monster, 'fire', stats.attack * 1.1, 0.2);
     });
   }
@@ -2054,7 +2055,7 @@ export class Game {
           monster.def.resistances,
           monster.statuses,
         );
-        this.applyMonsterDamage(monster, result.damage, result.crit, 0.25);
+        this.applyMonsterDamage(monster, result.damage, result.crit, 0.25, undefined, 'fire');
         this.applyPlayerElementalHit(monster, 'fire', stats.attack * 0.22, 0.12);
       });
     window.setTimeout(() => {
@@ -2103,7 +2104,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit, 0.65);
+      this.applyMonsterDamage(target, result.damage, result.crit, 0.65, undefined, skill.element);
       this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.6, skill.statusChance);
     });
   }
@@ -2126,7 +2127,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit, 1.1);
+      this.applyMonsterDamage(target, result.damage, result.crit, 1.1, undefined, skill.element);
       this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance);
     });
     if (this.equipment.hasSpecial('dashInvincibility')) {
@@ -2209,7 +2210,7 @@ export class Game {
       if (!result.consumed) continue;
       refund = Math.max(refund, result.manaRefund);
       shield = Math.max(shield, result.shieldGain);
-      this.applyMonsterDamage(target, elementalDamage(result.rawDamage, 'fire', target.def.resistances, target.statuses), false, 1.1);
+      this.applyMonsterDamage(target, elementalDamage(result.rawDamage, 'fire', target.def.resistances, target.statuses), false, 1.1, undefined, 'fire');
       this.effects.explosion(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff401a);
     }
     this.player.addMana(refund);
@@ -2235,7 +2236,7 @@ export class Game {
           target.def.resistances,
           target.statuses,
         );
-        this.applyMonsterDamage(target, result.damage, result.crit, 0.85);
+        this.applyMonsterDamage(target, result.damage, result.crit, 0.85, undefined, skill.element);
         this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance);
       });
   }
@@ -2256,7 +2257,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit, 0.45);
+      this.applyMonsterDamage(target, result.damage, result.crit, 0.45, undefined, skill.element);
       this.applyPlayerElementalHit(target, skill.element, stats.attack * Math.max(0.45, 1.35 - index * 0.25), skill.statusChance);
       this.effects.explosion(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x8ed4ff);
     });
@@ -2425,7 +2426,7 @@ export class Game {
         const element = projectile.element ?? 'physical';
         const raw = projectile.damage * (crit ? this.effectiveStats().critDamage : 1);
         const damage = elementalDamage(raw, element, hitMonster.def.resistances, hitMonster.statuses);
-        this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7, projectile.position);
+        this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7, projectile.position, element);
         if (this.isGameplayPaused()) return;
         const fire = projectile.fireModifiers ?? this.fireModifiers;
         if (element === 'fire' && fire.enabled) {
@@ -2483,7 +2484,7 @@ export class Game {
           monster.def.resistances,
           monster.statuses,
         );
-        this.applyMonsterDamage(monster, result.damage, result.crit, projectile.impact ?? 0.7);
+        this.applyMonsterDamage(monster, result.damage, result.crit, projectile.impact ?? 0.7, undefined, element);
         this.applyPlayerElementalHit(monster, element, projectile.damage * 0.6, projectile.statusChance);
       });
       return;
@@ -2494,7 +2495,7 @@ export class Game {
     }
   }
 
-  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3): void {
+  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3, element: ElementType = 'physical'): void {
     if (monster.dead) return;
     if (directSource) damage = this.encounterMechanics.onDirectHit(monster, directSource, damage);
     if (monster.def.id === 'ruins_warden') damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
@@ -2503,7 +2504,7 @@ export class Game {
     monster.hitFlash = Math.max(monster.hitFlash, 0.05 + hitImpact * 0.07);
     this.hitstopTimer = Math.max(this.hitstopTimer, 0.012 + hitImpact * 0.03);
     this.controller.addHitShake(hitImpact, crit);
-    const color = crit ? '#ff4b4b' : '#ffffff';
+    const color = DAMAGE_COLORS[element];
     this.hud.spawnDamage(String(damage), color, crit, crit ? 1.35 : 1);
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.8, 0)), monster.def.color, crit ? 10 : 5, crit ? 3 : 2);
     this.audio.hit(crit);

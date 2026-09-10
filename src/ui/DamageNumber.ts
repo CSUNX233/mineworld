@@ -21,7 +21,7 @@ export class DamageNumberSystem {
     scale = 1,
   ): void {
     const element = document.createElement('div');
-    element.className = 'damage-number';
+    element.className = crit ? 'damage-number damage-critical' : 'damage-number';
     element.appendChild(pixelText(text, 'damage'));
     element.style.color = color;
     element.style.fontSize = `${Math.round((crit ? 28 : 19) * scale)}px`;

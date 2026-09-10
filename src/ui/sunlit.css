@@ -168,9 +168,22 @@
   .mobile-ui #ui-root .hud-bars { width: min(32vw, 250px) !important; }
 }
 .pixel-number { display: inline; white-space: pre-wrap; }
-.pixel-digit { display: inline-block; width: .62em; height: 1em; vertical-align: -.12em; background-color: currentColor; mask-size: 100% 100%; mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; image-rendering: pixelated; }
+.pixel-digit { display: inline-block; width: .733333em; height: 1em; vertical-align: -.12em; background-color: currentColor; mask-size: 100% 100%; mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; image-rendering: pixelated; }
 .pixel-number-damage { white-space: nowrap; filter: drop-shadow(1px 0 #142030) drop-shadow(-1px 0 #142030) drop-shadow(0 1px #142030); }
-.pixel-number-damage .pixel-digit { width: .7em; }
+.pixel-number-damage .pixel-digit { width: .733333em; }
 
 /* Frame-driven damping must not be filtered a second time by CSS transitions. */
 #ui-root .bar-track .bar-fill, #ui-root .bar-track .shield-fill { transition: none; }
+/* Animate the glyph wrapper so the world-space anchor stays stable. */
+.damage-critical .pixel-number-damage { display: inline-block; transform-origin: 50% 65%; animation: pixel-crit-pop 850ms both; }
+@keyframes pixel-crit-pop {
+  0% { transform: translateY(2px) scale(.7); opacity: 0; }
+  12% { transform: translateY(-6px) scale(1.3); opacity: 1; }
+  25% { transform: translateY(-3px) scale(.96); }
+  38% { transform: translateY(-5px) scale(1.05); }
+  68% { transform: translateY(-9px) scale(1); opacity: 1; }
+  100% { transform: translateY(-24px) scale(.95); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .damage-critical .pixel-number-damage { animation: none; }
+}

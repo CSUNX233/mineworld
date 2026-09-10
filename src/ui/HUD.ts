@@ -334,14 +334,14 @@ export class HUD {
 
   spawnDamage(text: string, color: string, crit = false, scale = 1): void {
     const element = document.createElement('div');
-    element.className = 'hud-damage';
-    element.textContent = text;
+    element.className = crit ? 'hud-damage damage-critical' : 'hud-damage';
+    element.appendChild(pixelText(text, 'damage'));
     element.style.color = color;
     element.style.fontSize = `${Math.round((crit ? 34 : 24) * scale)}px`;
     element.style.left = `${58 + (Math.random() - 0.5) * 10}vw`;
     element.style.top = `${42 + (Math.random() - 0.5) * 10}vh`;
     if (crit) {
-      element.style.textShadow = '0 0 10px #fff, 0 0 18px #ff2222, 0 3px 6px #000';
+      element.style.textShadow = 'none';
     }
     this.damageLayer.appendChild(element);
     window.setTimeout(() => element.remove(), crit ? 900 : 700);
