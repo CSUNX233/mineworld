@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { FloorData } from '../types';
 import { BlockKind } from './Block';
 import { getBlock, initBlockRegistry } from './BlockRegistry';
+import { ROOM_COLORS } from '../data/rooms';
 
 export class World {
   readonly group = new THREE.Group();
@@ -80,6 +81,14 @@ export class World {
     this.portalMesh.position.copy(portalPosition);
     this.portalMesh.name = 'portal';
     this.group.add(this.portalMesh);
+    for (const room of data.rooms) {
+      if (!room.kind || room.kind === 'start') continue;
+      const marker = new THREE.Mesh(new THREE.RingGeometry(0.9,1.12,32),
+        new THREE.MeshBasicMaterial({color:ROOM_COLORS[room.kind],transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide}));
+      marker.rotation.x = -Math.PI/2;
+      marker.position.set(room.x+5.5,.03,room.z+5.5);
+      this.group.add(marker);
+    }
 
     const chestMaterial = new THREE.MeshLambertMaterial({ color: 0xd7a93b });
     const chestGeometry = new THREE.BoxGeometry(0.6, 0.45, 0.4);
@@ -90,6 +99,10 @@ export class World {
       mesh.name = 'chest';
       this.group.add(mesh);
     });
+  }
+
+  setPortalActive(active: boolean): void {
+    if (this.portalMesh) (this.portalMesh.material as THREE.MeshBasicMaterial).color.setHex(active ? 0xb56bff : 0x444958);
   }
 
   removeChest(x: number, z: number): void {

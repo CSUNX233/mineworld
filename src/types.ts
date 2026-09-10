@@ -76,7 +76,13 @@ export interface Item {
   flavor?: string;
 }
 
+export type RoomKind = 'start' | 'battle' | 'elite' | 'treasure' | 'sanctuary' | 'exit';
+
 export interface Room {
+  id?: string;
+  kind?: RoomKind;
+  required?: boolean;
+  template?: string;
   x: number;
   z: number;
   width: number;
@@ -92,6 +98,7 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
+  connections?: [string, string][];
   size: number;
   grid: number[][];
   rooms: Room[];
@@ -130,6 +137,7 @@ export interface ShopStockEntry {
 }
 
 export interface SavedMonster {
+  roomId?: string;
   defId: string;
   x: number;
   z: number;
@@ -139,7 +147,18 @@ export interface SavedMonster {
   eliteModifiers: string[];
 }
 
+export interface FloorProgress {
+  visited: string[];
+  started: string[];
+  cleared: string[];
+  usedSanctuaries: string[];
+}
+
 export interface SaveData {
+  floorProgress?: FloorProgress;
+  openedChests?: string[];
+  buildRanks?: Record<string, number>;
+  buildChoiceFloor?: number;
   version: number;
   floor: number;
   seed: number;

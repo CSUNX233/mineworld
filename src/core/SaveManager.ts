@@ -1,4 +1,5 @@
 import type { SaveData } from '../types';
+import { migrateSave } from './SaveMigrations';
 
 const LEGACY_SAVE_KEY = 'mineworld_save_v1';
 const SAVE_PREFIX = 'mineworld_save_slot_';
@@ -38,7 +39,7 @@ export class SaveManager {
       if (!raw) return null;
       const data = JSON.parse(raw) as SaveData;
       if (!data.version || !data.player || !Array.isArray(data.inventory)) return null;
-      return data;
+      return migrateSave(data);
     } catch (error) {
       console.warn('Failed to load save', error);
       return null;

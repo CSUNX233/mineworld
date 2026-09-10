@@ -15,6 +15,7 @@ import { SummonedSkeleton } from '../monsters/SummonedSkeleton';
 import { BossController, type BossHost } from '../monsters/BossController';
 import { generateFloor } from '../world/FloorGenerator';
 import { World } from '../world/World';
+import { worldRayDistance } from '../world/SpatialQueries';
 import { RNG } from '../utils/RNG';
 import { RARITY_COLORS, RARITY_ORDER, xpToNext } from '../data/recipes';
 import type { ActorStatus, ElementType, Item, MaterialId, Rarity, SaveData, SavedMonster, ShopStockEntry, Slot, StatMap } from '../types';
@@ -36,21 +37,12 @@ import { Minimap } from '../ui/Minimap';
 import { itemTooltipHTML } from '../ui/ItemTooltip';
 import { TouchControls } from '../ui/TouchControls';
 import { isMobileDevice } from '../utils/mobile';
-
-interface Projectile {
-  mesh: THREE.Mesh;
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
-  damage: number;
-  life: number;
-  friendly: boolean;
-  element?: ElementType;
-  statusChance?: number;
-  radius?: number;
-  impact?: number;
-  traveled: number;
-  maxDistance?: number;
-}
+import { EncounterDirector } from './EncounterDirector';
+import { BuildSystem } from '../items/BuildSystem';
+import { buildChoices } from '../ui/BuildChoices';
+import { ROOM_LABELS } from '../data/rooms';
+import { TALENT_DEFS, TALENT_GROUPS, type TalentDef } from '../data/talents';
+import { stepProjectile, type Projectile } from '../combat/ProjectileSystem';
 
 interface DropEntity {
   mesh: THREE.Mesh;
@@ -75,209 +67,6 @@ interface SkillState {
   icon: string;
 }
 
-interface TalentDef {
-  id: string;
-  name: string;
-  desc: string;
-  cost: number;
-  requiredAllocated: number;
-  group: string;
-  requires?: string[];
-  passive?: StatMap;
-  skill?: { name: string; key: string; cooldown: number; manaCost: number };
-}
-
-const TALENT_DEFS: TalentDef[] = [
-  {
-    id: 'veteran_strength',
-    name: '老兵之力',
-    desc: '力量 +3',
-    cost: 1,
-    requiredAllocated: 0,
-    group: '力量',
-    passive: { strength: 3 },
-  },
-  {
-    id: 'keen_reflexes',
-    name: '敏锐反射',
-    desc: '敏捷 +3',
-    cost: 1,
-    requiredAllocated: 0,
-    group: '敏捷',
-    passive: { agility: 3 },
-  },
-  {
-    id: 'scholar_insight',
-    name: '学者洞见',
-    desc: '智力 +3',
-    cost: 1,
-    requiredAllocated: 0,
-    group: '奥术',
-    passive: { intelligence: 3 },
-  },
-  {
-    id: 'sturdy_bones',
-    name: '坚韧骨骼',
-    desc: '体力 +3',
-    cost: 1,
-    requiredAllocated: 0,
-    group: '生存',
-    passive: { vitality: 3 },
-  },
-  {
-    id: 'titan_grip',
-    name: '泰坦之握',
-    desc: '攻击 +5',
-    cost: 1,
-    requiredAllocated: 2,
-    group: '力量',
-    requires: ['veteran_strength'],
-    passive: { attack: 5 },
-  },
-  {
-    id: 'swift_strikes',
-    name: '迅捷打击',
-    desc: '攻击速度 +8%',
-    cost: 1,
-    requiredAllocated: 2,
-    group: '敏捷',
-    requires: ['keen_reflexes'],
-    passive: { attackSpeed: 0.08 },
-  },
-  {
-    id: 'iron_will',
-    name: '钢铁意志',
-    desc: '护甲 +6',
-    cost: 1,
-    requiredAllocated: 2,
-    group: '生存',
-    requires: ['sturdy_bones'],
-    passive: { armor: 6 },
-  },
-  {
-    id: 'vampirism',
-    name: '吸血',
-    desc: '生命偷取 +4%',
-    cost: 1,
-    requiredAllocated: 4,
-    group: '力量',
-    requires: ['titan_grip'],
-    passive: { lifeSteal: 0.04 },
-  },
-  {
-    id: 'precision',
-    name: '精准',
-    desc: '暴击率 +4%',
-    cost: 1,
-    requiredAllocated: 3,
-    group: '敏捷',
-    requires: ['swift_strikes'],
-    passive: { critChance: 0.04 },
-  },
-  {
-    id: 'assassin',
-    name: '刺客本能',
-    desc: '暴击伤害 +15%',
-    cost: 2,
-    requiredAllocated: 5,
-    group: '敏捷',
-    requires: ['precision'],
-    passive: { critDamage: 0.15 },
-  },
-  {
-    id: 'mana_spring',
-    name: '法力之泉',
-    desc: '法力回复 +1.2/s',
-    cost: 1,
-    requiredAllocated: 2,
-    group: '奥术',
-    requires: ['scholar_insight'],
-    passive: { manaRegen: 1.2 },
-  },
-  {
-    id: 'arcane_reservoir',
-    name: '奥术池',
-    desc: '最大法力 +20',
-    cost: 1,
-    requiredAllocated: 3,
-    group: '奥术',
-    requires: ['mana_spring'],
-    passive: { maxMana: 20 },
-  },
-  {
-    id: 'cooldown_flow',
-    name: '冷却流转',
-    desc: '技能冷却缩减 +8%',
-    cost: 2,
-    requiredAllocated: 5,
-    group: '奥术',
-    requires: ['arcane_reservoir'],
-    passive: { cooldown: 0.08 },
-  },
-  {
-    id: 'frost_nova',
-    name: '冰霜新星',
-    desc: '解锁技能：冰霜新星',
-    cost: 2,
-    requiredAllocated: 8,
-    group: '奥术',
-    requires: ['cooldown_flow'],
-    skill: { name: '冰霜新星', key: 'Digit4', cooldown: 6, manaCost: 18 },
-  },
-  {
-    id: 'lightning_chain',
-    name: '闪电链',
-    desc: '解锁技能：闪电链',
-    cost: 2,
-    requiredAllocated: 10,
-    group: '奥术',
-    requires: ['frost_nova'],
-    skill: { name: '闪电链', key: 'Digit5', cooldown: 5, manaCost: 16 },
-  },
-  {
-    id: 'blood_rage',
-    name: '血怒',
-    desc: '暴击率 +4%',
-    cost: 1,
-    requiredAllocated: 5,
-    group: '力量',
-    requires: ['vampirism'],
-    passive: { critChance: 0.04 },
-  },
-  {
-    id: 'fortress',
-    name: '堡垒',
-    desc: '最大生命 +30',
-    cost: 2,
-    requiredAllocated: 5,
-    group: '生存',
-    requires: ['iron_will'],
-    passive: { maxHealth: 30 },
-  },
-  {
-    id: 'lifebloom',
-    name: '生命绽放',
-    desc: '生命回复 +1.5/s',
-    cost: 1,
-    requiredAllocated: 6,
-    group: '生存',
-    requires: ['fortress'],
-    passive: { lifeRegen: 1.5 },
-  },
-  {
-    id: 'lucky_coin',
-    name: '幸运硬币',
-    desc: '幸运 +12',
-    cost: 1,
-    requiredAllocated: 4,
-    group: '敏捷',
-    requires: ['keen_reflexes'],
-    passive: { luck: 12 },
-  },
-];
-
-const TALENT_GROUPS = ['力量', '敏捷', '奥术', '生存'];
-
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -301,6 +90,10 @@ export class Game {
   private readonly mobile = isMobileDevice();
   private readonly mobileBack = new MobileBackHandler();
 
+  private encounters: EncounterDirector | null = null;
+  private builds = new BuildSystem();
+  private pendingResume: SaveData | null = null;
+  private hudTimer = 0;
   private floor = 1;
   private seed = Math.floor(Math.random() * 0xffffffff);
   private currentFloorSeed = this.seed;
@@ -323,7 +116,9 @@ export class Game {
   private kills = 0;
   private bonusAttributes: StatMap = {};
   private attackTimer = 0;
+  private attackBuffer = 0;
   private attackAnimTimer = 0;
+  private attackAnimDuration = 0.24;
   private hitstopTimer = 0;
   private deathTimer = 0;
   private saveTimer = 0;
@@ -397,9 +192,8 @@ export class Game {
       this.touchControls = new TouchControls(this.uiRoot, this.input, {
         onSkillPress: (key) => this.input.press(key),
         onSkillRelease: (key) => this.input.release(key),
-        onAttackPress: () => {
-          if (!this.tryInteract()) this.input.pressMouse(0);
-        },
+        onAttackPress: () => this.input.pressMouse(0),
+        onInteractPress: () => this.tryInteract(),
         onAttackRelease: () => this.input.releaseMouse(0),
         onPausePress: () => this.togglePause(),
         onInventoryPress: () => this.toggleInventory(),
@@ -420,6 +214,8 @@ export class Game {
     this.inventoryUI.onAllocateClick = () => this.showAttributeAllocation();
     this.inventoryUI.onSellAll = (rarity) => this.confirmSellAll(rarity);
     this.inventoryUI.onClose = () => this.mobileBack.unregister('inventory');
+    this.inventoryUI.onDetailsOpen = () => this.mobileBack.register('itemDetails', () => this.inventoryUI.closeDetails());
+    this.inventoryUI.onDetailsClose = () => this.mobileBack.unregister('itemDetails');
 
     window.addEventListener('resize', () => this.onResize());
     this.renderer.domElement.addEventListener('click', () => {
@@ -430,7 +226,14 @@ export class Game {
     });
     document.addEventListener('pointerlockchange', () => {
       this.hud.setPointerLocked(this.input.pointerLocked);
+      if (!this.input.pointerLocked) {
+        this.input.reset();
+        this.attackBuffer = 0;
+        if (this.running && !this.mobile && !this.paused && !this.inventoryUI.open
+          && !this.restOpen && !this.attributeOpen && !this.skillOpen) this.pauseGame();
+      }
     });
+    window.addEventListener('blur', () => this.pauseGame());
     this.mobileBack.setRootHandler(() => {
       if (!this.running) return false;
       if (this.paused) {
@@ -539,6 +342,12 @@ export class Game {
   private addPanelCloseButton(panel: HTMLDivElement, onClick: () => void): void {
     if (!this.mobile) return;
     panel.style.position = 'relative';
+    panel.classList.add('mobile-scroll');
+    panel.style.maxHeight = '88dvh';
+    panel.style.overflowY = 'auto';
+    panel.style.minWidth = '0';
+    panel.style.width = 'min(640px, 94vw)';
+    panel.style.paddingTop = '54px';
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = '✕';
@@ -577,6 +386,10 @@ export class Game {
 
   private startNewGame(): void {
     SaveManager.clear(this.saveSlot);
+    this.builds.restore();
+    this.pendingResume = null;
+    this.player.alive = true;
+    this.player.statuses = [];
     this.floor = 1;
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.gold = 0;
@@ -606,6 +419,9 @@ export class Game {
   }
 
   private loadGame(save: SaveData): void {
+    this.pendingResume = save;
+    this.builds.restore(save.buildRanks, save.buildChoiceFloor);
+    this.player.alive = true;
     this.floor = save.floor;
     this.seed = save.seed;
     this.gold = save.gold;
@@ -648,7 +464,8 @@ export class Game {
     this.removeFloorRestMenu();
     this.closeAttributeAllocation();
     this.lastTime = performance.now();
-    this.generateCurrentFloor(this.pendingSavedMonsters, this.pendingPortalActive);
+    this.generateCurrentFloor(this.pendingSavedMonsters, this.pendingPortalActive, this.pendingResume);
+    this.pendingResume = null;
     this.pendingSavedMonsters = null;
     this.pendingPortalActive = null;
     this.updatePlayerStats(this.effectiveStats());
@@ -660,39 +477,69 @@ export class Game {
     this.requestPointerLock();
   }
 
-  private generateCurrentFloor(savedMonsters: SavedMonster[] | null = null, savedPortalActive: boolean | null = null): void {
+  private generateCurrentFloor(savedMonsters: SavedMonster[] | null = null, savedPortalActive: boolean | null = null, resume: SaveData | null = null): void {
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
     const data = generateFloor(this.currentFloorSeed, this.floor);
     this.floorData = data;
+    this.encounters = new EncounterDirector(data, resume?.floorProgress);
+    this.hudTimer = 0;
     this.world.generate(data);
     this.audio.startAmbient(data.theme.id);
     this.audio.startBGM(data.theme.id);
     this.player.position.set(data.spawn.x + 0.5, 0, data.spawn.z + 0.5);
     this.player.velocity.set(0, 0, 0);
-    this.player.yaw = 0;
+    this.player.yaw = Math.atan2(data.portal.x-data.spawn.x, data.portal.z-data.spawn.z);
     this.player.pitch = 0;
     this.player.group.position.copy(this.player.position);
-    this.player.group.rotation.y = 0;
-    this.controller.resetView();
+    this.player.group.rotation.y = this.player.yaw;
+    this.controller.resetView(data);
     this.updatePlayerVisibility();
     this.openedChests.clear();
     this.portalActive = false;
     this.clearEntities();
-    if (savedMonsters) {
-      this.restoreMonsters(savedMonsters);
-      this.portalActive = savedPortalActive ?? savedMonsters.length === 0;
-    } else {
-      this.spawnMonsters();
+    if (resume?.floorProgress && savedMonsters) this.restoreMonsters(savedMonsters);
+    this.portalActive = this.encounters.portalReady;
+    for (const key of resume?.openedChests ?? []) {
+      this.openedChests.add(key);
+      const [x,z] = key.split(',').map(Number);
+      this.world.removeChest(x,z);
     }
+    if (resume?.floorProgress) {
+      const spot = MonsterSpawner.findNearestWalkable(data, resume.player.position.x, resume.player.position.z);
+      if (spot) this.player.position.set(spot.x + 0.5, Math.max(0, resume.player.position.y), spot.z + 0.5);
+      this.controller.resetView(data);
+    }
+    this.world.setPortalActive(this.portalActive);
     this.saveGame();
   }
 
-  private spawnMonsters(): void {
-    if (!this.floorData) return;
-    const count = Math.min(PerformanceTierDetector.monsterCap, 8 + this.floor * 2);
-    const rng = new RNG((this.currentFloorSeed ^ 0x5bd1e995) >>> 0);
-    this.monsters = MonsterSpawner.spawnWave(this.floorData, this.floorData.spawn, count, rng);
-    this.monsters.forEach((monster) => this.scene.add(monster.group));
+  private updateEncounters(): void {
+    if (!this.encounters || !this.floorData) return;
+    const room = this.encounters.enter(this.player.position.x, this.player.position.z);
+    if (room) {
+      const wave = MonsterSpawner.spawnEncounter(this.floorData, room, this.player.position,
+        new RNG(this.currentFloorSeed ^ Number(room.id!.split('-')[1]) * 7919));
+      this.monsters.push(...wave);
+      wave.forEach(monster => this.scene.add(monster.group));
+      this.hud.showCenterMessage(ROOM_LABELS[room.kind!], room.required ? '主线目标 · 清除本房守卫' : '可选挑战 · 清除后获得额外装备', 1.5);
+    }
+    for (const cleared of this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)))) {
+      this.gold += cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
+      this.player.heal(this.player.maxHealth * 0.08);
+      if (cleared.kind === 'elite') {
+        const item = ItemGenerator.generate(this.floor, new RNG(this.currentFloorSeed ^ Number(cleared.id!.split('-')[1]) * 31337), this.player.level, 'rare');
+        if (!this.inventory.add(item)) this.spawnDrop(this.player.position, { kind: 'item', item });
+      }
+      this.hud.showCenterMessage('房间已清理', cleared.required ? '主线推进 · 可继续前进' : '获得额外金币与奖励', 1.4);
+      this.saveGame();
+    }
+    if (this.encounters.portalReady && !this.portalActive) {
+      this.portalActive = true;
+      this.world.setPortalActive(true);
+      this.audio.portal();
+      this.hud.showCenterMessage('出口已开启', '主线完成，可选房间无需全部清理', 2.5);
+      this.saveGame();
+    }
   }
 
   private restoreMonsters(savedMonsters: SavedMonster[]): void {
@@ -711,6 +558,7 @@ export class Game {
     return this.monsters
       .filter((monster) => !monster.dead)
       .map((monster) => ({
+        roomId: monster.roomId,
         defId: monster.def.id,
         x: monster.position.x,
         z: monster.position.z,
@@ -768,12 +616,14 @@ export class Game {
     const dt = Math.min(0.05, (now - this.lastTime) / 1000);
     this.lastTime = now;
     if (this.running) this.updateGame(dt);
+    this.updateAimIndicator();
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
   };
 
   private updateGame(rawDt: number): void {
     if (this.paused || this.restOpen || this.attributeOpen) {
+      if (this.paused && this.input.wasPressed('Escape')) this.resumeGame();
       this.audio.stopWalk();
       this.hud.update(rawDt);
       return;
@@ -817,7 +667,8 @@ export class Game {
     if (this.player.alive) {
       if (!this.inventoryUI.open && !this.skillOpen) {
         const wasGrounded = this.player.onGround;
-        this.controller.update(dt, this.floorData, stats);
+        this.controller.update(dt, this.floorData, stats, rawDt);
+        this.updatePlayerVisibility();
         if (this.input.wasPressed('Space') && wasGrounded) this.audio.jump();
       }
       this.handleInput(dt, stats);
@@ -830,7 +681,7 @@ export class Game {
       }
       if (this.attackAnimTimer > 0) {
         this.attackAnimTimer -= rawDt;
-        const progress = Math.max(0, 1 - this.attackAnimTimer / 0.24);
+        const progress = Math.max(0, 1 - this.attackAnimTimer / this.attackAnimDuration);
         this.player.swingArm(progress);
         this.firstPersonView.swing(progress);
       }
@@ -843,6 +694,7 @@ export class Game {
     }
 
     if (this.player.alive && !this.inventoryUI.open && !this.skillOpen) {
+      this.updateEncounters();
       this.updateMonsters(dt);
       this.updateProjectiles(dt);
       this.updateDrops(dt, stats);
@@ -856,11 +708,18 @@ export class Game {
     this.effects.update(rawDt);
     this.hud.update(rawDt);
     this.updateCombo(rawDt);
-    this.hud.setState(this.hudState());
-    this.hud.updateSkills(this.skillHudStates());
-    this.touchControls?.updateSkillStates(this.skillHudStates());
-    this.hud.setStatuses(this.player.statuses);
-    this.minimap.update(this.floorData, this.player, this.monsters);
+    this.hudTimer -= rawDt;
+    if (this.hudTimer <= 0) {
+      this.hudTimer = 0.1;
+      this.hud.setState(this.hudState());
+      const skillStates = this.skillHudStates();
+      this.hud.updateSkills(skillStates);
+      this.touchControls?.updateSkillStates(skillStates, this.player.mana);
+      this.hud.setStatuses(this.player.statuses);
+      this.minimap.update(this.floorData, this.player, this.monsters, this.encounters?.state);
+      const room = this.encounters?.roomAt(this.player.position.x, this.player.position.z);
+      this.hud.setObjective(this.portalActive ? '出口已开启 · 可前往传送门' : `主线目标 ${2 - (this.encounters?.remainingObjectives.length ?? 2)}/2 · ${room?.kind ? ROOM_LABELS[room.kind] : '连接通道'}`);
+    }
 
     this.saveTimer += rawDt;
     if (this.saveTimer >= 4) {
@@ -898,10 +757,13 @@ export class Game {
       this.updatePlayerVisibility();
     }
 
-    if (this.input.isMouseDown(0) && this.attackTimer <= 0) {
+    this.attackTimer = Math.max(0, this.attackTimer - dt);
+    this.attackBuffer = Math.max(0, this.attackBuffer - dt);
+    if (this.input.wasMousePressed(0)) this.attackBuffer = 0.16;
+    if ((this.input.isMouseDown(0) || this.attackBuffer > 0) && this.attackTimer <= 0) {
       this.doBasicAttack(stats);
+      this.attackBuffer = 0;
     }
-    if (this.attackTimer > 0) this.attackTimer -= dt;
 
     this.skills.forEach((skill) => {
       if (this.input.wasPressed(skill.key)) {
@@ -915,6 +777,7 @@ export class Game {
   }
 
   private toggleInventory(): void {
+    this.inventoryUI.playerLevel = this.player.level;
     this.inventoryUI.attributePoints = this.player.attributePoints;
     this.inventoryUI.materialText = this.materialStatusText();
     this.inventoryUI.toggle(this.equipment, this.inventory);
@@ -926,10 +789,12 @@ export class Game {
     } else {
       this.mobileBack.unregister('inventory');
       this.lastTime = performance.now();
+      this.requestPointerLock();
     }
   }
 
   private showInventory(): void {
+    this.inventoryUI.playerLevel = this.player.level;
     this.inventoryUI.attributePoints = this.player.attributePoints;
     this.inventoryUI.materialText = this.materialStatusText();
     this.inventoryUI.show(this.equipment, this.inventory);
@@ -937,7 +802,7 @@ export class Game {
   }
 
   private updatePlayerVisibility(): void {
-    this.player.group.visible = !this.controller.isFirstPerson;
+    this.player.group.visible = this.controller.bodyVisible;
     this.firstPersonView.setVisible(this.controller.isFirstPerson);
   }
 
@@ -952,6 +817,8 @@ export class Game {
   private pauseGame(): void {
     if (!this.running || this.paused) return;
     this.paused = true;
+    this.input.reset();
+    this.attackBuffer = 0;
     this.player.moving = false;
     this.player.sprinting = false;
     this.audio.stopWalk();
@@ -981,6 +848,11 @@ export class Game {
 
     const panel = document.createElement('div');
     panel.style.textAlign = 'center';
+    panel.className = 'panel mobile-scroll';
+    panel.style.maxHeight = '88dvh';
+    panel.style.overflowY = 'auto';
+    panel.style.padding = this.mobile ? '48px 20px 20px' : '24px';
+    panel.style.width = 'min(380px, 94vw)';
     const title = document.createElement('div');
     title.textContent = '游戏暂停';
     title.style.fontSize = '34px';
@@ -1019,7 +891,7 @@ export class Game {
     followRow.style.marginTop = '12px';
     followRow.style.color = '#b8c8de';
     followRow.style.fontSize = '14px';
-    followRow.textContent = '第三人称视角跟随角色';
+    followRow.textContent = '前进时自动回正镜头';
     const followToggle = document.createElement('input');
     followToggle.type = 'checkbox';
     followToggle.checked = SettingsManager.getCameraFollow();
@@ -1028,6 +900,12 @@ export class Game {
     followToggle.onchange = () => SettingsManager.setCameraFollow(followToggle.checked);
     followRow.appendChild(followToggle);
     panel.appendChild(followRow);
+    const cameraHelp = document.createElement('div');
+    cameraHelp.textContent = this.mobile
+      ? '拖动画面转向 · 摇杆轻推慢走、外推冲刺'
+      : '鼠标转向 · 滚轮调距离 · R 回正 · 按住右键保持面向';
+    cameraHelp.style.cssText = 'margin-top:10px;color:#8fa3bc;font-size:12px;max-width:320px;line-height:1.6';
+    panel.appendChild(cameraHelp);
 
     const sfxLabel = document.createElement('div');
     sfxLabel.textContent = '音效音量';
@@ -1060,6 +938,15 @@ export class Game {
     musicVolume.style.width = '220px';
     musicVolume.oninput = () => this.audio.setMusicVolume(Number(musicVolume.value));
     panel.appendChild(musicVolume);
+    if (this.mobile) {
+      const mute = this.makeMenuButton(this.audio.isMuted ? '开启声音' : '静音');
+      mute.onclick = () => {
+        this.audio.toggleMute();
+        this.hud.setMuted(this.audio.isMuted);
+        mute.textContent = this.audio.isMuted ? '开启声音' : '静音';
+      };
+      panel.appendChild(mute);
+    }
 
     overlay.appendChild(panel);
     this.pauseOverlay = overlay;
@@ -1103,6 +990,11 @@ export class Game {
 
     const panel = document.createElement('div');
     panel.style.textAlign = 'center';
+    panel.className = 'panel mobile-scroll';
+    panel.style.maxHeight = '90dvh';
+    panel.style.overflowY = 'auto';
+    panel.style.padding = '20px';
+    panel.style.width = 'min(560px, 94vw)';
     if (this.mobile) {
       panel.className = 'panel mobile-scroll';
       panel.style.minWidth = '92vw';
@@ -1113,7 +1005,7 @@ export class Game {
       panel.style.minWidth = '300px';
     }
     const title = document.createElement('div');
-    title.textContent = `第 ${this.floor} 层已肃清`;
+    title.textContent = `第 ${this.floor} 层主线完成`;
     title.style.fontSize = '30px';
     title.style.fontWeight = 'bold';
     title.style.color = '#fff';
@@ -1131,10 +1023,17 @@ export class Game {
       this.shopFloor = this.floor;
       this.saveGame();
     }
+    panel.appendChild(buildChoices(this.builds, this.floor, () => {
+      this.saveGame();
+      this.showFloorRestMenu();
+    }));
     panel.appendChild(this.buildShopSection(status));
 
     const nextBtn = this.makeMenuButton('进入下一层');
+    nextBtn.disabled = this.builds.canChoose(this.floor);
+    if (nextBtn.disabled) nextBtn.textContent = '先选择本层专精';
     nextBtn.onclick = () => {
+      if (this.builds.canChoose(this.floor)) return;
       this.closeFloorRest();
       this.advanceFloor();
     };
@@ -1353,7 +1252,6 @@ export class Game {
     overlay.appendChild(panel);
     this.attributeOverlay = overlay;
     this.uiRoot.appendChild(overlay);
-    this.addPanelCloseButton(panel, () => this.closeAttributeAllocation());
     this.bindOverlayMaskClose(overlay, () => this.closeAttributeAllocation());
     this.mobileBack.register('attribute', () => this.closeAttributeAllocation());
   }
@@ -1362,6 +1260,8 @@ export class Game {
     const panel = this.attributePanel;
     if (!panel) return;
     panel.innerHTML = '';
+    if (panel === this.attributePanel) this.addPanelCloseButton(panel, () => this.closeAttributeAllocation());
+    if (panel === this.skillPanel) this.addPanelCloseButton(panel, () => this.closeSkillBar());
     const title = document.createElement('div');
     title.textContent = '角色加点 / 天赋';
     title.style.fontSize = '26px';
@@ -1389,6 +1289,7 @@ export class Game {
       return el;
     };
 
+    panel.appendChild(sectionTitle(`战斗专精：${this.builds.summary}`));
     panel.appendChild(sectionTitle('属性'));
     const rows: { label: string; stat: keyof StatMap }[] = [
       { label: '力量', stat: 'strength' },
@@ -1588,7 +1489,6 @@ export class Game {
     overlay.appendChild(panel);
     this.skillOverlay = overlay;
     this.uiRoot.appendChild(overlay);
-    this.addPanelCloseButton(panel, () => this.closeSkillBar());
     this.bindOverlayMaskClose(overlay, () => this.closeSkillBar());
     this.mobileBack.register('skillBar', () => this.closeSkillBar());
   }
@@ -1597,6 +1497,8 @@ export class Game {
     const panel = this.skillPanel;
     if (!panel) return;
     panel.innerHTML = '';
+    if (panel === this.attributePanel) this.addPanelCloseButton(panel, () => this.closeAttributeAllocation());
+    if (panel === this.skillPanel) this.addPanelCloseButton(panel, () => this.closeSkillBar());
     const title = document.createElement('div');
     title.textContent = '技能栏配置';
     title.style.fontSize = '25px';
@@ -1690,10 +1592,12 @@ export class Game {
   }
 
   private doBasicAttack(stats: DerivedStats): void {
+    this.controller.faceAim();
     const aim = this.controller.getAimDirection();
     const weapon = this.equipment.get('weapon');
     const attackSpeed = Math.max(0.15, Math.min(3.5, stats.baseAttackSpeed * (1 + stats.attackSpeedBonus)));
     this.attackAnimTimer = Math.max(0.12, Math.min(0.28, 0.34 / attackSpeed));
+    this.attackAnimDuration = this.attackAnimTimer;
     this.attackTimer = 1 / attackSpeed;
 
     if (this.isStaffWeapon(weapon)) {
@@ -1723,7 +1627,7 @@ export class Game {
       profile.scale,
     );
 
-    targets.slice(0, 3).forEach((target, index) => {
+    targets.slice(0, this.builds.rank('vanguard') > 0 ? 5 : 3).forEach((target, index) => {
       const falloff = Math.max(0.65, 1 - index * 0.12);
       const result = CombatSystem.rollDamage(
         stats.attack * falloff * fullHealthBonus,
@@ -1738,6 +1642,14 @@ export class Game {
       this.applyMonsterDamage(target, result.damage, result.crit, profile.scale * 0.55);
       applyElementalHit(target, element, stats.attack * falloff, statusChance, target.def.immunities);
     });
+
+    if (this.builds.meleeEcho(targets.length > 0)) {
+      const rank = this.builds.rank('vanguard');
+      this.effects.whirlwind(this.player.position.clone().addScaledVector(aim,1.5),aim);
+      for (const target of this.getTargetsInFront(aim,5,1.2)) this.applyMonsterDamage(target,Math.round(stats.attack*(0.5+rank*0.25)),false);
+      this.player.shield = Math.min(this.player.maxHealth*.25,this.player.shield + rank*8);
+      this.hud.showCenterMessage('破阵震荡', '第三次命中释放震荡斩并获得护盾', .7);
+    }
 
     if (targets.length > 0 && this.equipment.hasSpecial('chainLightning') && Math.random() < 0.15) {
       const target = targets[0];
@@ -1775,7 +1687,8 @@ export class Game {
     const element = weapon.element ?? 'physical';
     const statusChance = weapon.statusChance;
     const color = this.weaponElementColor(element);
-    const position = this.player.position.clone().add(new THREE.Vector3(0, 1.25, 0)).addScaledVector(aim, 0.7);
+    aim = this.controller.getProjectileDirection();
+    const position = this.controller.getProjectileOrigin();
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.22, 10, 10),
       new THREE.MeshBasicMaterial({ color }),
@@ -1880,7 +1793,8 @@ export class Game {
 
   private tryUseSkill(skill: SkillState, stats: DerivedStats): void {
     if (skill.cooldownRemaining > 0 || this.player.mana < skill.manaCost) return;
-    skill.cooldown = Math.max(0.3, skill.baseCooldown * (1 - stats.cooldownReduction));
+    this.controller.faceAim();
+    skill.cooldown = Math.max(0.3, skill.baseCooldown * (1 - stats.cooldownReduction) * (skill.id === 'fireball' ? 1 - this.builds.rank('arcanist') * 0.1 : 1));
     skill.cooldownRemaining = skill.cooldown;
     this.player.mana -= skill.manaCost;
     if (skill.id === 'whirlwind') this.useWhirlwind(stats, skill);
@@ -1942,8 +1856,8 @@ export class Game {
   }
 
   private useFireball(stats: DerivedStats, skill: SkillState): void {
-    const direction = this.controller.getAimDirection();
-    const position = this.player.position.clone().add(new THREE.Vector3(0, 1.25, 0));
+    const direction = this.controller.getProjectileDirection();
+    const position = this.controller.getProjectileOrigin();
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.28, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xff8c1e }),
@@ -2067,17 +1981,10 @@ export class Game {
       }
 
       if (wasAttackState && monster.state !== 'attack' && monster.attackCooldown <= 0) {
-        // nothing required; cooldown is assigned when the attack connects.
+        monster.attackCooldown = Math.max(.25, monster.def.attackCooldown*.65);
       }
     }
 
-    const living = this.monsters.some((monster) => !monster.dead);
-    if (!living && !this.portalActive && this.floorData) {
-      this.portalActive = true;
-      this.audio.portal();
-      this.hud.showCenterMessage('本层已肃清', '传送门已开启，靠近后按 E 进入下一层', 3.2);
-      this.saveGame();
-    }
   }
 
   private keepMonsterInBounds(monster: Monster): void {
@@ -2137,6 +2044,7 @@ export class Game {
     if (!minion) return;
     minion.maxHealth = Math.round(minion.maxHealth * 0.7);
     minion.health = minion.maxHealth;
+    minion.roomId = this.monsters.find(monster => monster.def.behavior === 'boss' && !monster.dead)?.roomId ?? '';
     this.monsters.push(minion);
     this.scene.add(minion.group);
     this.effects.burst(minion.position.clone().add(new THREE.Vector3(0, 0.8, 0)), minion.def.color, 12, 3);
@@ -2146,69 +2054,49 @@ export class Game {
     if (dt <= 0) return;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
-      projectile.life -= dt;
-      projectile.traveled += projectile.velocity.length() * dt;
-      projectile.position.addScaledVector(projectile.velocity, dt);
+      const { hitWall, hitMonster, hitPlayer, expired } = stepProjectile(projectile,dt,this.floorData,this.monsters,this.player);
       projectile.mesh.position.copy(projectile.position);
-
-      let remove = projectile.life <= 0;
-      if (!remove && projectile.maxDistance !== undefined && projectile.traveled >= projectile.maxDistance) {
+      let remove = hitWall || hitPlayer || hitMonster !== null;
+      if (hitMonster) {
+        const crit = Math.random() < this.effectiveStats().critChance;
+        const element = projectile.element ?? 'physical';
+        const raw = projectile.damage * (crit ? 1.5 : 1);
+        const damage = elementalDamage(raw, element, hitMonster.def.resistances, hitMonster.statuses);
+        this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7);
+        applyElementalHit(hitMonster, element, projectile.damage, projectile.statusChance, hitMonster.def.immunities);
+        if (element === 'fire' && this.builds.rank('arcanist') > 0) {
+          const rank = this.builds.rank('arcanist');
+          this.effects.explosion(projectile.position,0xff8c35);
+          for (const target of this.monsters) {
+            if (target.dead) continue;
+            const offset = target.position.clone().add(new THREE.Vector3(0,1,0)).sub(projectile.position);
+            const distance = offset.length();
+            if (distance > 2.5 + rank*.25) continue;
+            if (this.floorData && distance > 0 && worldRayDistance(this.floorData,projectile.position,offset.normalize(),distance)<distance-.05) continue;
+            this.applyMonsterDamage(target,Math.round(projectile.damage*(.2+rank*.15)),false);
+            applyElementalHit(target,'fire',projectile.damage,1,target.def.immunities);
+          }
+        }
+      } else if (hitPlayer) {
+        this.player.takeDamage(projectile.damage);
+        applyElementalHit(this.player, projectile.element ?? 'physical', projectile.damage, projectile.statusChance);
+        this.audio.hurt();
+        this.controller.addShake(0.14);
+      }
+      if (remove) {
+        this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
+        if (hitWall) this.audio.explosion();
+      } else if (expired) {
         this.detonateProjectile(projectile);
         remove = true;
       }
-      if (!remove && this.floorData) {
-        const gx = Math.floor(projectile.position.x);
-        const gz = Math.floor(projectile.position.z);
-        const hitWall =
-          gx < 0 ||
-          gz < 0 ||
-          gx >= this.floorData.size ||
-          gz >= this.floorData.size ||
-          (this.floorData.grid[gz][gx] === 2 || this.floorData.grid[gz][gx] === 3);
-        if (hitWall) {
-          this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
-          this.audio.explosion();
-          remove = true;
-        }
-      }
-
-      if (!remove && projectile.friendly) {
-        const hit = this.monsters.find(
-          (monster) =>
-            !monster.dead &&
-            Math.hypot(monster.position.x - projectile.position.x, monster.position.z - projectile.position.z) <
-              (projectile.radius ?? 1.1),
-        );
-        if (hit) {
-          const crit = Math.random() < this.effectiveStats().critChance;
-          const element = projectile.element ?? 'physical';
-          const raw = projectile.damage * (crit ? 1.5 : 1);
-          const final = elementalDamage(raw, element, hit.def.resistances, hit.statuses);
-          this.applyMonsterDamage(hit, final, crit, projectile.impact ?? 0.7);
-          applyElementalHit(hit, element, projectile.damage, projectile.statusChance, hit.def.immunities);
-          this.effects.explosion(projectile.position, 0xff8c1e);
-          remove = true;
-        }
-      } else if (!remove && !projectile.friendly) {
-        const hitPlayer =
-          Math.hypot(this.player.position.x - projectile.position.x, this.player.position.z - projectile.position.z) <
-          (projectile.radius ?? 0.7);
-        if (hitPlayer) {
-          this.player.takeDamage(projectile.damage);
-          applyElementalHit(this.player, projectile.element ?? 'physical', projectile.damage, projectile.statusChance);
-          this.audio.hurt();
-          this.controller.addShake(0.14);
-          remove = true;
-        }
-      }
-
       if (remove) {
         this.scene.remove(projectile.mesh);
         projectile.mesh.geometry.dispose();
         (projectile.mesh.material as THREE.Material).dispose();
         this.projectiles.splice(i, 1);
       }
-      }
+    }
   }
 
   private detonateProjectile(projectile: Projectile): void {
@@ -2278,7 +2166,9 @@ export class Game {
       });
     }
 
-    if (this.equipment.hasSpecial('summonSkeletonOnKill') && this.summons.length < 4) {
+    this.player.addMana(this.builds.rank('summoner') * 2);
+    const summonCap = Math.max(this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0, this.builds.rank('summoner') > 0 ? 1 + this.builds.rank('summoner') : 0);
+    if (this.summons.length < summonCap) {
       this.spawnSummonedSkeleton(monster.position.clone());
     }
 
@@ -2471,8 +2361,29 @@ export class Game {
     return false;
   }
 
+  private interactionLabel(): string | null {
+    if (!this.floorData) return null;
+    const p = this.player.position;
+    const room = this.encounters?.roomAt(p.x,p.z);
+    if (room?.kind === 'sanctuary' && !this.encounters!.state.usedSanctuaries.includes(room.id!)
+      && Math.hypot(p.x-room.x-5,p.z-room.z-5)<2) return '圣所恢复';
+    if (this.portalActive && Math.abs(Math.floor(p.x) - this.floorData.portal.x) <= 1
+      && Math.abs(Math.floor(p.z) - this.floorData.portal.z) <= 1) return '进入传送门';
+    return this.floorData.chests.some((chest) => !this.openedChests.has(`${chest.x},${chest.z}`)
+      && Math.hypot(p.x - chest.x - 0.5, p.z - chest.z - 0.5) <= 1.8) ? '打开宝箱' : null;
+  }
+
   private tryInteract(): boolean {
     if (!this.floorData) return false;
+    if (this.interactionLabel() === '圣所恢复') {
+      const room = this.encounters!.roomAt(this.player.position.x,this.player.position.z)!;
+      this.encounters!.state.usedSanctuaries.push(room.id!);
+      this.player.heal(this.player.maxHealth * 0.45);
+      this.player.addMana(this.player.maxMana * 0.6);
+      this.hud.showCenterMessage('圣所赐福', '恢复 45% 生命与 60% 法力', 1.5);
+      this.saveGame();
+      return true;
+    }
     const playerX = Math.floor(this.player.position.x);
     const playerZ = Math.floor(this.player.position.z);
 
@@ -2492,6 +2403,7 @@ export class Game {
       const dz = this.player.position.z - (chest.z + 0.5);
       if (Math.hypot(dx, dz) <= 1.8) {
         this.openedChests.add(key);
+        this.reforgeTickets++;
         this.world.removeChest(chest.x, chest.z);
         const item = ItemGenerator.generate(this.floor, undefined, this.player.level);
         const gold = 10 + this.floor * 3;
@@ -2503,6 +2415,7 @@ export class Game {
           this.spawnDrop(new THREE.Vector3(chest.x + 0.5, 0, chest.z + 0.5), { kind: 'item', item });
           this.hud.showCenterMessage('背包已满', '宝箱装备已掉落在地面', 1.4);
         }
+        this.saveGame();
         return true;
       }
     }
@@ -2541,6 +2454,10 @@ export class Game {
         monster.position.z - this.player.position.z,
       );
       const distance = offset.length();
+      if (distance > 0 && this.floorData) {
+        const origin = this.player.position.clone().add(new THREE.Vector3(0, 1.1, 0));
+        if (worldRayDistance(this.floorData, origin, offset.clone().normalize(), distance) < distance - 0.05) continue;
+      }
       if (distance <= range) {
         if (distance < 0.7) {
           targets.push(monster);
@@ -2554,6 +2471,23 @@ export class Game {
       }
     }
     return targets.sort((a, b) => a.position.distanceToSquared(this.player.position) - b.position.distanceToSquared(this.player.position));
+  }
+
+  private updateAimIndicator(): void {
+    const visible = this.running && this.player.alive && !this.paused && !this.restOpen
+      && !this.attributeOpen && !this.skillOpen && !this.inventoryUI.open;
+    this.touchControls?.setGameplayState(visible, this.controller.isFirstPerson, visible ? this.interactionLabel() : null);
+    if (!visible || this.controller.isFirstPerson) {
+      this.hud.setAimPoint(0, 0, visible, false);
+      return;
+    }
+    const origin = this.player.position.clone().add(new THREE.Vector3(0, 1.1, 0));
+    const aim = this.controller.getAimDirection();
+    const weapon = this.equipment.get('weapon');
+    const range = this.isStaffWeapon(weapon) ? 10 : this.getMeleeProfile(weapon).range;
+    const distance = this.floorData ? worldRayDistance(this.floorData, origin, aim, range) : range;
+    const point = origin.addScaledVector(aim, Math.max(0, distance - 0.05)).project(this.camera);
+    this.hud.setAimPoint(point.x, point.y, point.z > -1 && point.z < 1, true, distance < range);
   }
 
   private updateSkills(dt: number): void {
@@ -2969,7 +2903,11 @@ export class Game {
 
   private saveGame(): void {
     const data: SaveData = {
-      version: 1,
+      version: 2,
+      floorProgress: this.encounters?.state,
+      openedChests: [...this.openedChests],
+      buildRanks: this.builds.ranks,
+      buildChoiceFloor: this.builds.choiceFloor,
       floor: this.floor,
       seed: this.seed,
       player: {

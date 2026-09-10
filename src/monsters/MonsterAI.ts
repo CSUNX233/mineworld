@@ -2,6 +2,8 @@ import type { FloorData } from '../types';
 import type { Player } from '../player/Player';
 import type { Monster } from './Monster';
 import { BlockKind } from '../world/Block';
+import { worldRayDistance } from '../world/SpatialQueries';
+import { directionToPlayer } from '../world/Navigation';
 
 export class MonsterAI {
   static update(monster: Monster, dt: number, player: Player, floor: FloorData): void {
@@ -16,6 +18,18 @@ export class MonsterAI {
     }
 
     this.updateDetection(monster, distance, dt);
+
+    const origin = monster.position.clone(); origin.y += 1;
+    const direction = player.position.clone().sub(monster.position); direction.y = 0; direction.normalize();
+    if ((monster.state === 'chase' || monster.state === 'attack') && worldRayDistance(floor,origin,direction,distance) < distance-.05) {
+      monster.state = 'chase';
+      const next = directionToPlayer(floor,monster.position.x,monster.position.z,player.position.x,player.position.z);
+      if (next) {
+        const length = Math.hypot(next.x,next.z);
+        if (length > .01) this.moveWithAvoidance(monster,dt,next.x/length,next.z/length,monster.def.speed*monster.speedMultiplier*monster.slowMultiplier,floor);
+      }
+      return;
+    }
 
     if (monster.state === 'chase' || monster.state === 'attack') {
       monster.faceToward(player.position.x, player.position.z);
@@ -65,7 +79,7 @@ export class MonsterAI {
   ): void {
     if (distance <= monster.def.attackRange && monster.attackCooldown <= 0) {
       monster.state = 'attack';
-      monster.attackWindup = monster.def.behavior === 'charger' ? 0.3 : 0.22;
+      monster.attackWindup = monster.def.behavior === 'charger' ? 0.65 : 0.45;
       monster.velocity.set(0, 0, 0);
       return;
     }
@@ -150,7 +164,6 @@ export class MonsterAI {
 
   private static updateAttack(monster: Monster, dt: number, player: Player, distance: number): void {
     if (monster.attackWindup > 0) {
-      monster.attackWindup -= dt;
       return;
     }
 

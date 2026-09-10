@@ -31,6 +31,8 @@ interface PartRef {
 }
 
 export class Monster {
+  roomId = '';
+  private attackWarning: THREE.Mesh;
   readonly id: number;
   readonly group = new THREE.Group();
   readonly position = new THREE.Vector3();
@@ -74,6 +76,12 @@ export class Monster {
     this.group.add(this.bodyGroup);
     this.buildModel();
     this.buildHealthBar();
+    this.attackWarning = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 32),
+      new THREE.MeshBasicMaterial({ color: 0xff7c59, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }));
+    this.attackWarning.rotation.x = -Math.PI / 2;
+    this.attackWarning.position.y = 0.04;
+    this.attackWarning.visible = false;
+    this.group.add(this.attackWarning);
     this.group.position.copy(this.position);
   }
 
@@ -365,6 +373,8 @@ export class Monster {
   update(dt: number, elapsed: number): void {
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.attackWindup = Math.max(0, this.attackWindup - dt);
+    this.attackWarning.visible = !this.dead && this.state === 'attack' && this.attackWindup > 0 && this.def.behavior !== 'boss';
+    this.attackWarning.scale.setScalar(this.def.behavior === 'ranged' ? 0.8 : this.def.attackRange + 0.5);
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     this.lostTargetTimer = Math.max(0, this.lostTargetTimer - dt);
 

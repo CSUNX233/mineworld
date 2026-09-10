@@ -13,16 +13,18 @@ const DEFAULT_SETTINGS: GameSettings = {
 };
 
 export class SettingsManager {
+  private static cached: GameSettings | null = null;
   static load(): GameSettings {
+    if (this.cached) return { ...this.cached };
     const defaultSettings: GameSettings = {
       ...DEFAULT_SETTINGS,
       lookSensitivity: isMobileDevice() ? 1.8 : 1,
     };
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return defaultSettings;
+      if (!raw) return this.cached = defaultSettings;
       const parsed = JSON.parse(raw) as Partial<GameSettings>;
-      return {
+      return this.cached = {
         lookSensitivity:
           typeof parsed.lookSensitivity === 'number' && parsed.lookSensitivity > 0
             ? parsed.lookSensitivity
@@ -30,11 +32,12 @@ export class SettingsManager {
         cameraFollow: parsed.cameraFollow === true,
       };
     } catch {
-      return defaultSettings;
+      return this.cached = defaultSettings;
     }
   }
 
   static save(settings: GameSettings): void {
+    this.cached = { ...settings };
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch (error) {

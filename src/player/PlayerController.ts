@@ -6,13 +6,14 @@ import type { Player } from './Player';
 import type { DerivedStats } from '../items/EquipmentManager';
 import { clamp, damp } from '../utils/math';
 import { SettingsManager } from '../core/SettingsManager';
+import { worldRayDistance } from '../world/SpatialQueries';
 
 const GRAVITY = -24;
 const JUMP_SPEED = 8;
 const PLAYER_RADIUS = 0.35;
 const PLAYER_HEIGHT = 1.8;
-const THIRD_PERSON_MIN_PITCH = -0.04;
-const THIRD_PERSON_MAX_PITCH = 1.25;
+const THIRD_PERSON_MIN_PITCH = -0.15;
+const THIRD_PERSON_MAX_PITCH = 1.15;
 
 function lerpAngle(current: number, target: number, t: number): number {
   let delta = ((target - current + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
@@ -20,10 +21,14 @@ function lerpAngle(current: number, target: number, t: number): number {
 }
 
 export class PlayerController {
-  private cameraDistance = 7;
-  private cameraHeight = 0.45;
+  private cameraDistance = 6;
+  private boomDistance = 6;
   private cameraYaw = 0;
-  private cameraPitch = 0.28;
+  private cameraPitch = 0.52;
+  private thirdPersonPitch = 0.52;
+  private combatFacingTime = 0;
+  private recenterYaw: number | null = null;
+  private jumpBuffer = 0;
   private firstPerson = false;
   private shake = 0;
   private dashVelocity = new THREE.Vector3();
@@ -40,40 +45,65 @@ export class PlayerController {
   }
 
   toggleView(): void {
-    this.firstPerson = !this.firstPerson;
-    if (!this.firstPerson) {
-      this.cameraPitch = clamp(this.cameraPitch, THIRD_PERSON_MIN_PITCH, THIRD_PERSON_MAX_PITCH);
-    }
+    this.setFirstPerson(!this.firstPerson);
   }
 
   setFirstPerson(value: boolean): void {
-    this.firstPerson = value;
-    if (!value) {
-      this.cameraPitch = clamp(this.cameraPitch, THIRD_PERSON_MIN_PITCH, THIRD_PERSON_MAX_PITCH);
+    if (value === this.firstPerson) return;
+    if (value) {
+      this.thirdPersonPitch = this.cameraPitch;
+      this.cameraPitch = 0;
+    } else {
+      this.cameraPitch = this.thirdPersonPitch;
+      this.boomDistance = 0;
     }
+    this.firstPerson = value;
+    this.recenterYaw = null;
+  }
+
+  get bodyVisible(): boolean {
+    return !this.firstPerson && this.camera.position.distanceTo(
+      this.player.position.clone().add(new THREE.Vector3(0, 1.35, 0)),
+    ) > 1.05;
+  }
+
+  faceAim(): void {
+    this.combatFacingTime = 0.32;
+    this.player.yaw = this.cameraYaw;
+    this.player.group.rotation.y = this.cameraYaw;
   }
 
   addShake(amount: number): void {
     this.shake = Math.min(0.5, this.shake + amount);
   }
 
-  resetView(): void {
+  resetView(floorData: FloorData | null = null): void {
     this.cameraYaw = this.player.yaw;
-    this.cameraPitch = 0.28;
+    this.cameraPitch = this.firstPerson ? 0 : this.thirdPersonPitch;
+    this.boomDistance = this.cameraDistance;
     this.dashVelocity.set(0, 0, 0);
     this.dashTime = 0;
-    const horizontalDistance = Math.cos(this.cameraPitch) * this.cameraDistance;
-    const verticalDistance = Math.sin(this.cameraPitch) * this.cameraDistance;
-    this.camera.position.set(
-      this.player.position.x - Math.sin(this.cameraYaw) * horizontalDistance,
-      this.player.position.y + this.cameraHeight + verticalDistance,
-      this.player.position.z - Math.cos(this.cameraYaw) * horizontalDistance,
-    );
-    this.camera.lookAt(this.player.position.x, this.player.position.y + 1.25, this.player.position.z);
+    this.combatFacingTime = 0;
+    this.recenterYaw = null;
+    this.jumpBuffer = 0;
+    this.updateCamera(0, floorData);
   }
 
   getAimDirection(): THREE.Vector3 {
     return new THREE.Vector3(Math.sin(this.cameraYaw), 0, Math.cos(this.cameraYaw));
+  }
+
+  getProjectileDirection(): THREE.Vector3 {
+    const direction = this.getAimDirection();
+    if (this.firstPerson) {
+      direction.multiplyScalar(Math.cos(this.cameraPitch));
+      direction.y = Math.sin(this.cameraPitch);
+    }
+    return direction;
+  }
+
+  getProjectileOrigin(): THREE.Vector3 {
+    return this.player.position.clone().add(new THREE.Vector3(0, this.firstPerson ? 1.62 : 1.25, 0));
   }
 
   dash(direction: THREE.Vector3): void {
@@ -81,7 +111,7 @@ export class PlayerController {
     this.dashTime = 0.18;
   }
 
-  update(dt: number, floorData: FloorData | null, stats: DerivedStats): void {
+  update(dt: number, floorData: FloorData | null, stats: DerivedStats, realDt = dt): void {
     const p = this.player;
     if (!p.alive) {
       p.moving = false;
@@ -90,33 +120,39 @@ export class PlayerController {
     }
 
     const lookScale = 0.0022 * SettingsManager.getLookSensitivity();
+    const looking = Math.abs(this.input.mouseDeltaX) + Math.abs(this.input.mouseDeltaY) > 0;
+    if (looking) this.recenterYaw = null;
     this.cameraYaw -= this.input.mouseDeltaX * lookScale;
-    const pitchDelta = -this.input.mouseDeltaY * lookScale;
-    if (this.firstPerson) {
-      this.cameraPitch = clamp(this.cameraPitch + pitchDelta, -1.35, 1.35);
-    } else {
-      this.cameraPitch = clamp(this.cameraPitch + pitchDelta, THIRD_PERSON_MIN_PITCH, THIRD_PERSON_MAX_PITCH);
+    // Positive pitch raises the orbit camera, but lowers the first-person gaze.
+    const pitchDelta = this.input.mouseDeltaY * lookScale;
+    this.cameraPitch = this.firstPerson
+      ? clamp(this.cameraPitch - pitchDelta, -1.35, 1.35)
+      : clamp(this.cameraPitch + pitchDelta, THIRD_PERSON_MIN_PITCH, THIRD_PERSON_MAX_PITCH);
+    if (!this.firstPerson) this.thirdPersonPitch = this.cameraPitch;
+    if (!this.firstPerson && this.input.wasPressed('KeyR') && !looking) this.recenterYaw = p.yaw;
+    if (this.recenterYaw !== null) {
+      this.cameraYaw = lerpAngle(this.cameraYaw, this.recenterYaw, 1 - Math.exp(-12 * realDt));
+      if (Math.abs(Math.sin(this.cameraYaw - this.recenterYaw)) < 0.001) this.recenterYaw = null;
     }
 
-    const forwardInput = this.input.isDown('KeyW') ? 1 : this.input.isDown('KeyS') ? -1 : 0;
-    const strafeInput = this.input.isDown('KeyD') ? 1 : this.input.isDown('KeyA') ? -1 : 0;
-
-    const forward = new THREE.Vector3(Math.sin(this.cameraYaw), 0, Math.cos(this.cameraYaw));
-    const right = new THREE.Vector3(-Math.cos(this.cameraYaw), 0, Math.sin(this.cameraYaw));
-    const moveDir = new THREE.Vector3()
-      .addScaledVector(forward, forwardInput)
-      .addScaledVector(right, strafeInput);
+    const { x: strafeInput, y: forwardInput } = this.input.movement;
+    const forward = this.getAimDirection();
+    const right = new THREE.Vector3(-forward.z, 0, forward.x);
+    const moveDir = new THREE.Vector3().addScaledVector(forward, forwardInput).addScaledVector(right, strafeInput);
     p.moving = moveDir.lengthSq() > 0.001;
     p.sprinting = p.moving && (this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight'));
-
-    if (p.moving) {
-      moveDir.normalize();
-      const targetYaw = Math.atan2(moveDir.x, moveDir.z);
-      p.yaw = lerpAngle(p.yaw, targetYaw, 1 - Math.exp(-12 * dt));
+    this.combatFacingTime = Math.max(0, this.combatFacingTime - dt);
+    const combatFacing = this.combatFacingTime > 0 || this.input.isMouseDown(0) || this.input.isMouseDown(2);
+    if (combatFacing || this.firstPerson) {
+      p.yaw = lerpAngle(p.yaw, this.cameraYaw, 1 - Math.exp(-28 * realDt));
+    } else if (p.moving) {
+      p.yaw = lerpAngle(p.yaw, Math.atan2(moveDir.x, moveDir.z), 1 - Math.exp(-20 * dt));
     }
-
-    if (!this.firstPerson && SettingsManager.getCameraFollow() && p.moving) {
-      this.cameraYaw = lerpAngle(this.cameraYaw, p.yaw, 1 - Math.exp(-7.5 * dt));
+    // Recenter once at the start of forward travel. Never chase the heading
+    // derived from strafing: that feedback loop makes the camera orbit forever.
+    if (!this.firstPerson && SettingsManager.getCameraFollow() && !looking && !combatFacing
+      && this.input.wasPressed('KeyW') && Math.abs(strafeInput) < 0.1) {
+      this.recenterYaw = p.yaw;
     }
 
     const speed = stats.moveSpeed * (p.sprinting ? 1.65 : 1) * 5.5;
@@ -127,11 +163,14 @@ export class PlayerController {
       if (this.dashTime <= 0) this.dashVelocity.set(0, 0, 0);
     }
 
-    const groundLambda = 15;
+    const groundLambda = p.moving ? 24 : 38;
     p.velocity.x = damp(p.velocity.x, targetVelocity.x, groundLambda, dt);
     p.velocity.z = damp(p.velocity.z, targetVelocity.z, groundLambda, dt);
 
-    if (this.input.wasPressed('Space') && p.onGround) {
+    this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
+    if (this.input.wasPressed('Space')) this.jumpBuffer = 0.12;
+    if (this.jumpBuffer > 0 && p.onGround) {
+      this.jumpBuffer = 0;
       p.velocity.y = JUMP_SPEED;
       p.onGround = false;
     }
@@ -148,45 +187,51 @@ export class PlayerController {
       p.position.y += p.velocity.y * dt;
     }
 
+    this.updateCamera(realDt, floorData);
+  }
+
+  private updateCamera(dt: number, floorData: FloorData | null): void {
+    const p = this.player;
     const wheel = this.input.consumeWheel();
-    this.cameraDistance = clamp(this.cameraDistance + wheel * 0.7, 3, 11);
-
-    const lookTarget = new THREE.Vector3();
+    if (!this.firstPerson) this.cameraDistance = clamp(this.cameraDistance + wheel * 0.6, 3, 9);
+    const origin = p.position.clone().add(new THREE.Vector3(0, 1.35, 0));
+    const forward = this.getAimDirection();
     if (this.firstPerson) {
-      this.camera.position.set(p.position.x, p.position.y + 1.62, p.position.z);
-      const lookDistance = 10;
-      lookTarget.set(
-        p.position.x + Math.sin(this.cameraYaw) * Math.cos(this.cameraPitch) * lookDistance,
-        p.position.y + 1.62 + Math.sin(this.cameraPitch) * lookDistance,
-        p.position.z + Math.cos(this.cameraYaw) * Math.cos(this.cameraPitch) * lookDistance,
-      );
+      this.camera.position.copy(p.position).add(new THREE.Vector3(0, 1.62, 0));
+      const direction = forward.multiplyScalar(Math.cos(this.cameraPitch));
+      direction.y = Math.sin(this.cameraPitch);
+      this.camera.lookAt(this.camera.position.clone().add(direction));
     } else {
-      const horizontalDistance = Math.cos(this.cameraPitch) * this.cameraDistance;
-      const verticalDistance = Math.sin(this.cameraPitch) * this.cameraDistance;
-      const desired = new THREE.Vector3(
-        p.position.x - Math.sin(this.cameraYaw) * horizontalDistance,
-        p.position.y + this.cameraHeight + verticalDistance,
-        p.position.z - Math.cos(this.cameraYaw) * horizontalDistance,
-      );
-      const target = floorData ? this.resolveCameraCollision(p, floorData, desired) : desired;
-      const lambda = 14;
-      this.camera.position.x = damp(this.camera.position.x, target.x, lambda, dt);
-      this.camera.position.y = damp(this.camera.position.y, target.y, lambda, dt);
-      this.camera.position.z = damp(this.camera.position.z, target.z, lambda, dt);
-      lookTarget.set(p.position.x, p.position.y + 1.25, p.position.z);
+      const boom = forward.clone().multiplyScalar(-Math.cos(this.cameraPitch));
+      boom.y = Math.sin(this.cameraPitch);
+      const safeDistance = floorData
+        ? Math.max(0, worldRayDistance(floorData, origin, boom, this.cameraDistance, 0.22) - 0.04)
+        : this.cameraDistance;
+      // Obstructions retract immediately. Only outward recovery is damped;
+      // orbit yaw and pitch always follow input without positional lag.
+      this.boomDistance = safeDistance < this.boomDistance
+        ? safeDistance : damp(this.boomDistance, safeDistance, 5, dt);
+      this.camera.position.copy(origin).addScaledVector(boom, this.boomDistance);
+      this.camera.lookAt(origin.clone().addScaledVector(forward, 1.5));
     }
-
-    this.camera.lookAt(lookTarget);
-
     if (this.shake > 0) {
-      const amount = this.shake;
+      const amount = this.shake * 0.35;
       this.camera.position.x += (Math.random() - 0.5) * amount;
       this.camera.position.y += (Math.random() - 0.5) * amount;
+      if (floorData && !this.firstPerson) {
+        const offset = this.camera.position.clone().sub(origin);
+        const distance = offset.length();
+        if (distance > 0) {
+          offset.normalize();
+          const safe = worldRayDistance(floorData, origin, offset, distance, 0.22);
+          this.camera.position.copy(origin).addScaledVector(offset, Math.max(0, safe - 0.01));
+        }
+      }
       this.shake = Math.max(0, this.shake - dt * 2.5);
     }
-
-    this.camera.fov = damp(this.camera.fov, this.firstPerson ? 75 : p.sprinting ? 66 : 60, 8, dt);
+    this.camera.fov = damp(this.camera.fov, this.firstPerson ? 75 : p.sprinting ? 66 : 62, 8, dt);
     this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld();
   }
 
   private moveWithCollisions(p: Player, floor: FloorData, dt: number): void {
@@ -194,18 +239,14 @@ export class PlayerController {
     const dz = p.velocity.z * dt;
     const dy = p.velocity.y * dt;
 
-    const newX = p.position.x + dx;
-    if (!this.collides(p, floor, newX, p.position.z, p.position.y)) {
-      p.position.x = newX;
-    } else {
-      p.velocity.x = 0;
-    }
-
-    const newZ = p.position.z + dz;
-    if (!this.collides(p, floor, p.position.x, newZ, p.position.y)) {
-      p.position.z = newZ;
-    } else {
-      p.velocity.z = 0;
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.15));
+    for (let i = 0; i < steps; i++) {
+      const newX = p.position.x + dx / steps;
+      if (!this.collides(p, floor, newX, p.position.z, p.position.y)) p.position.x = newX;
+      else p.velocity.x = 0;
+      const newZ = p.position.z + dz / steps;
+      if (!this.collides(p, floor, p.position.x, newZ, p.position.y)) p.position.z = newZ;
+      else p.velocity.z = 0;
     }
 
     const newY = p.position.y + dy;
@@ -220,7 +261,7 @@ export class PlayerController {
       } else {
         p.velocity.y = 0;
         if (dy < 0) {
-          p.position.y = Math.max(0, Math.floor(newY));
+          p.position.y = 2;
           p.onGround = true;
         }
       }
@@ -255,19 +296,4 @@ export class PlayerController {
     return false;
   }
 
-  private resolveCameraCollision(p: Player, floor: FloorData, target: THREE.Vector3): THREE.Vector3 {
-    const origin = new THREE.Vector3(p.position.x, p.position.y + 1.25, p.position.z);
-    let lastGood = origin.clone();
-    const steps = 12;
-    for (let i = 1; i <= steps; i++) {
-      const sample = origin.clone().lerp(target, i / steps);
-      const gx = Math.floor(sample.x);
-      const gz = Math.floor(sample.z);
-      if (gz < 0 || gz >= floor.size || gx < 0 || gx >= floor.size) return lastGood;
-      const kind = floor.grid[gz][gx];
-      if (kind === BlockKind.Wall || kind === BlockKind.Obstacle) return lastGood;
-      lastGood = sample;
-    }
-    return target;
-  }
 }

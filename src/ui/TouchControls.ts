@@ -10,9 +10,12 @@ export interface TouchCallbacks {
   onInventoryPress: () => void;
   onViewPress: () => void;
   onSkillBarPress: () => void;
+  onInteractPress: () => void;
 }
 
 export interface TouchSkillState {
+  name: string;
+  manaCost: number;
   key: string;
   cooldown: number;
   cooldownRemaining: number;
@@ -38,7 +41,7 @@ interface TouchLayout {
 }
 
 const SKILL_SLOT_COUNT = 4;
-const SKILL_ANGLES = [130, 170, 210, 250];
+const SKILL_ANGLES = [90, 135, 180, 225];
 const HALF_CM_PX = 19;
 
 function clamp(value: number, min: number, max: number): number {
@@ -91,6 +94,10 @@ export class TouchControls {
   private skillCluster: HTMLDivElement;
   private utilityRow: HTMLDivElement;
   private pauseButton: HTMLDivElement;
+  private jumpButton: HTMLDivElement;
+  private interactButton: HTMLDivElement;
+  private viewButton: HTMLDivElement | null = null;
+  private enabled = false;
   private utilityButtons: HTMLDivElement[] = [];
   private skillButtons: HTMLDivElement[] = [];
   private skillLabels: HTMLDivElement[] = [];
@@ -117,12 +124,28 @@ export class TouchControls {
     this.skillCluster = this.createSkillCluster();
     this.utilityRow = this.createUtilityRow();
     this.pauseButton = this.createPauseButton();
+    this.jumpButton = this.makeButton('跳跃', 'touch-button touch-jump');
+    this.jumpButton.title = '跳跃';
+    this.jumpButton.style.position = 'absolute';
+    this.jumpButton.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      this.jumpButton.setPointerCapture(event.pointerId);
+      this.input.press('Space');
+    });
+    const releaseJump = () => this.input.release('Space');
+    this.jumpButton.addEventListener('pointerup', releaseJump);
+    this.jumpButton.addEventListener('pointercancel', releaseJump);
+    this.interactButton = this.makeButton('交互', 'touch-button touch-interact');
+    this.interactButton.style.position = 'absolute';
+    this.bindTap(this.interactButton, () => this.callbacks.onInteractPress());
 
     this.root.appendChild(this.joystick);
     this.root.appendChild(this.attackButton);
     this.root.appendChild(this.skillCluster);
     this.root.appendChild(this.utilityRow);
     this.root.appendChild(this.pauseButton);
+    this.root.appendChild(this.jumpButton);
+    this.root.appendChild(this.interactButton);
 
     parent.appendChild(this.root);
     this.applyLayout(getLayout());
@@ -138,7 +161,24 @@ export class TouchControls {
     }
   }
 
-  updateSkillStates(states: TouchSkillState[]): void {
+  setGameplayState(enabled: boolean, firstPerson: boolean, interaction: string | null): void {
+    if (this.enabled && !enabled) {
+      this.onJoystickUp();
+      this.activeLookPointer = null;
+      this.input.reset();
+    }
+    this.enabled = enabled;
+    this.root.style.display = this.mobile && enabled ? 'block' : 'none';
+    if (this.viewButton) {
+      this.viewButton.textContent = firstPerson ? '一人称' : '三人称';
+      this.viewButton.setAttribute('aria-label', firstPerson ? '切换第三人称' : '切换第一人称');
+    }
+    this.interactButton.style.display = interaction ? 'flex' : 'none';
+    this.interactButton.textContent = interaction ?? '交互';
+    this.interactButton.setAttribute('aria-label', interaction ?? '交互');
+  }
+
+  updateSkillStates(states: TouchSkillState[], mana = Infinity): void {
     const equipped = states.slice(0, SKILL_SLOT_COUNT);
     for (let i = 0; i < SKILL_SLOT_COUNT; i++) {
       const state = equipped[i] ?? null;
@@ -150,8 +190,11 @@ export class TouchControls {
       if (state) {
         button.dataset.key = state.key;
         button.classList.remove('is-empty');
-        label.textContent = state.key.replace('Digit', '');
-        const ready = state.cooldownRemaining <= 0;
+        const ready = state.cooldownRemaining <= 0 && mana >= state.manaCost;
+        label.textContent = state.cooldownRemaining > 0 ? state.cooldownRemaining.toFixed(1) : state.name;
+        label.style.fontSize = '11px';
+        button.setAttribute('aria-label', `${state.name}${mana < state.manaCost ? ' · 法力不足' : ''}`);
+        button.setAttribute('aria-disabled', String(!ready));
         button.classList.toggle('is-cooldown', !ready);
         const ratio = state.cooldown > 0 ? state.cooldownRemaining / state.cooldown : 0;
         overlay.style.height = `${Math.max(0, Math.min(100, ratio * 100))}%`;
@@ -161,7 +204,10 @@ export class TouchControls {
         button.dataset.key = '';
         button.classList.add('is-empty');
         button.classList.remove('is-cooldown');
-        label.textContent = '';
+        label.textContent = '配置';
+        label.style.fontSize = '11px';
+        button.setAttribute('aria-label', '配置技能');
+        button.setAttribute('aria-disabled', 'false');
         overlay.style.height = '0%';
         overlay.style.opacity = '0';
         button.style.color = '';
@@ -200,8 +246,11 @@ export class TouchControls {
   private attachJoystickListeners(): void {
     this.joystick.addEventListener('pointerdown', (event) => this.onJoystickDown(event));
     this.joystick.addEventListener('pointermove', (event) => this.onJoystickMove(event));
-    this.joystick.addEventListener('pointerup', () => this.onJoystickUp());
-    this.joystick.addEventListener('pointercancel', () => this.onJoystickUp());
+    const release = (event: PointerEvent): void => {
+      if (event.pointerId === this.activePointer) this.onJoystickUp();
+    };
+    this.joystick.addEventListener('pointerup', release);
+    this.joystick.addEventListener('pointercancel', release);
   }
 
   private createAttackButton(): HTMLDivElement {
@@ -257,7 +306,8 @@ export class TouchControls {
         event.preventDefault();
         button.setPointerCapture(event.pointerId);
         const key = button.dataset.key;
-        if (key) this.callbacks.onSkillPress(key);
+        if (key && button.getAttribute('aria-disabled') !== 'true') this.callbacks.onSkillPress(key);
+        else if (!key) this.callbacks.onSkillBarPress();
       });
       const release = (event: PointerEvent): void => {
         if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
@@ -292,6 +342,7 @@ export class TouchControls {
     this.utilityButtons.push(inventory);
 
     const view = this.makeButton('视角', 'touch-button touch-utility');
+    this.viewButton = view;
     view.title = '切换人称';
     this.bindTap(view, () => this.callbacks.onViewPress());
     row.appendChild(view);
@@ -324,6 +375,8 @@ export class TouchControls {
   private makeButton(label: string, className: string): HTMLDivElement {
     const button = document.createElement('div');
     button.className = className;
+    button.setAttribute('role', 'button');
+    button.setAttribute('aria-label', label);
     button.textContent = label;
     button.style.display = 'flex';
     button.style.alignItems = 'center';
@@ -370,18 +423,18 @@ export class TouchControls {
       const button = this.skillButtons[i];
       const label = this.skillLabels[i];
       if (!button || !label) continue;
-      button.style.left = `${Math.round(left)}px`;
-      button.style.top = `${Math.round(top)}px`;
+      button.style.left = `calc(${Math.round(left)}px - env(safe-area-inset-right))`;
+      button.style.top = `calc(${Math.round(Math.min(top, height - layout.skillSize - 10))}px - env(safe-area-inset-bottom))`;
       button.style.width = `${layout.skillSize}px`;
       button.style.height = `${layout.skillSize}px`;
-      label.style.fontSize = `${Math.max(18, Math.round(layout.skillSize * 0.36))}px`;
+      label.style.fontSize = '11px';
     }
 
     this.utilityRow.style.gap = `${layout.skillGap + 3}px`;
     this.utilityButtons.forEach((button) => {
       button.style.width = `${layout.utilitySize}px`;
       button.style.height = `${layout.utilitySize}px`;
-      button.style.fontSize = `${Math.max(18, Math.round(layout.utilitySize * 0.38))}px`;
+      button.style.fontSize = '14px';
     });
     if (layout.landscape) {
       this.utilityRow.style.top = '';
@@ -391,14 +444,27 @@ export class TouchControls {
       this.utilityRow.style.top = `calc(${layout.utilityTop}px + env(safe-area-inset-top))`;
     }
 
-    this.pauseButton.style.right = `calc(${layout.pauseRight}px + env(safe-area-inset-right))`;
+    this.pauseButton.style.right = `calc(${layout.pauseRight + 84}px + env(safe-area-inset-right))`;
     this.pauseButton.style.top = `calc(${layout.pauseTop}px + env(safe-area-inset-top))`;
     this.pauseButton.style.width = `${layout.pauseSize}px`;
     this.pauseButton.style.height = `${layout.pauseSize}px`;
     this.pauseButton.style.fontSize = `${Math.max(18, Math.round(layout.pauseSize * 0.38))}px`;
+    this.jumpButton.style.left = `calc(${layout.joystickLeft + layout.joystickSize + 12}px + env(safe-area-inset-left))`;
+    this.jumpButton.style.bottom = `calc(${layout.joystickBottom}px + env(safe-area-inset-bottom))`;
+    this.jumpButton.style.width = '48px';
+    this.jumpButton.style.height = '48px';
+    this.jumpButton.style.fontSize = '12px';
+    this.interactButton.style.left = '50%';
+    this.interactButton.style.transform = 'translateX(-50%)';
+    this.interactButton.style.bottom = `calc(${layout.landscape ? 76 : 180}px + env(safe-area-inset-bottom))`;
+    this.interactButton.style.width = '88px';
+    this.interactButton.style.height = '44px';
+    this.interactButton.style.borderRadius = '8px';
+    this.interactButton.style.fontSize = '14px';
   }
 
   private onJoystickDown(event: PointerEvent): void {
+    if (this.activePointer !== null) return;
     this.activePointer = event.pointerId;
     this.joystick.setPointerCapture(event.pointerId);
     this.onJoystickMove(event);
@@ -418,17 +484,9 @@ export class TouchControls {
     const ny = length > 0 ? dy / length : 0;
     this.stick.style.transform = `translate(calc(-50% + ${nx * clampedLength}px), calc(-50% + ${ny * clampedLength}px))`;
 
-    this.input.release('KeyW');
-    this.input.release('KeyS');
-    this.input.release('KeyA');
-    this.input.release('KeyD');
-
     const deadZone = Math.max(4, rect.width * 0.05);
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > deadZone) {
-      this.input.press(dx > 0 ? 'KeyD' : 'KeyA');
-    } else if (Math.abs(dy) > deadZone) {
-      this.input.press(dy > 0 ? 'KeyS' : 'KeyW');
-    }
+    const strength = Math.max(0, Math.min(1, (length - deadZone) / (max - deadZone)));
+    this.input.setAnalogMovement(nx * strength, -ny * strength);
 
     if (length >= rect.width * 0.5) {
       this.input.press('ShiftLeft');
@@ -440,6 +498,7 @@ export class TouchControls {
   private onJoystickUp(): void {
     this.activePointer = null;
     this.stick.style.transform = 'translate(-50%, -50%)';
+    this.input.setAnalogMovement(0, 0);
     this.input.release('KeyW');
     this.input.release('KeyS');
     this.input.release('KeyA');
@@ -457,17 +516,18 @@ export class TouchControls {
   }
 
   private onWindowPointerDown = (event: PointerEvent): void => {
+    if (!this.enabled) return;
     if (event.pointerType !== 'touch' || this.isInteractiveTarget(event.target)) {
-      this.activeLookPointer = null;
       return;
     }
 
     const target = event.target;
     const isGameSurface = target instanceof HTMLCanvasElement && target.closest('#app') === target.parentElement;
     if (!isGameSurface) {
-      this.activeLookPointer = null;
       return;
     }
+
+    if (this.activeLookPointer) return;
 
     if (this.isCameraLookArea(event.clientX)) {
       this.activeLookPointer = {
@@ -512,6 +572,9 @@ export class TouchControls {
 
   private onResize = (): void => {
     if (!this.mobile) return;
+    this.onJoystickUp();
+    this.activeLookPointer = null;
+    this.input.reset();
     this.applyLayout(getLayout());
   };
 

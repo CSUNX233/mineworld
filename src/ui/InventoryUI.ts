@@ -22,10 +22,17 @@ const SLOT_LABELS: Record<Slot, string> = {
 
 export class InventoryUI {
   private panel: HTMLDivElement | null = null;
+  private backdrop: HTMLDivElement | null = null;
   private tooltip: HTMLDivElement | null = null;
   private equipment: EquipmentManager | null = null;
+  private inventory: Inventory | null = null;
+  private activeTab = 'bag';
+  private dismissContext: ((event: PointerEvent) => void) | null = null;
+  onDetailsOpen: (() => void) | null = null;
+  onDetailsClose: (() => void) | null = null;
   open = false;
   attributePoints = 0;
+  playerLevel = 1;
   materialText = '';
   onEquip: ((inventoryIndex: number) => void) | null = null;
   onUnequip: ((slot: Slot) => void) | null = null;
@@ -39,7 +46,11 @@ export class InventoryUI {
   private contextMenu: HTMLDivElement | null = null;
   private mobile = isMobileDevice();
 
-  constructor(private root: HTMLElement) {}
+  constructor(private root: HTMLElement) {
+    window.addEventListener('resize', () => {
+      if (this.open && this.equipment && this.inventory) this.show(this.equipment, this.inventory);
+    });
+  }
 
   toggle(equipment: EquipmentManager, inventory: Inventory): void {
     if (this.open) this.close();
@@ -47,11 +58,18 @@ export class InventoryUI {
   }
 
   show(equipment: EquipmentManager, inventory: Inventory): void {
-    this.close();
+    this.close(false);
     this.open = true;
+    this.inventory = inventory;
     this.equipment = equipment;
     const mobile = this.mobile;
     const mobileLandscape = mobile && window.innerWidth > window.innerHeight;
+    if (mobile) {
+      this.backdrop = document.createElement('div');
+      this.backdrop.className = 'inventory-backdrop';
+      this.backdrop.onclick = () => this.close();
+      this.root.appendChild(this.backdrop);
+    }
     this.panel = document.createElement('div');
     this.panel.className = mobile ? 'panel inventory-panel mobile-inventory' : 'panel inventory-panel';
     this.panel.style.position = 'absolute';
@@ -69,9 +87,33 @@ export class InventoryUI {
     this.panel.style.gap = mobileLandscape ? '8px' : mobile ? '10px' : '14px';
     if (mobile) this.panel.style.overflow = 'hidden';
     this.root.appendChild(this.panel);
-    if (mobile) this.addCloseButton(this.panel);
+    if (mobile) {
+      this.panel.dataset.tab = this.activeTab;
+      const header = document.createElement('div');
+      header.className = 'inventory-header';
+      const heading = document.createElement('strong');
+      heading.textContent = '装备与背包';
+      header.appendChild(heading);
+      const tabs = document.createElement('div');
+      tabs.className = 'inventory-tabs';
+      for (const [tab, label] of [['bag', '背包'], ['equipment', '装备 / 属性']]) {
+        const button = document.createElement('button');
+        button.textContent = label;
+        button.setAttribute('aria-pressed', String(this.activeTab === tab));
+        button.onclick = () => {
+          this.activeTab = tab;
+          if (this.panel) this.panel.dataset.tab = tab;
+          tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+        };
+        tabs.appendChild(button);
+      }
+      header.appendChild(tabs);
+      this.panel.appendChild(header);
+      this.addCloseButton(this.panel);
+    }
 
     const equipmentPanel = document.createElement('div');
+    equipmentPanel.className = 'inventory-equipment';
     equipmentPanel.style.display = 'grid';
     equipmentPanel.style.gridTemplateColumns = mobileLandscape
       ? 'repeat(2, minmax(48px, 1fr))'
@@ -90,9 +132,16 @@ export class InventoryUI {
       const item = equipment.get(slot);
       const box = this.makeItemBox(item, `${SLOT_LABELS[slot]}${item ? `\n${item.name}` : ''}`);
       box.dataset.slot = slot;
+      if (mobile) {
+        box.classList.add('equipment-slot');
+        const label = document.createElement('span');
+        label.className = 'equipment-slot-label';
+        label.textContent = SLOT_LABELS[slot];
+        box.appendChild(label);
+      }
       box.style.cursor = item ? 'pointer' : 'default';
       if (item) {
-        box.onclick = () => this.onUnequip?.(slot);
+        box.onclick = () => this.mobile ? this.openItemDetails(item, null, slot) : this.onUnequip?.(slot);
         this.attachTooltip(box, item);
       }
       equipmentPanel.appendChild(box);
@@ -160,6 +209,7 @@ export class InventoryUI {
       equipmentPanel.appendChild(setPanel);
     }
     const allocate = document.createElement('button');
+    allocate.className = 'inventory-allocate';
     allocate.textContent = this.attributePoints > 0 ? `角色加点 · 属性点 ${this.attributePoints}` : '角色加点 / 天赋';
     allocate.style.gridColumn = '1 / -1';
     allocate.style.marginTop = '4px';
@@ -174,6 +224,7 @@ export class InventoryUI {
     this.panel.appendChild(equipmentPanel);
 
     const right = document.createElement('div');
+    right.className = 'inventory-content';
     right.style.display = 'flex';
     right.style.flexDirection = 'column';
     if (this.mobile) {
@@ -193,7 +244,7 @@ export class InventoryUI {
       right.appendChild(materials);
     }
     const grid = document.createElement('div');
-    if (this.mobile) grid.className = 'mobile-scroll';
+    grid.className = this.mobile ? 'inventory-grid mobile-scroll' : 'inventory-grid';
     grid.style.flex = '1';
     grid.style.overflow = 'auto';
     grid.style.display = 'grid';
@@ -206,43 +257,14 @@ export class InventoryUI {
       const box = this.makeItemBox(item, item?.name ?? '');
       box.dataset.inventoryIndex = String(i);
       if (item) {
-        let suppressClick = false;
-        let longPressTimer: number | null = null;
-        let startX = 0;
-        let startY = 0;
         box.onclick = () => {
-          if (this.mobile && suppressClick) {
-            suppressClick = false;
-            return;
-          }
-          this.onEquip?.(i);
+          if (this.mobile) this.openItemDetails(item, i);
+          else this.onEquip?.(i);
         };
-        box.addEventListener('pointerdown', (event) => {
-          if (!this.mobile) return;
-          startX = event.clientX;
-          startY = event.clientY;
-          longPressTimer = window.setTimeout(() => {
-            longPressTimer = null;
-            suppressClick = true;
-            this.openContextMenuAt(i, item, startX, startY);
-          }, 450);
-        });
-        const clearLongPress = (): void => {
-          if (longPressTimer !== null) {
-            window.clearTimeout(longPressTimer);
-            longPressTimer = null;
-          }
-        };
-        box.addEventListener('pointermove', (event) => {
-          if (longPressTimer !== null && Math.hypot(event.clientX - startX, event.clientY - startY) > 12) {
-            clearLongPress();
-          }
-        });
-        box.addEventListener('pointerup', clearLongPress);
-        box.addEventListener('pointercancel', clearLongPress);
         box.oncontextmenu = (event) => {
           event.preventDefault();
-          this.openContextMenu(event, i, item);
+          if (this.mobile) this.openItemDetails(item, i);
+          else this.openContextMenu(event, i, item);
         };
         this.attachTooltip(box, item);
       }
@@ -251,7 +273,7 @@ export class InventoryUI {
     right.appendChild(grid);
     const hint = document.createElement('div');
     hint.textContent = this.mobile
-      ? '点击穿戴/替换 · 长按出售/分解/升级/重铸 · 装备栏点击卸下'
+      ? '点击物品查看详情与对比，再选择穿戴、出售或打造'
       : '左键穿戴/替换 · 右键出售/分解/升级/重铸 · 装备栏点击卸下';
     hint.style.marginTop = '8px';
     hint.style.fontSize = '12px';
@@ -259,6 +281,7 @@ export class InventoryUI {
     right.appendChild(hint);
 
     const bulkSell = document.createElement('div');
+    bulkSell.className = 'inventory-bulk';
     bulkSell.style.marginTop = '8px';
     bulkSell.style.display = 'flex';
     bulkSell.style.alignItems = 'center';
@@ -310,7 +333,7 @@ export class InventoryUI {
   }
 
   private openContextMenuAt(index: number, item: Item, clientX: number, clientY: number): void {
-    this.contextMenu?.remove();
+    this.closeDetails();
     const menu = document.createElement('div');
     menu.className = 'panel context-menu';
     menu.style.position = 'fixed';
@@ -339,32 +362,81 @@ export class InventoryUI {
       button.style.borderRadius = '3px';
       button.style.cursor = 'pointer';
       button.onclick = () => {
-        this.contextMenu?.remove();
-        this.contextMenu = null;
+        this.closeDetails();
         entry.action?.();
       };
       menu.appendChild(button);
     });
     document.body.appendChild(menu);
     this.contextMenu = menu;
-    const close = (event: PointerEvent): void => {
-      if (this.contextMenu?.contains(event.target as Node)) return;
-      this.contextMenu?.remove();
-      this.contextMenu = null;
-      window.removeEventListener('pointerdown', close);
+    this.dismissContext = (event: PointerEvent): void => {
+      if (!this.contextMenu?.contains(event.target as Node)) this.closeDetails();
     };
-    window.setTimeout(() => window.addEventListener('pointerdown', close), 0);
+    window.addEventListener('pointerdown', this.dismissContext);
   }
 
-  close(): void {
+  private openItemDetails(item: Item, index: number | null, slot?: Slot): void {
+    this.closeDetails();
+    const overlay = document.createElement('div');
+    overlay.className = 'item-details-overlay';
+    const panel = document.createElement('div');
+    panel.className = 'panel item-details mobile-scroll';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', '物品详情');
+    const info = document.createElement('div');
+    info.className = 'item-details-info';
+    info.innerHTML = itemTooltipHTML(item, index !== null ? this.comparisonItem(item) : undefined);
+    panel.appendChild(info);
+    const actions = document.createElement('div');
+    actions.className = 'item-details-actions';
+    const add = (label: string, action: () => void): HTMLButtonElement => {
+      const button = document.createElement('button');
+      button.textContent = label;
+      button.onclick = () => { this.closeDetails(); action(); };
+      actions.appendChild(button);
+      return button;
+    };
+    if (index !== null) {
+      const equip = add('穿戴 / 替换', () => this.onEquip?.(index));
+      if (item.requiredLevel > this.playerLevel) {
+        equip.textContent = `需要 Lv.${item.requiredLevel}`;
+        equip.disabled = true;
+      }
+      add('升级', () => this.onUpgrade?.(index));
+      add('重铸', () => this.onReforge?.(index));
+      add('分解', () => this.onSalvage?.(index));
+      add('出售', () => this.onSell?.(index));
+    } else if (slot) {
+      const unequip = add('卸下装备', () => this.onUnequip?.(slot));
+      if (!this.inventory?.hasSpace()) { unequip.textContent = '背包已满'; unequip.disabled = true; }
+    }
+    add('返回背包', () => {});
+    panel.appendChild(actions);
+    overlay.appendChild(panel);
+    overlay.onclick = (event) => { if (event.target === overlay) this.closeDetails(); };
+    this.root.appendChild(overlay);
+    this.contextMenu = overlay;
+    this.onDetailsOpen?.();
+  }
+
+  closeDetails(): void {
+    this.contextMenu?.remove();
+    this.contextMenu = null;
+    if (this.dismissContext) window.removeEventListener('pointerdown', this.dismissContext);
+    this.dismissContext = null;
+    this.onDetailsClose?.();
+  }
+
+  close(notify = true): void {
     this.open = false;
     this.panel?.remove();
     this.panel = null;
+    this.backdrop?.remove();
+    this.backdrop = null;
     this.tooltip?.remove();
     this.tooltip = null;
-    this.contextMenu?.remove();
-    this.contextMenu = null;
-    this.onClose?.();
+    this.closeDetails();
+    if (notify) this.onClose?.();
   }
 
   private addCloseButton(panel: HTMLDivElement): void {
@@ -423,8 +495,14 @@ export class InventoryUI {
     return box;
   }
 
+  private comparisonItem(item: Item): Item | null | undefined {
+    const slot = item.slot === 'ring' && this.equipment?.get('ring') ? 'ring2' : item.slot;
+    return this.equipment?.get(slot);
+  }
+
   private attachTooltip(box: HTMLDivElement, item: Item): void {
-    const html = itemTooltipHTML(item, this.equipment?.get(item.slot) ?? null);
+    if (this.mobile) return;
+    const html = itemTooltipHTML(item, this.comparisonItem(item));
     const show = (event: MouseEvent): void => {
       if (!this.tooltip) {
         this.tooltip = document.createElement('div');

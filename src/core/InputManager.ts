@@ -4,12 +4,15 @@ export class InputManager {
   mouseDeltaX = 0;
   mouseDeltaY = 0;
   wheelDelta = 0;
+  private analogX = 0;
+  private analogY = 0;
   private justPressed = new Set<string>();
   private justReleased = new Set<string>();
   private mouseJustPressed = new Set<number>();
   private mouseJustReleased = new Set<number>();
 
   private onKeyDown = (event: KeyboardEvent): void => {
+    if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
     const code = event.code;
     if (!this.keys.has(code)) this.justPressed.add(code);
     this.keys.add(code);
@@ -29,6 +32,7 @@ export class InputManager {
   };
 
   private onMouseDown = (event: MouseEvent): void => {
+    if (!document.pointerLockElement) return;
     this.mouseDown.add(event.button);
     this.mouseJustPressed.add(event.button);
   };
@@ -39,13 +43,39 @@ export class InputManager {
   };
 
   private onWheel = (event: WheelEvent): void => {
+    if (!document.pointerLockElement) return;
     this.wheelDelta += Math.sign(event.deltaY);
   };
 
+  private onContextMenu = (event: MouseEvent): void => {
+    if (document.pointerLockElement) event.preventDefault();
+  };
+
   private onBlur = (): void => {
+    this.reset();
+  };
+
+  reset(): void {
     this.keys.clear();
     this.mouseDown.clear();
-  };
+    this.analogX = 0;
+    this.analogY = 0;
+    this.wheelDelta = 0;
+    this.endFrame();
+  }
+
+  get movement(): { x: number; y: number } {
+    let x = Number(this.isDown('KeyD')) - Number(this.isDown('KeyA')) + this.analogX;
+    let y = Number(this.isDown('KeyW')) - Number(this.isDown('KeyS')) + this.analogY;
+    const length = Math.hypot(x, y);
+    if (length > 1) { x /= length; y /= length; }
+    return { x, y };
+  }
+
+  setAnalogMovement(x: number, y: number): void {
+    this.analogX = x;
+    this.analogY = y;
+  }
 
   constructor() {
     window.addEventListener('keydown', this.onKeyDown);
@@ -55,6 +85,7 @@ export class InputManager {
     window.addEventListener('mouseup', this.onMouseUp);
     window.addEventListener('wheel', this.onWheel);
     window.addEventListener('blur', this.onBlur);
+    window.addEventListener('contextmenu', this.onContextMenu);
   }
 
   isDown(code: string): boolean {
@@ -133,5 +164,6 @@ export class InputManager {
     window.removeEventListener('mouseup', this.onMouseUp);
     window.removeEventListener('wheel', this.onWheel);
     window.removeEventListener('blur', this.onBlur);
+    window.removeEventListener('contextmenu', this.onContextMenu);
   }
 }

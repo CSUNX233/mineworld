@@ -26,6 +26,7 @@ export interface SkillHUDState {
 }
 
 export class HUD {
+  private objective: HTMLDivElement;
   private container: HTMLDivElement;
   private hpFill: HTMLDivElement;
   private hpText: HTMLDivElement;
@@ -52,6 +53,9 @@ export class HUD {
     this.container = document.createElement('div');
     this.container.className = 'hud';
     root.appendChild(this.container);
+    this.objective = document.createElement('div');
+    this.objective.className = 'hud-objective';
+    this.container.appendChild(this.objective);
     this.damageLayer = document.createElement('div');
     this.damageLayer.style.position = 'absolute';
     this.damageLayer.style.inset = '0';
@@ -215,6 +219,10 @@ export class HUD {
     this.lowHealth.style.opacity = state.health / state.maxHealth < 0.28 ? '1' : '0';
   }
 
+  setObjective(text: string): void {
+    if (this.objective.textContent !== text) this.objective.textContent = text;
+  }
+
   updateSkills(skills: SkillHUDState[]): void {
     this.skillContainer.innerHTML = '';
     skills.forEach((skill) => {
@@ -323,6 +331,15 @@ export class HUD {
 
   setPointerLocked(locked: boolean): void {
     this.crosshair.style.opacity = locked ? '1' : '0.25';
+  }
+
+  setAimPoint(x: number, y: number, visible: boolean, thirdPerson: boolean, blocked = false): void {
+    this.crosshair.style.display = visible ? 'block' : 'none';
+    this.crosshair.style.left = `${(x + 1) * 50}%`;
+    this.crosshair.style.top = `${(1 - y) * 50}%`;
+    this.crosshair.style.opacity = '0.85';
+    this.crosshair.style.borderColor = blocked ? '#ffbd70' : '#d5f5ff';
+    this.crosshair.classList.toggle('third-person-aim', thirdPerson);
   }
 
   setMuted(muted: boolean): void {

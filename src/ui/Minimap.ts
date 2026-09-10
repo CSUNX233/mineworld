@@ -1,4 +1,5 @@
-import type { FloorData } from '../types';
+import type { FloorData, FloorProgress } from '../types';
+import { ROOM_COLORS } from '../data/rooms';
 import type { Monster } from '../monsters/Monster';
 import type { Player } from '../player/Player';
 import { BlockKind } from '../world/Block';
@@ -13,6 +14,7 @@ export class Minimap {
 
   constructor(root: HTMLElement) {
     this.element = document.createElement('canvas');
+    this.element.className = 'minimap';
     this.element.width = this.size;
     this.element.height = this.size;
     this.element.style.position = 'absolute';
@@ -31,6 +33,7 @@ export class Minimap {
     floor: FloorData | null,
     player: Player,
     monsters: Monster[],
+    progress?: FloorProgress,
   ): void {
     const ctx = this.context;
     ctx.clearRect(0, 0, this.size, this.size);
@@ -62,6 +65,15 @@ export class Minimap {
       }
     }
     ctx.drawImage(this.baseCanvas!, 0, 0);
+    for (const room of floor.rooms) {
+      if (!room.kind) continue;
+      const x=(room.x+room.width/2)*scale, z=(room.z+room.depth/2)*scale;
+      const cleared = progress?.cleared.includes(room.id!);
+      ctx.fillStyle = cleared ? '#68d49d' : `#${ROOM_COLORS[room.kind].toString(16).padStart(6,'0')}`;
+      ctx.font = `bold ${this.size < 100 ? 9 : 13}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(cleared ? '✓' : room.required ? '!' : room.kind==='treasure' ? '$' : room.kind==='sanctuary' ? '+' : room.kind==='elite' ? '★' : room.kind==='start' ? 'S' : '·',x,z);
+    }
 
     monsters.forEach((monster) => {
       if (monster.dead) return;

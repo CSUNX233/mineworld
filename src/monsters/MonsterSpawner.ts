@@ -1,4 +1,4 @@
-import type { FloorData, MonsterDefinition, SavedMonster } from '../types';
+import type { FloorData, MonsterDefinition, SavedMonster, Room } from '../types';
 import monsterData from '../data/monsters.json';
 import { monsterAttack, monsterHealth, monsterXp } from '../data/recipes';
 import { RNG } from '../utils/RNG';
@@ -8,6 +8,28 @@ import { Monster } from './Monster';
 const MONSTER_DEFS = monsterData as unknown as MonsterDefinition[];
 
 export class MonsterSpawner {
+  static spawnEncounter(floor: FloorData, room: Room, player: { x: number; z: number }, rng: RNG): Monster[] {
+    const pool = this.availableForFloor(floor.floor);
+    const cells: {x:number;z:number}[] = [];
+    for (let z = room.z + 1; z < room.z + room.depth - 1; z++)
+      for (let x = room.x + 1; x < room.x + room.width - 1; x++)
+        if (this.isWalkableCell(floor,x,z) && Math.hypot(x+.5-player.x,z+.5-player.z)>3) cells.push({x,z});
+    const spots = rng.shuffle(cells);
+    const bossRoom = room.kind === 'exit' && floor.floor % 5 === 0;
+    const count = bossRoom ? 3 : Math.min(4, 3 + Math.floor(floor.floor / 4));
+    return spots.slice(0,count).map((spot,i) => {
+      const behavior = i === 0 ? 'melee' : i === 1 ? 'ranged' : floor.floor > 2 ? 'charger' : 'melee';
+      const choices = pool.filter(def => def.behavior === behavior);
+      const def = bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
+      const monster = new Monster(def,spot.x+.5,spot.z+.5);
+      monster.roomId = room.id!;
+      monster.maxHealth = monsterHealth(def.health,floor.floor);
+      monster.health = monster.maxHealth;
+      if (room.kind === 'elite' && i === 0) { monster.setElite(['extraHealth']); monster.maxHealth *= 1.6; monster.health=monster.maxHealth; }
+      monster.state = 'chase';
+      return monster;
+    });
+  }
   static availableForFloor(floor: number): MonsterDefinition[] {
     return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.id !== 'boss');
   }
@@ -18,38 +40,6 @@ export class MonsterSpawner {
 
   static definitionById(id: string): MonsterDefinition | null {
     return MONSTER_DEFS.find((def) => def.id === id) ?? null;
-  }
-
-  static spawnWave(floorData: FloorData, playerPosition: { x: number; z: number }, count: number, rng: RNG): Monster[] {
-    const monsters: Monster[] = [];
-    const pool = this.availableForFloor(floorData.floor);
-    const isBossFloor = floorData.floor % 5 === 0;
-    const spawnCount = isBossFloor ? Math.max(3, Math.min(count, 8)) : count;
-
-    for (let i = 0; i < spawnCount; i++) {
-      const def = rng.pick(pool);
-      const spot = this.findSpawnCell(floorData, playerPosition, rng);
-      if (!spot) continue;
-      const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
-      monster.maxHealth = monsterHealth(def.health, floorData.floor);
-      monster.health = monster.maxHealth;
-      this.rollElite(monster, floorData.floor, rng);
-      monsters.push(monster);
-    }
-
-    if (isBossFloor) {
-      const bossDef = this.bossForFloor(floorData.floor);
-      if (bossDef) {
-        const spot = this.findSpawnCell(floorData, playerPosition, rng, 8);
-        if (spot) {
-          const boss = new Monster(bossDef, spot.x + 0.5, spot.z + 0.5);
-          boss.maxHealth = Math.round(monsterHealth(bossDef.health, floorData.floor) * 1.4);
-          boss.health = boss.maxHealth;
-          monsters.push(boss);
-        }
-      }
-    }
-    return monsters;
   }
 
   private static rollElite(monster: Monster, floor: number, rng: RNG): void {
@@ -95,6 +85,7 @@ export class MonsterSpawner {
     if (!spot) return null;
     const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
     if (saved.elite && saved.eliteModifiers.length > 0) monster.setElite(saved.eliteModifiers);
+    monster.roomId = saved.roomId ?? '';
     monster.maxHealth = Math.max(1, saved.maxHealth);
     monster.health = Math.min(monster.maxHealth, Math.max(0, saved.health));
     return monster;
@@ -130,27 +121,4 @@ export class MonsterSpawner {
     return null;
   }
 
-  private static findSpawnCell(
-    floorData: FloorData,
-    playerPosition: { x: number; z: number },
-    rng: RNG,
-    minDistance = 7,
-  ): { x: number; z: number } | null {
-    const cells: { x: number; z: number }[] = [];
-    for (let z = 0; z < floorData.size; z++) {
-      for (let x = 0; x < floorData.size; x++) {
-        if (floorData.grid[z][x] !== BlockKind.Floor && floorData.grid[z][x] !== BlockKind.Portal) continue;
-        const dist = Math.abs(x - playerPosition.x) + Math.abs(z - playerPosition.z);
-        if (dist >= minDistance) cells.push({ x, z });
-      }
-    }
-    if (cells.length === 0) {
-      for (let z = 0; z < floorData.size; z++) {
-        for (let x = 0; x < floorData.size; x++) {
-          if (floorData.grid[z][x] === BlockKind.Floor || floorData.grid[z][x] === BlockKind.Portal) cells.push({ x, z });
-        }
-      }
-    }
-    return cells.length > 0 ? rng.pick(cells) : null;
-  }
 }

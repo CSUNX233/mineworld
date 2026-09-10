@@ -48,10 +48,19 @@ export interface SetBonusInfo {
   effects: StatMap;
 }
 
+const EMPTY_STATS: StatMap = {};
+
 export class EquipmentManager {
-  equipment: Partial<Record<Slot, Item>> = {};
+  private items: Partial<Record<Slot, Item>> = {};
+  private cachedStats: DerivedStats | null = null;
+  private cachedExtra: StatMap | null = null;
+  private cachedSpecials: Set<string> | null = null;
+  get equipment(): Partial<Record<Slot, Item>> { return this.items; }
+  set equipment(value: Partial<Record<Slot, Item>>) { this.items = value; this.invalidate(); }
+  private invalidate(): void { this.cachedStats = null; this.cachedSpecials = null; }
 
   equip(item: Item): Item | null {
+    this.invalidate();
     if (item.slot === 'ring') {
       const target: Slot = this.equipment.ring ? 'ring2' : 'ring';
       const previous = this.equipment[target] ?? null;
@@ -64,6 +73,7 @@ export class EquipmentManager {
   }
 
   unequip(slot: Slot): Item | null {
+    this.invalidate();
     const item = this.equipment[slot] ?? null;
     delete this.equipment[slot];
     return item;
@@ -78,9 +88,11 @@ export class EquipmentManager {
   }
 
   hasSpecial(special: string): boolean {
-    const itemSpecial = this.getEquippedItems().some((item) => item.affixes.some((affix) => affix.special === special));
-    const setSpecial = this.getActiveSetSpecials().includes(special);
-    return itemSpecial || setSpecial;
+    if (!this.cachedSpecials) this.cachedSpecials = new Set([
+      ...this.getEquippedItems().flatMap(item => item.affixes.map(affix => affix.special).filter((value): value is string => !!value)),
+      ...this.getActiveSetSpecials(),
+    ]);
+    return this.cachedSpecials.has(special);
   }
 
   getTotalStats(): StatMap {
@@ -113,7 +125,9 @@ export class EquipmentManager {
       const bonuses = setDef.bonuses;
       const effects: StatMap = {};
       for (const [threshold, stats] of Object.entries(bonuses)) {
-        if (count >= Number(threshold)) Object.assign(effects, stats.stats);
+        if (count >= Number(threshold)) for (const [stat,value] of Object.entries(stats.stats)) {
+          effects[stat as keyof StatMap] = (effects[stat as keyof StatMap] ?? 0) + (value ?? 0);
+        }
       }
       if (Object.keys(effects).length > 0) result.push({ setId, count, effects });
     });
@@ -137,7 +151,9 @@ export class EquipmentManager {
     return [...specials];
   }
 
-  getDerivedStats(extra: StatMap = {}): DerivedStats {
+  getDerivedStats(extra: StatMap = EMPTY_STATS): DerivedStats {
+    if (this.cachedStats && this.cachedExtra === extra) return this.cachedStats;
+    this.cachedExtra = extra;
     const stats = { ...this.getTotalStats() };
     for (const [key, value] of Object.entries(extra)) {
       stats[key as keyof StatMap] = (stats[key as keyof StatMap] ?? 0) + (value ?? 0);
@@ -149,7 +165,7 @@ export class EquipmentManager {
     const vitality = stats.vitality ?? 5;
     const intelligence = stats.intelligence ?? 5;
 
-    return {
+    this.cachedStats = {
       maxHealth: (stats.maxHealth ?? 0) + vitality * 8,
       maxMana: (stats.maxMana ?? 0) + intelligence * 4,
       attack: (stats.attack ?? 0) + strength * 1.5,
@@ -167,5 +183,6 @@ export class EquipmentManager {
       lifeRegen: stats.lifeRegen ?? 1,
       cooldownReduction: Math.max(0, Math.min(0.6, stats.cooldown ?? 0)),
     };
+    return this.cachedStats;
   }
 }

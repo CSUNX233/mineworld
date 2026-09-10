@@ -7,9 +7,9 @@ export class FirstPersonViewModel {
   private weaponGroup: THREE.Group | null = null;
   private walkPhase = 0;
 
-  constructor(camera: THREE.PerspectiveCamera) {
+  constructor(private camera: THREE.PerspectiveCamera) {
     camera.add(this.group);
-    this.group.position.set(0.36, -0.34, -0.58);
+    this.group.position.set(0.36, -0.42, -0.85);
     this.group.rotation.y = -0.08;
 
     this.arm = new THREE.Mesh(
@@ -18,6 +18,7 @@ export class FirstPersonViewModel {
     );
     this.arm.position.set(0, -0.18, 0);
     this.group.add(this.arm);
+    this.configureForeground();
   }
 
   setVisible(visible: boolean): void {
@@ -36,26 +37,31 @@ export class FirstPersonViewModel {
     }
 
     const isStaff = item.name.includes('法杖') || item.id.startsWith('staff_') || item.id.startsWith('weapon_staff');
-    this.weaponGroup = isStaff ? this.buildStaff(item.element) : this.buildMeleeWeapon();
+    this.weaponGroup = isStaff ? this.buildStaff(item.element) : this.buildMeleeWeapon(item);
     this.weaponGroup.position.set(0, -0.18, 0.1);
     this.group.add(this.weaponGroup);
     this.arm.visible = false;
+    this.configureForeground();
   }
 
   update(dt: number, moving: boolean, sprinting: boolean): void {
+    const scale = Math.min(0.7, Math.max(0.42, this.camera.aspect * 0.7));
+    this.group.scale.setScalar(scale);
+    const horizontalSpace = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * 0.85;
+    const restX = Math.min(0.36, horizontalSpace * 0.55);
     if (moving) {
       this.walkPhase += dt * (sprinting ? 11 : 8);
       const swing = Math.sin(this.walkPhase) * 0.08;
-      this.group.position.x = 0.36 + swing * 0.5;
-      this.group.position.y = -0.34 + Math.abs(Math.sin(this.walkPhase)) * 0.02;
+      this.group.position.x = restX + swing * 0.25;
+      this.group.position.y = -0.42 + Math.abs(Math.sin(this.walkPhase)) * 0.015;
       this.arm.rotation.z = swing;
       if (this.weaponGroup) this.weaponGroup.rotation.z = swing;
     } else {
       const ease = 1 - Math.exp(-dt * 10);
       this.arm.rotation.z *= 1 - ease;
       if (this.weaponGroup) this.weaponGroup.rotation.z *= 1 - ease;
-      this.group.position.x = 0.36;
-      this.group.position.y = -0.34;
+      this.group.position.x = THREE.MathUtils.damp(this.group.position.x, restX, 12, dt);
+      this.group.position.y = THREE.MathUtils.damp(this.group.position.y, -0.42, 12, dt);
     }
   }
 
@@ -68,14 +74,25 @@ export class FirstPersonViewModel {
     }
   }
 
-  private buildMeleeWeapon(): THREE.Group {
+  private buildMeleeWeapon(item: Item): THREE.Group {
     const group = new THREE.Group();
-    const steel = new THREE.MeshBasicMaterial({ color: 0xeaf5ff });
+    const steel = new THREE.MeshLambertMaterial({ color: 0xc2d6e5 });
     const dark = new THREE.MeshLambertMaterial({ color: 0x5a3c24 });
 
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.2, 0.09), dark);
     handle.position.set(0, -0.04, 0);
     group.add(handle);
+
+    if (item.icon === 'axe' || item.icon === 'hammer') {
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.65, 0.08), dark);
+      shaft.position.y = 0.3;
+      group.add(shaft);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(item.icon === 'hammer' ? 0.4 : 0.32,
+        item.icon === 'hammer' ? 0.25 : 0.35, item.icon === 'hammer' ? 0.24 : 0.08), steel);
+      head.position.set(item.icon === 'axe' ? -0.12 : 0, 0.62, 0);
+      group.add(head);
+      return group;
+    }
 
     const guard = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.09, 0.09), dark);
     guard.position.set(0, 0.1, 0);
@@ -88,7 +105,18 @@ export class FirstPersonViewModel {
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.07), steel);
     tip.position.set(0, 0.82, 0);
     group.add(tip);
+    if (item.name.includes('匕首') || item.id.includes('dagger')) group.scale.y = 0.65;
     return group;
+  }
+
+  private configureForeground(): void {
+    this.group.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.renderOrder = 1000;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => { material.depthTest = false; material.depthWrite = false; });
+      child.frustumCulled = false;
+    });
   }
 
   private buildStaff(element: ElementType | undefined): THREE.Group {
