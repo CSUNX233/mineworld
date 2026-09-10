@@ -32,6 +32,7 @@ import { SaveManager } from './SaveManager';
 import { SettingsManager } from './SettingsManager';
 import { PerformanceTierDetector } from './Performance';
 import { MobileBackHandler } from './MobileBackHandler';
+import { PlaytestRecorder, type PlaytestPhase } from './PlaytestRecorder';
 import { HUD, type SkillHUDState } from '../ui/HUD';
 import { InventoryUI } from '../ui/InventoryUI';
 import { Minimap } from '../ui/Minimap';
@@ -44,6 +45,13 @@ import { buildChoices } from '../ui/BuildChoices';
 import { ROOM_LABELS } from '../data/rooms';
 import { TALENT_DEFS, TALENT_GROUPS, type TalentDef } from '../data/talents';
 import { stepProjectile, type Projectile } from '../combat/ProjectileSystem';
+import { RunManager } from './RunManager';
+import { archetypeAllowed, unlockNode } from '../progression/MetaProgression';
+import { canExtract, extractionResearchXp, hasVictoryObjectives } from '../progression/Settlement';
+import { BASIC_RUN_DEFINITION } from '../data/runProgression';
+import type { ArchetypeId, RunOutcome, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
+import { buildCampView, buildMigrationView, buildSettlementView } from '../ui/RunScreens';
+import { starterWeapon } from '../items/StarterEquipment';
 
 interface DropEntity {
   mesh: THREE.Mesh;
@@ -90,6 +98,7 @@ export class Game {
   private touchControls: TouchControls | null = null;
   private readonly mobile = isMobileDevice();
   private readonly mobileBack = new MobileBackHandler();
+  private readonly playtestRecorder = new PlaytestRecorder();
 
   private encounters: EncounterDirector | null = null;
   private builds = new BuildSystem();
@@ -134,7 +143,10 @@ export class Game {
   private running = false;
   private paused = false;
   private lastTime = performance.now();
+  private lastPlaytestFrameTime = performance.now();
+  private skipPlaytestFrameTime = document.hidden;
   private startOverlay: HTMLDivElement | null = null;
+  private startMenuKeyHandler: ((event: KeyboardEvent) => void) | null = null;
   private pauseOverlay: HTMLDivElement | null = null;
   private floorRestOverlay: HTMLDivElement | null = null;
   private restOpen = false;
@@ -151,6 +163,11 @@ export class Game {
   private attributeAllocated = 0;
   private skillLoadout: string[] = [...DEFAULT_SKILL_LOADOUT];
   private skills: SkillState[] = [];
+  private envelope: SaveEnvelopeV3 | null = null;
+  private failedSaveCandidate: SaveEnvelopeV3 | null = null;
+  private retryAfterSave: (() => void) | null = null;
+  private upgradeCount = 0;
+  private runIdCounter = 0;
 
   constructor(uiRoot: HTMLElement) {
     this.uiRoot = uiRoot;
@@ -198,11 +215,12 @@ export class Game {
         onSkillPress: (key) => this.input.press(key),
         onSkillRelease: (key) => this.input.release(key),
         onAttackPress: () => this.input.pressMouse(0),
-        onInteractPress: () => this.tryInteract(),
+        onInteractPress: () => { if (!this.isGameplayPaused()) this.tryInteract(); },
         onAttackRelease: () => this.input.releaseMouse(0),
         onPausePress: () => this.togglePause(),
-        onInventoryPress: () => this.toggleInventory(),
+        onInventoryPress: () => { if (!this.isGameplayPaused() || this.inventoryUI.open) this.toggleInventory(); },
         onViewPress: () => {
+          if (this.isGameplayPaused()) return;
           this.controller.toggleView();
           this.updatePlayerVisibility();
         },
@@ -243,7 +261,14 @@ export class Game {
       }
     });
     window.addEventListener('blur', () => this.pauseGame());
+    document.addEventListener('visibilitychange', () => {
+      this.lastPlaytestFrameTime = performance.now();
+      this.skipPlaytestFrameTime = true;
+      if (document.hidden) this.pauseGame();
+      else this.input.reset();
+    });
     this.mobileBack.setRootHandler(() => {
+      if (this.failedSaveCandidate) return true;
       if (!this.running) return false;
       if (this.paused) {
         this.resumeGame();
@@ -260,69 +285,370 @@ export class Game {
   }
 
   private showStartMenu(): void {
-    const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.inset = '0';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.background = 'radial-gradient(circle at center, rgba(20,28,42,0.88), rgba(5,7,12,0.96))';
-    overlay.style.pointerEvents = 'auto';
-    overlay.style.zIndex = '200';
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
 
-    const panel = document.createElement('div');
-    panel.style.textAlign = 'center';
-    if (this.mobile) {
-      panel.className = 'panel mobile-scroll';
-      panel.style.minWidth = '92vw';
-      panel.style.maxHeight = '82vh';
-      panel.style.overflow = 'auto';
-      panel.style.padding = '16px';
-    }
     const title = document.createElement('div');
     title.textContent = 'MineWorld';
-    title.style.fontSize = '52px';
+    title.style.fontSize = 'clamp(40px, 10vw, 52px)';
     title.style.fontWeight = 'bold';
     title.style.color = '#fff';
     title.style.textShadow = '0 6px 20px #000';
     panel.appendChild(title);
-    const subtitle = document.createElement('div');
-    subtitle.textContent = '方块割草：深渊';
-    subtitle.style.marginTop = '6px';
-    subtitle.style.color = '#9fb4d0';
-    subtitle.style.fontSize = '20px';
-    panel.appendChild(subtitle);
 
-    const slots = SaveManager.listSlots();
-    const slotTitle = document.createElement('div');
-    slotTitle.textContent = '存档位';
-    slotTitle.style.marginTop = '22px';
-    slotTitle.style.color = '#9fb4d0';
-    slotTitle.style.fontSize = '14px';
-    panel.appendChild(slotTitle);
-
-    slots.forEach((slot) => {
-      const button = this.makeMenuButton(
-        slot.exists
-          ? `存档 ${slot.slot + 1} · 第 ${slot.floor} 层 · Lv.${slot.level}`
-          : `存档 ${slot.slot + 1} · 空`,
-      );
-      button.onclick = () => {
-        this.removeStartMenu();
-        this.saveSlot = slot.slot;
-        if (slot.exists) {
-          const save = SaveManager.load(slot.slot);
-          if (save) this.loadGame(save);
-        } else {
-          this.startNewGame();
-        }
-      };
-      panel.appendChild(button);
-    });
+    const startButton = this.makeMenuButton('开始游戏');
+    startButton.onclick = () => this.showSaveSlotMenu();
+    panel.appendChild(startButton);
 
     overlay.appendChild(panel);
     this.startOverlay = overlay;
     this.uiRoot.appendChild(overlay);
+  }
+
+  private showSaveSlotMenu(message = '', isError = false): void {
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
+    let storageError = false;
+    let slots: ReturnType<typeof SaveManager.listSlots> = [];
+    try {
+      slots = SaveManager.listSlots();
+    } catch (error) {
+      console.warn('Failed to access saves', error);
+      storageError = true;
+    }
+
+    const title = document.createElement('div');
+    title.textContent = '选择存档';
+    title.style.cssText = 'font-size:28px;font-weight:bold;color:#fff;text-shadow:0 4px 14px #000';
+    panel.appendChild(title);
+
+    if (message) {
+      const notice = document.createElement('div');
+      notice.setAttribute('role', isError ? 'alert' : 'status');
+      notice.textContent = message;
+      notice.style.cssText = `margin:12px 0 0;color:${isError ? '#ff9b9b' : '#9fd4ad'};font-size:14px;line-height:1.5`;
+      panel.appendChild(notice);
+    }
+    if (storageError) {
+      const notice = document.createElement('div');
+      notice.setAttribute('role', 'alert');
+      notice.textContent = '无法访问本地存档，请检查浏览器存储权限后重试。';
+      notice.style.cssText = 'margin:12px 0 0;color:#ff9b9b;font-size:14px;line-height:1.5';
+      panel.appendChild(notice);
+    }
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:16px';
+    slots.forEach((slot) => {
+      const state = slot.state ?? (slot.exists ? 'active' : 'empty');
+      const stored = state !== 'empty';
+      const corrupt = state === 'invalid';
+      const row = document.createElement('div');
+      row.style.cssText = `display:grid;grid-template-columns:${stored ? 'minmax(0,1fr) auto' : '1fr'};gap:8px;align-items:stretch`;
+
+      const selectButton = this.makeMenuButton(
+        storageError
+          ? `存档 ${slot.slot + 1} · 无法访问`
+          : corrupt
+          ? `存档 ${slot.slot + 1} · 不可读取`
+          : state === 'legacy'
+            ? `存档 ${slot.slot + 1} · 旧版存档 · 需要迁移`
+            : state === 'summary'
+              ? `存档 ${slot.slot + 1} · 待确认结算`
+              : state === 'camp'
+                ? `存档 ${slot.slot + 1} · 营地 · ${slot.metaPoints ?? 0} 天赋点`
+                : state === 'active'
+                  ? `存档 ${slot.slot + 1} · 第 ${slot.floor} 层 · Lv.${slot.level} · 继续游戏`
+                  : `存档 ${slot.slot + 1} · 新档案`,
+      );
+      selectButton.style.margin = '0';
+      selectButton.style.minWidth = '0';
+      selectButton.style.width = '100%';
+      if (storageError || corrupt) {
+        selectButton.disabled = true;
+        selectButton.title = storageError ? '无法访问本地存档' : '这个存档无法读取，请删除后再使用此槽位';
+        selectButton.style.opacity = '0.62';
+        selectButton.style.cursor = 'not-allowed';
+      } else {
+        selectButton.onclick = () => this.selectSaveSlot(slot.slot);
+      }
+      row.appendChild(selectButton);
+
+      if (stored && !storageError) {
+        const deleteButton = this.makeMenuButton('删除');
+        deleteButton.setAttribute('aria-label', `删除存档 ${slot.slot + 1}`);
+        deleteButton.style.cssText += ';margin:0;min-width:72px;padding:10px 14px;background:#65343b;border-color:#b66a73';
+        deleteButton.onmouseenter = () => { deleteButton.style.background = '#82434d'; };
+        deleteButton.onmouseleave = () => { deleteButton.style.background = '#65343b'; };
+        deleteButton.onclick = () => this.showDeleteSaveConfirmation(slot.slot, corrupt);
+        row.appendChild(deleteButton);
+      }
+      list.appendChild(row);
+    });
+    panel.appendChild(list);
+
+    const backButton = this.makeMenuButton('返回主菜单');
+    backButton.style.marginTop = '16px';
+    backButton.onclick = () => this.showStartMenu();
+    panel.appendChild(backButton);
+
+    overlay.appendChild(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.appendChild(overlay);
+    this.setStartMenuBackHandler(() => this.showStartMenu());
+  }
+
+  private showDeleteSaveConfirmation(slot: number, corrupt: boolean): void {
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
+
+    const title = document.createElement('div');
+    title.textContent = `删除存档 ${slot + 1}？`;
+    title.style.cssText = 'font-size:26px;font-weight:bold;color:#fff';
+    const warning = document.createElement('div');
+    warning.setAttribute('role', 'alert');
+    warning.textContent = `${corrupt ? '此存档已损坏且无法读取。' : '当前进度将被永久删除。'} 此操作不可恢复。`;
+    warning.style.cssText = 'margin-top:14px;color:#ffaaaa;font-size:16px;line-height:1.6';
+    panel.append(title, warning);
+
+    const confirmButton = this.makeMenuButton('确认删除（不可恢复）');
+    confirmButton.style.background = '#7b3039';
+    confirmButton.style.borderColor = '#d47780';
+    confirmButton.onclick = () => {
+      try {
+        SaveManager.clear(slot);
+        if (SaveManager.hasSave(slot)) throw new Error('save still exists');
+        this.showSaveSlotMenu(`存档 ${slot + 1} 已删除`);
+      } catch (error) {
+        console.warn('Failed to delete save', error);
+        this.showSaveSlotMenu(`存档 ${slot + 1} 删除失败，请重试`, true);
+      }
+    };
+    panel.appendChild(confirmButton);
+
+    const cancelButton = this.makeMenuButton('取消');
+    cancelButton.style.marginTop = '10px';
+    cancelButton.onclick = () => this.showSaveSlotMenu();
+    panel.appendChild(cancelButton);
+
+    overlay.appendChild(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.appendChild(overlay);
+    this.setStartMenuBackHandler(() => this.showSaveSlotMenu());
+  }
+
+  private selectSaveSlot(slot: number): void {
+    this.saveSlot = slot;
+    const result = SaveManager.readSlot(slot);
+    if (result.kind === 'ready') {
+      this.envelope = result.envelope;
+      if (result.envelope.pendingSettlement) this.showSettlement(result.envelope.pendingSettlement, true);
+      else this.showCamp();
+      return;
+    }
+    if (result.kind === 'legacy') {
+      this.showMigration(result.data);
+      return;
+    }
+    if (result.kind === 'invalid' || result.kind === 'error') {
+      this.showSaveSlotMenu(`存档 ${slot + 1} 无法读取：${result.error}`, true);
+      return;
+    }
+    const candidate = RunManager.createEnvelope(this.newProfileId());
+    this.commitEnvelope(candidate, () => this.showCamp());
+  }
+
+  private showCamp(message = ''): void {
+    const envelope = this.envelope;
+    if (!envelope) return this.showSaveSlotMenu('档案尚未载入，请重新选择存档。', true);
+    if (envelope.pendingSettlement) return this.showSettlement(envelope.pendingSettlement, true);
+    this.running = false;
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
+    panel.append(buildCampView(envelope, {
+      start: (archetype) => this.startArchetype(archetype),
+      resume: () => this.resumeActiveRun(),
+      unlock: (id) => this.unlockArchetype(id),
+      back: () => this.showSaveSlotMenu(),
+      exportLegacy: () => this.exportLegacyArchive(),
+      abandon: () => this.finishRun('abandoned'),
+    }, message));
+    overlay.append(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.append(overlay);
+    this.setStartMenuBackHandler(() => this.showSaveSlotMenu());
+  }
+
+  private showMigration(data: SaveData, message = ''): void {
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
+    panel.append(buildMigrationView(data, {
+      confirm: () => {
+        const result = SaveManager.migrateLegacy(this.saveSlot);
+        if (!result.ok) return this.showMigration(data, result.error);
+        this.envelope = result.envelope;
+        this.showCamp('旧版存档已备份并保存为纪念记录。');
+      },
+      back: () => this.showSaveSlotMenu(),
+    }, message));
+    overlay.append(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.append(overlay);
+    this.setStartMenuBackHandler(() => this.showSaveSlotMenu());
+  }
+
+  private showSettlement(record: SettlementRecord, saved: boolean, message = ''): void {
+    this.running = false;
+    this.paused = true;
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
+    panel.append(buildSettlementView(record, saved, {
+      confirm: () => this.acknowledgeSettlement(),
+      retry: () => this.retryFailedSave(),
+    }, message));
+    overlay.append(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.append(overlay);
+    this.setStartMenuBackHandler(null);
+  }
+
+  private unlockArchetype(id: string): void {
+    if (!this.envelope) return;
+    try {
+      const candidate = unlockNode(this.envelope, id);
+      this.commitEnvelope(candidate, () => this.showCamp('流派已解锁。'));
+    } catch (error) {
+      this.showCamp(error instanceof Error ? error.message : '无法解锁流派。');
+    }
+  }
+
+  private startArchetype(archetype: ArchetypeId): void {
+    if (!this.envelope || this.failedSaveCandidate || !archetypeAllowed(this.envelope.profile, archetype)) return;
+    try {
+      const runId = this.newRunId();
+      const seed = this.newGameSeed();
+      const candidate = RunManager.startRun(this.envelope, runId, seed, archetype, Date.now());
+      this.commitEnvelope(candidate, () => this.startNewGame(archetype));
+    } catch (error) {
+      this.showCamp(error instanceof Error ? error.message : '无法开始新冒险。');
+    }
+  }
+
+  private resumeActiveRun(): void {
+    const run = this.envelope?.activeRun;
+    if (!run || this.failedSaveCandidate) return;
+    if (run.snapshot && run.snapshot.player.health <= 0) {
+      this.finishRun('death');
+      return;
+    }
+    this.seed = run.seed;
+    this.upgradeCount = run.upgradeCount;
+    this.removeStartMenu();
+    if (run.snapshot) this.loadGame(run.snapshot);
+    else this.startNewGame(run.archetype);
+  }
+
+  private acknowledgeSettlement(): void {
+    if (!this.envelope?.pendingSettlement) return;
+    const candidate = RunManager.acknowledge(this.envelope);
+    this.commitEnvelope(candidate, () => this.showCamp());
+  }
+
+  private exportLegacyArchive(): void {
+    if (this.envelope?.legacyArchive) SaveManager.exportLegacy(this.saveSlot);
+  }
+
+  private newProfileId(): string {
+    return `profile-${this.newRunId()}`;
+  }
+
+  private newRunId(): string {
+    return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${++this.runIdCounter}`;
+  }
+
+  private commitEnvelope(
+    candidate: SaveEnvelopeV3,
+    onSuccess: () => void,
+    onFailure?: (message: string) => void,
+  ): boolean {
+    if (this.failedSaveCandidate && this.failedSaveCandidate !== candidate) return false;
+    const result = SaveManager.saveEnvelope(candidate, this.saveSlot);
+    if (result.ok) {
+      this.envelope = candidate;
+      this.failedSaveCandidate = null;
+      this.retryAfterSave = null;
+      onSuccess();
+      return true;
+    }
+    this.failedSaveCandidate = candidate;
+    this.retryAfterSave = onSuccess;
+    this.input.reset();
+    this.attackBuffer = 0;
+    if (this.running) this.paused = true;
+    if (onFailure) onFailure(result.error);
+    else this.showSaveRetry(result.error);
+    return false;
+  }
+
+  private retryFailedSave(): void {
+    const candidate = this.failedSaveCandidate;
+    const onSuccess = this.retryAfterSave;
+    if (!candidate || !onSuccess) return;
+    const result = SaveManager.saveEnvelope(candidate, this.saveSlot);
+    if (!result.ok) {
+      if (candidate.pendingSettlement) this.showSettlement(candidate.pendingSettlement, false, result.error);
+      else this.showSaveRetry(result.error);
+      return;
+    }
+    this.envelope = candidate;
+    this.failedSaveCandidate = null;
+    this.retryAfterSave = null;
+    onSuccess();
+  }
+
+  private showSaveRetry(message: string): void {
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
+    overlay.style.zIndex = '320';
+    if (document.pointerLockElement) document.exitPointerLock();
+    const title = document.createElement('h2');
+    title.textContent = '保存失败';
+    const detail = document.createElement('p');
+    detail.setAttribute('role', 'alert');
+    detail.textContent = `${message}。当前进度尚未保存，保存成功前不能离开或开始新局。`;
+    const retry = this.makeMenuButton('重试保存');
+    retry.onclick = () => this.retryFailedSave();
+    panel.append(title, detail, retry);
+    overlay.append(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.append(overlay);
+    this.setStartMenuBackHandler(null);
+  }
+
+  private createStartMenuShell(): { overlay: HTMLDivElement; panel: HTMLDivElement } {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(20,28,42,0.88), rgba(5,7,12,0.96));pointer-events:auto;z-index:200;padding:12px;box-sizing:border-box';
+
+    const panel = document.createElement('div');
+    panel.className = 'panel mobile-scroll';
+    panel.style.cssText = 'text-align:center;width:min(620px, 100%);max-height:calc(100dvh - 24px);overflow-y:auto;box-sizing:border-box;padding:clamp(16px, 4vw, 28px)';
+    return { overlay, panel };
+  }
+
+  private setStartMenuBackHandler(handler: (() => void) | null): void {
+    if (this.startMenuKeyHandler) document.removeEventListener('keydown', this.startMenuKeyHandler, true);
+    this.startMenuKeyHandler = null;
+    this.mobileBack.unregister('startMenu');
+    if (!handler) return;
+
+    this.startMenuKeyHandler = (event: KeyboardEvent) => {
+      if (event.code !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      handler();
+    };
+    document.addEventListener('keydown', this.startMenuKeyHandler, true);
+    this.mobileBack.register('startMenu', handler);
   }
 
   private makeMenuButton(label: string): HTMLButtonElement {
@@ -331,6 +657,7 @@ export class Game {
     button.style.display = 'block';
     button.style.margin = '18px auto 0';
     button.style.minWidth = '220px';
+    button.style.minHeight = '44px';
     button.style.padding = '12px 24px';
     button.style.fontSize = '18px';
     button.style.fontFamily = 'inherit';
@@ -339,6 +666,7 @@ export class Game {
     button.style.border = '1px solid #6fa9d8';
     button.style.borderRadius = '4px';
     button.style.cursor = 'pointer';
+    button.style.touchAction = 'manipulation';
     button.onmouseenter = () => {
       button.style.background = '#3b78ad';
     };
@@ -389,18 +717,18 @@ export class Game {
   }
 
   private removeStartMenu(): void {
+    this.setStartMenuBackHandler(null);
     this.startOverlay?.remove();
     this.startOverlay = null;
   }
 
-  private startNewGame(): void {
-    SaveManager.clear(this.saveSlot);
-    this.builds.restore();
+  private startNewGame(archetype: ArchetypeId): void {
+    this.builds.restore({ [archetype]: 1 });
     this.pendingResume = null;
     this.player.alive = true;
     this.player.statuses = [];
     this.floor = 1;
-    this.seed = Math.floor(Math.random() * 0xffffffff);
+    this.seed = this.envelope?.activeRun?.seed ?? this.seed;
     this.gold = 0;
     this.materials = 0;
     this.materialCounts = {};
@@ -415,7 +743,7 @@ export class Game {
     this.kills = 0;
     this.bonusAttributes = {};
     this.inventory.items = [];
-    this.equipment.equipment = {};
+    this.equipment.equipment = { weapon: starterWeapon(archetype) };
     this.player.level = 1;
     this.player.xp = 0;
     this.player.attributePoints = 0;
@@ -425,6 +753,23 @@ export class Game {
     this.controller.setFirstPerson(false);
     this.player.health = 9999;
     this.player.mana = 9999;
+    this.player.shield = 0;
+    this.player.invulnerable = 0;
+    this.player.velocity.set(0, 0, 0);
+    this.attackTimer = 0;
+    this.attackBuffer = 0;
+    this.attackAnimTimer = 0;
+    this.hitstopTimer = 0;
+    this.deathTimer = 0;
+    this.comboCount = 0;
+    this.comboTimer = 0;
+    this.lowHealthShieldCooldown = 0;
+    this.elapsed = 0;
+    this.saveTimer = 0;
+    this.upgradeCount = 0;
+    this.input.reset();
+    this.clearEntities();
+    this.startPlaytestSession('new');
     this.beginRun();
   }
 
@@ -458,11 +803,30 @@ export class Game {
     this.talentPoints = save.player.talentPoints ?? 0;
     this.unlockedTalents = new Set(save.player.unlockedTalents ?? []);
     this.skills = this.buildSkillStates();
+    const runtime = save.runtime;
+    this.skills.forEach((skill) => {
+      skill.cooldownRemaining = Math.max(0, runtime?.skillCooldowns?.[skill.id] ?? 0);
+    });
     this.controller.setFirstPerson(Boolean(save.player.firstPerson));
     this.bonusAttributes = { ...(save.player.stats ?? {}) };
     this.player.health = save.player.health;
     this.player.mana = save.player.mana;
     this.player.statuses = Array.isArray(save.playerStatuses) ? [...save.playerStatuses] : [];
+    this.player.shield = Math.max(0, runtime?.shield ?? 0);
+    this.player.invulnerable = Math.max(0, runtime?.invulnerable ?? 0);
+    this.upgradeCount = this.envelope?.activeRun?.upgradeCount ?? 0;
+    this.attackTimer = Math.max(0, runtime?.attackTimer ?? 0);
+    this.attackBuffer = 0;
+    this.attackAnimTimer = 0;
+    this.hitstopTimer = 0;
+    this.deathTimer = 0;
+    this.comboCount = Math.max(0, Math.floor(runtime?.comboCount ?? 0));
+    this.comboTimer = Math.max(0, runtime?.comboTimer ?? 0);
+    this.lowHealthShieldCooldown = Math.max(0, runtime?.lowHealthShieldCooldown ?? 0);
+    this.elapsed = Math.max(0, runtime?.elapsed ?? 0);
+    this.saveTimer = 0;
+    this.input.reset();
+    this.startPlaytestSession('continue');
     this.beginRun();
   }
 
@@ -476,6 +840,7 @@ export class Game {
     this.skillOverlay?.remove();
     this.skillOverlay = null;
     this.skillPanel = null;
+    this.removeStartMenu();
     this.removePauseMenu();
     this.removeFloorRestMenu();
     this.closeAttributeAllocation();
@@ -486,9 +851,10 @@ export class Game {
     this.pendingPortalActive = null;
     this.updatePlayerStats(this.effectiveStats());
     this.updateWeaponVisual();
-    this.player.health = Math.min(this.player.maxHealth, this.player.health || this.player.maxHealth);
-    this.player.mana = Math.min(this.player.maxMana, this.player.mana || this.player.maxMana);
-    this.saveGame();
+    this.player.health = Math.min(this.player.maxHealth, this.player.health);
+    this.player.mana = Math.min(this.player.maxMana, this.player.mana);
+    this.recordResourceSnapshot('session_ready');
+    if (!this.saveGame()) return;
     this.hud.showCenterMessage(`第 ${this.floor} 层`, this.floorData?.theme.name ?? '', 3);
     this.requestPointerLock();
   }
@@ -497,6 +863,13 @@ export class Game {
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
     const data = generateFloor(this.currentFloorSeed, this.floor);
     this.floorData = data;
+    this.playtestRecorder.record('floor_entered', {
+      floor: this.floor,
+      floorSeed: data.seed,
+      runSeed: this.seed,
+      resumed: Boolean(resume?.floorProgress),
+      theme: data.theme.id,
+    });
     this.encounters = new EncounterDirector(data, resume?.floorProgress);
     this.hudTimer = 0;
     this.world.generate(data);
@@ -513,7 +886,25 @@ export class Game {
     this.openedChests.clear();
     this.portalActive = false;
     this.clearEntities();
-    if (resume?.floorProgress && savedMonsters) this.restoreMonsters(savedMonsters);
+    if (resume?.floorProgress && savedMonsters) {
+      this.restoreMonsters(savedMonsters);
+      const resumedRooms = new Map<string, number>();
+      this.monsters.forEach(monster => {
+        if (monster.roomId) resumedRooms.set(monster.roomId, (resumedRooms.get(monster.roomId) ?? 0) + 1);
+      });
+      resumedRooms.forEach((monsterCount, encounterId) => {
+        const room = data.rooms.find(candidate => candidate.id === encounterId);
+        this.playtestRecorder.record('encounter_started', {
+          floor: this.floor,
+          floorSeed: this.currentFloorSeed,
+          encounterId,
+          kind: room?.kind ?? 'unknown',
+          required: Boolean(room?.required),
+          monsterCount,
+          resumed: true,
+        });
+      });
+    }
     this.portalActive = this.encounters.portalReady;
     for (const key of resume?.openedChests ?? []) {
       this.openedChests.add(key);
@@ -526,36 +917,88 @@ export class Game {
       this.controller.resetView(data);
     }
     this.world.setPortalActive(this.portalActive);
-    this.saveGame();
   }
 
-  private updateEncounters(): void {
-    if (!this.encounters || !this.floorData) return;
+  private updateEncounters(): boolean {
+    if (!this.encounters || !this.floorData) return false;
+    if (this.floor === BASIC_RUN_DEFINITION.floorCount && this.envelope?.activeRun && hasVictoryObjectives(this.envelope.activeRun)) {
+      this.finishRun('victory');
+      return true;
+    }
     const room = this.encounters.enter(this.player.position.x, this.player.position.z);
     if (room) {
       const wave = MonsterSpawner.spawnEncounter(this.floorData, room, this.player.position,
         new RNG(this.currentFloorSeed ^ Number(room.id!.split('-')[1]) * 7919));
       this.monsters.push(...wave);
       wave.forEach(monster => this.scene.add(monster.group));
+      this.playtestRecorder.record('encounter_started', {
+        floor: this.floor,
+        floorSeed: this.currentFloorSeed,
+        encounterId: room.id ?? 'unknown',
+        kind: room.kind ?? 'unknown',
+        required: Boolean(room.required),
+        monsterCount: wave.length,
+      });
       this.hud.showCenterMessage(ROOM_LABELS[room.kind!], room.required ? '主线目标 · 清除本房守卫' : '可选挑战 · 清除后获得额外装备', 1.5);
     }
-    for (const cleared of this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)))) {
-      this.gold += cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
+    const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
+    for (const cleared of completedRooms) {
+      const rewardGold = cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
+      this.changeGold(rewardGold, 'encounter_reward', { encounterId: cleared.id ?? 'unknown', kind: cleared.kind ?? 'unknown' });
       this.player.heal(this.player.maxHealth * 0.08);
       if (cleared.kind === 'elite') {
         const item = ItemGenerator.generate(this.floor, new RNG(this.currentFloorSeed ^ Number(cleared.id!.split('-')[1]) * 31337), this.player.level, 'rare');
-        if (!this.inventory.add(item)) this.spawnDrop(this.player.position, { kind: 'item', item });
+        if (this.inventory.add(item)) this.recordItemAcquired(item, 'elite_encounter_reward');
+        else this.spawnDrop(this.player.position, { kind: 'item', item });
+      }
+      this.playtestRecorder.record('encounter_completed', {
+        floor: this.floor,
+        floorSeed: this.currentFloorSeed,
+        encounterId: cleared.id ?? 'unknown',
+        kind: cleared.kind ?? 'unknown',
+        required: Boolean(cleared.required),
+        goldReward: rewardGold,
+      });
+      if (cleared.required && cleared.id && this.envelope?.activeRun) {
+        RunManager.completeObjective(this.envelope.activeRun, `${this.floor}-${cleared.id}`, this.investmentSample());
       }
       this.hud.showCenterMessage('房间已清理', cleared.required ? '主线推进 · 可继续前进' : '获得额外金币与奖励', 1.4);
-      this.saveGame();
     }
+    if (this.floor === BASIC_RUN_DEFINITION.floorCount && this.envelope?.activeRun && hasVictoryObjectives(this.envelope.activeRun)) {
+      this.finishRun('victory');
+      return true;
+    }
+    if (completedRooms.length && !this.saveGame()) return true;
     if (this.encounters.portalReady && !this.portalActive) {
       this.portalActive = true;
       this.world.setPortalActive(true);
       this.audio.portal();
       this.hud.showCenterMessage('出口已开启', '主线完成，可选房间无需全部清理', 2.5);
-      this.saveGame();
+      if (!this.saveGame()) return true;
+      if (this.envelope?.activeRun && canExtract(this.envelope.activeRun)) {
+        this.showFloorRestMenu();
+        return true;
+      }
     }
+    return false;
+  }
+
+  private investmentSample() {
+    return {
+      level: this.player.level,
+      equipmentLevelTotal: this.equipment.getEquippedItems().reduce((sum, item) => sum + item.itemLevel, 0),
+      upgradeCount: this.upgradeCount,
+    };
+  }
+
+  private observeCombatInvestment(): void {
+    const run = this.envelope?.activeRun;
+    if (!run || !this.floorData) return;
+    const requiredRooms = new Set(this.floorData.rooms.filter(room => room.required).map(room => room.id));
+    const encounterIds = this.monsters
+      .filter(monster => !monster.dead && monster.roomId && requiredRooms.has(monster.roomId))
+      .map(monster => `${this.floor}-${monster.roomId}`);
+    if (encounterIds.length) RunManager.observe(run, this.investmentSample(), encounterIds);
   }
 
   private restoreMonsters(savedMonsters: SavedMonster[]): void {
@@ -624,11 +1067,22 @@ export class Game {
   }
 
   private requestPointerLock(): void {
-    if (!this.mobile) this.input.requestPointerLock(this.renderer.domElement);
+    if (!document.hidden && !this.mobile && this.running && !this.paused
+      && !this.failedSaveCandidate && !this.isGameplayPaused()) {
+      this.input.requestPointerLock(this.renderer.domElement);
+    }
   }
 
   private animate = (now: number): void => {
     requestAnimationFrame(this.animate);
+    const playtestFrameSeconds = Math.max(0, (now - this.lastPlaytestFrameTime) / 1000);
+    this.lastPlaytestFrameTime = now;
+    if (document.hidden) {
+      this.skipPlaytestFrameTime = true;
+    } else if (this.running) {
+      if (this.skipPlaytestFrameTime) this.skipPlaytestFrameTime = false;
+      else this.playtestRecorder.tick(playtestFrameSeconds, this.playtestPhase());
+    }
     const dt = Math.min(0.05, (now - this.lastTime) / 1000);
     this.lastTime = now;
     if (this.running) this.updateGame(dt);
@@ -638,13 +1092,23 @@ export class Game {
   };
 
   private updateGame(rawDt: number): void {
-    if (this.paused || this.restOpen || this.attributeOpen) {
-      if (this.restOpen && this.input.wasPressed('Escape')) {
-        if (this.sellOverlay) this.closeSellOverlay();
-        else if (this.craftOverlay) this.closeCraftOverlay();
-        else this.closeFloorRest();
+    if (this.isGameplayPaused()) {
+      if (!this.failedSaveCandidate) {
+        if (this.input.wasPressed('Escape')) {
+          if (this.craftOverlay) this.closeCraftOverlay();
+          else if (this.sellOverlay) this.closeSellOverlay();
+          else if (this.attributeOpen) this.closeAttributeAllocation();
+          else if (this.skillOpen) this.closeSkillBar();
+          else if (this.restOpen) this.closeFloorRest();
+          else if (this.paused) this.resumeGame();
+          else if (this.inventoryUI.open) this.toggleInventory();
+        } else if (this.skillOpen && this.input.wasPressed('KeyK')) {
+          this.closeSkillBar();
+        } else if (this.inventoryUI.open && !this.craftOverlay && !this.sellOverlay && !this.attributeOpen
+          && (this.input.wasPressed('Tab') || this.input.wasPressed('KeyB'))) {
+          this.toggleInventory();
+        }
       }
-      if (this.paused && this.input.wasPressed('Escape')) this.resumeGame();
       this.audio.stopWalk();
       this.hud.update(rawDt);
       return;
@@ -693,7 +1157,11 @@ export class Game {
         if (this.input.wasPressed('Space') && wasGrounded) this.audio.jump();
       }
       this.handleInput(dt, stats);
+      if (this.isGameplayPaused()) return;
+      const aliveBeforePlayerUpdate = this.player.alive;
       this.player.update(rawDt, this.elapsed);
+      this.recordDeathTransition(aliveBeforePlayerUpdate, 'status_damage');
+      if (!this.running) return;
       this.firstPersonView.update(rawDt, this.player.moving, this.player.sprinting);
       if (this.player.alive && this.player.moving && this.player.onGround && !this.inventoryUI.open && !this.skillOpen) {
         this.audio.startWalk();
@@ -706,18 +1174,15 @@ export class Game {
         this.player.swingArm(progress);
         this.firstPersonView.swing(progress);
       }
-    } else {
-      this.audio.stopWalk();
-      this.deathTimer -= rawDt;
-      if (this.deathTimer <= 0) {
-        this.respawnAfterDeath();
-      }
-    }
+    } else this.audio.stopWalk();
 
     if (this.player.alive && !this.inventoryUI.open && !this.skillOpen) {
-      this.updateEncounters();
+      if (this.updateEncounters()) return;
+      this.observeCombatInvestment();
       this.updateMonsters(dt);
+      if (this.isGameplayPaused()) return;
       this.updateProjectiles(dt);
+      if (this.isGameplayPaused()) return;
       this.updateDrops(dt, stats);
       this.updateSkills(rawDt);
       this.updateSummons(dt);
@@ -747,6 +1212,11 @@ export class Game {
       this.saveTimer = 0;
       this.saveGame();
     }
+  }
+
+  private isGameplayPaused(): boolean {
+    return this.paused || this.restOpen || this.attributeOpen || this.skillOpen || this.inventoryUI.open
+      || this.sellOverlay !== null || this.craftOverlay !== null || this.failedSaveCandidate !== null || !this.running;
   }
 
   private handleInput(dt: number, stats: DerivedStats): void {
@@ -784,6 +1254,7 @@ export class Game {
     if ((this.input.isMouseDown(0) || this.attackBuffer > 0) && this.attackTimer <= 0) {
       this.doBasicAttack(stats);
       this.attackBuffer = 0;
+      if (this.isGameplayPaused()) return;
     }
 
     this.skills.forEach((skill) => {
@@ -798,6 +1269,7 @@ export class Game {
   }
 
   private toggleInventory(): void {
+    if (!this.inventoryUI.open && this.isGameplayPaused()) return;
     this.inventoryUI.playerLevel = this.player.level;
     this.inventoryUI.attributePoints = this.player.attributePoints;
     this.inventoryUI.materialText = this.materialStatusText();
@@ -828,6 +1300,7 @@ export class Game {
   }
 
   private togglePause(): void {
+    if (this.failedSaveCandidate || !this.running) return;
     if (this.paused) {
       this.resumeGame();
     } else {
@@ -848,7 +1321,7 @@ export class Game {
   }
 
   private resumeGame(): void {
-    if (!this.paused) return;
+    if (!this.paused || !this.running || this.failedSaveCandidate) return;
     this.paused = false;
     this.removePauseMenu();
     this.lastTime = performance.now();
@@ -881,9 +1354,24 @@ export class Game {
     title.style.color = '#fff';
     panel.appendChild(title);
 
+    const seedInfo = document.createElement('div');
+    seedInfo.textContent = `本局种子 ${this.seed}（地图/遭遇可复现，掉落不保证一致）`;
+    seedInfo.style.cssText = 'margin-top:8px;color:#8fa3bc;font-size:12px;line-height:1.5';
+    panel.appendChild(seedInfo);
+
     const continueBtn = this.makeMenuButton('继续游戏');
     continueBtn.onclick = () => this.resumeGame();
     panel.appendChild(continueBtn);
+    const exportBtn = this.makeMenuButton('导出试玩记录');
+    exportBtn.onclick = () => {
+      this.recordResourceSnapshot('export');
+      this.playtestRecorder.download();
+    };
+    panel.appendChild(exportBtn);
+    const exportHelp = document.createElement('div');
+    exportHelp.textContent = '记录仅保存在内存，最多 2000 条事件；不会上传，刷新页面会清空。';
+    exportHelp.style.cssText = 'margin-top:8px;color:#8fa3bc;font-size:12px;line-height:1.5';
+    panel.appendChild(exportHelp);
     const exitBtn = this.makeMenuButton('返回主菜单');
     exitBtn.onclick = () => this.exitToMainMenu();
     panel.appendChild(exitBtn);
@@ -984,7 +1472,7 @@ export class Game {
   }
 
   private exitToMainMenu(): void {
-    this.saveGame();
+    if (!this.saveGame()) return;
     this.paused = false;
     this.removePauseMenu();
     this.running = false;
@@ -1022,17 +1510,27 @@ export class Game {
         sellMaterial: id => {
           if (!this.shopOpen || this.materialCount(id) < 1) return;
           this.materialCounts[id] = this.materialCount(id) - 1;
-          this.gold += ShopSystem.materialPrice(id, this.floor);
+          const price = ShopSystem.materialPrice(id, this.floor);
+          this.changeGold(price, 'shop_sell_material', { materialId: id, amountSold: 1 });
+          this.playtestRecorder.record('shop_transaction', { action: 'sell_material', materialId: id, quantity: 1, goldAmount: price, floor: this.floor });
           this.saveGame();
           this.showShopMenu('材料已出售');
         },
       }));
     } else {
+      const run = this.envelope?.activeRun;
+      if (run && canExtract(run)) {
+        const checkpoint = document.createElement('p');
+        checkpoint.textContent = `阶段 Boss 已击败。现在提前结算可获得 ${extractionResearchXp(run)} 研究经验；继续深入可争取完整通关奖励。进入下一层后，要到下一场 Boss 战后才能再次提前结算。`;
+        panel.appendChild(checkpoint);
+        const extract = this.makeMenuButton('提前结算，返回营地');
+        extract.onclick = () => this.confirmExtraction();
+        panel.appendChild(extract);
+      }
       panel.appendChild(buildChoices(this.builds, this.floor, () => {
-        this.saveGame();
-        this.showFloorRestMenu();
+        if (this.saveGame()) this.showFloorRestMenu();
       }));
-      const next = this.makeMenuButton(this.builds.canChoose(this.floor) ? '先选择本层专精' : '进入下一层');
+      const next = this.makeMenuButton(this.builds.canChoose(this.floor) ? '先选择本层专精' : `继续深入 · 第 ${this.floor + 1} 层`);
       next.disabled = this.builds.canChoose(this.floor);
       next.onclick = () => {
         if (this.builds.canChoose(this.floor)) return;
@@ -1070,13 +1568,25 @@ export class Game {
     if (panel) panel.scrollTop = scrollTop;
   }
 
+  private confirmExtraction(): void {
+    const run = this.envelope?.activeRun;
+    if (!run || !canExtract(run) || this.failedSaveCandidate) return;
+    this.showCraftOverlay('确认提前结算',
+      `在第 ${this.floor} 层结束本局，获得 ${extractionResearchXp(run)} 研究经验。<br>这是阶段撤离，不算完整通关。装备、金币和材料不会带出。`,
+      () => {
+        if (this.envelope?.activeRun && canExtract(this.envelope.activeRun)) this.finishRun('extracted');
+      });
+  }
+
   private buyShopItem(uid: string): void {
     if (!this.shopOpen) return;
     const index = this.shopStock.findIndex(entry => entry.uid === uid);
     const entry = this.shopStock[index];
     if (!entry || this.gold < entry.price || !this.inventory.hasSpace()) return;
     this.inventory.add(entry.item);
-    this.gold -= entry.price;
+    this.recordItemAcquired(entry.item, 'shop_purchase');
+    this.changeGold(-entry.price, 'shop_purchase', { itemId: entry.item.id, itemName: entry.item.name });
+    this.playtestRecorder.record('shop_transaction', { action: 'buy_item', itemId: entry.item.id, itemName: entry.item.name, goldAmount: -entry.price, floor: this.floor });
     this.shopStock.splice(index, 1);
     this.audio.coin();
     this.saveGame();
@@ -1086,7 +1596,8 @@ export class Game {
   private refreshShop(): void {
     const price = ShopSystem.refreshPrice(this.floor, this.shopRefreshes);
     if (!this.shopOpen || this.shopRefreshes >= 3 || this.gold < price) return;
-    this.gold -= price;
+    this.changeGold(-price, 'shop_refresh');
+    this.playtestRecorder.record('shop_transaction', { action: 'refresh', goldAmount: -price, floor: this.floor });
     this.shopRefreshes++;
     this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, 4,
       new RNG((this.seed ^ (this.floor * 4099) ^ (this.shopRefreshes * 65537)) >>> 0));
@@ -1101,7 +1612,9 @@ export class Game {
     const item = ShopSystem.gamble(this.floor, this.player.level, slot,
       new RNG((this.seed ^ (this.floor * 8191) ^ ((this.shopGambles + 1) * 104729)) >>> 0));
     this.inventory.add(item);
-    this.gold -= price;
+    this.recordItemAcquired(item, 'shop_gamble');
+    this.changeGold(-price, 'shop_gamble', { itemId: item.id, itemName: item.name, slot });
+    this.playtestRecorder.record('shop_transaction', { action: 'gamble', itemId: item.id, itemName: item.name, slot, goldAmount: -price, floor: this.floor });
     this.shopGambles++;
     this.audio.pickup();
     this.saveGame();
@@ -1112,7 +1625,8 @@ export class Game {
     const price = ShopSystem.healPrice(this.floor);
     if (!this.shopOpen || this.shopHeals >= 2 || this.gold < price
       || (this.player.health >= this.player.maxHealth && this.player.mana >= this.player.maxMana)) return;
-    this.gold -= price;
+    this.changeGold(-price, 'shop_heal');
+    this.playtestRecorder.record('shop_transaction', { action: 'heal', goldAmount: -price, floor: this.floor });
     this.shopHeals++;
     this.player.heal(this.player.maxHealth * .4);
     this.player.addMana(this.player.maxMana * .4);
@@ -1370,7 +1884,7 @@ export class Game {
 
   private toggleSkillBar(): void {
     if (this.skillOpen) this.closeSkillBar();
-    else this.showSkillBar();
+    else if (!this.isGameplayPaused()) this.showSkillBar();
   }
 
   private showSkillBar(): void {
@@ -1502,7 +2016,7 @@ export class Game {
     this.skillOverlay?.remove();
     this.skillOverlay = null;
     this.skillPanel = null;
-    this.requestPointerLock();
+    if (this.running && !this.paused) this.requestPointerLock();
   }
 
   private doBasicAttack(stats: DerivedStats): void {
@@ -1840,6 +2354,7 @@ export class Game {
   private updateMonsters(dt: number): void {
     if (!this.floorData) return;
     for (let i = this.monsters.length - 1; i >= 0; i--) {
+      if (this.isGameplayPaused()) return;
       const monster = this.monsters[i];
       if (monster.dead) {
         monster.update(dt, this.elapsed);
@@ -1854,7 +2369,7 @@ export class Game {
       const wasAliveBeforeUpdate = !monster.dead;
       if (monster.def.behavior === 'boss') {
         const host: BossHost = {
-          damagePlayer: (amount, element, statusChance) => this.damagePlayerWithElement(amount, element, statusChance),
+          damagePlayer: (amount, element, statusChance) => this.damagePlayerWithElement(amount, element, statusChance, 'boss_skill'),
           summonMinion: (position) => this.spawnBossMinion(position),
           showMessage: (title, subtitle) => this.hud.showCenterMessage(title, subtitle, 1.8),
         };
@@ -1873,6 +2388,7 @@ export class Game {
       this.keepMonsterInBounds(monster);
       if (wasAliveBeforeUpdate && monster.dead) {
         this.onMonsterKilled(monster, false);
+        if (this.isGameplayPaused()) return;
       }
 
       const dx = this.player.position.x - monster.position.x;
@@ -1881,8 +2397,11 @@ export class Game {
 
       if (MonsterAI.shouldDealMelee(monster) && distance <= monster.def.attackRange + 0.5) {
         const damage = Math.max(1, MonsterSpawner.baseAttack(monster, this.floor));
+        const wasAlive = this.player.alive;
         this.player.takeDamage(damage);
         applyElementalHit(this.player, monster.def.element ?? 'physical', damage, monster.def.statusChance);
+        this.recordDeathTransition(wasAlive, 'monster_melee', damage);
+        if (this.isGameplayPaused()) return;
         this.audio.hurt();
         this.controller.addShake(0.16);
         this.hud.showCenterMessage('受到攻击', '', 0.35);
@@ -1943,9 +2462,13 @@ export class Game {
     this.audio.shoot();
   }
 
-  private damagePlayerWithElement(amount: number, element: ElementType, statusChance?: number): void {
-    this.player.takeDamage(Math.max(1, Math.round(amount)));
+  private damagePlayerWithElement(amount: number, element: ElementType, statusChance?: number, cause = 'unknown'): void {
+    if (!this.running || !this.player.alive) return;
+    const damage = Math.max(1, Math.round(amount));
+    const wasAlive = this.player.alive;
+    this.player.takeDamage(damage);
     applyElementalHit(this.player, element, amount, statusChance);
+    this.recordDeathTransition(wasAlive, cause, damage);
     this.audio.hurt();
     this.controller.addShake(0.16);
     this.hud.showCenterMessage('受到攻击', '', 0.35);
@@ -1967,6 +2490,7 @@ export class Game {
   private updateProjectiles(dt: number): void {
     if (dt <= 0) return;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      if (this.isGameplayPaused()) return;
       const projectile = this.projectiles[i];
       const { hitWall, hitMonster, hitPlayer, expired } = stepProjectile(projectile,dt,this.floorData,this.monsters,this.player);
       projectile.mesh.position.copy(projectile.position);
@@ -1977,6 +2501,7 @@ export class Game {
         const raw = projectile.damage * (crit ? 1.5 : 1);
         const damage = elementalDamage(raw, element, hitMonster.def.resistances, hitMonster.statuses);
         this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7);
+        if (this.isGameplayPaused()) return;
         applyElementalHit(hitMonster, element, projectile.damage, projectile.statusChance, hitMonster.def.immunities);
         if (element === 'fire' && this.builds.rank('arcanist') > 0) {
           const rank = this.builds.rank('arcanist');
@@ -1992,8 +2517,11 @@ export class Game {
           }
         }
       } else if (hitPlayer) {
+        const wasAlive = this.player.alive;
         this.player.takeDamage(projectile.damage);
         applyElementalHit(this.player, projectile.element ?? 'physical', projectile.damage, projectile.statusChance);
+        this.recordDeathTransition(wasAlive, 'enemy_projectile', projectile.damage);
+        if (this.isGameplayPaused()) return;
         this.audio.hurt();
         this.controller.addShake(0.14);
       }
@@ -2041,7 +2569,7 @@ export class Game {
     }
 
     if (this.player.position.distanceTo(projectile.position) < 1.8) {
-      this.damagePlayerWithElement(Math.max(1, Math.round(projectile.damage * 0.6)), element, projectile.statusChance);
+      this.damagePlayerWithElement(Math.max(1, Math.round(projectile.damage * 0.6)), element, projectile.statusChance, 'enemy_projectile_aoe');
     }
   }
 
@@ -2087,7 +2615,7 @@ export class Game {
     }
 
     if (monster.elite) {
-      this.gold += 8 + this.floor * 3;
+      this.changeGold(8 + this.floor * 3, 'elite_kill', { monsterId: monster.def.id });
       if (monster.eliteModifiers.includes('fireEnchanted')) {
         this.effects.explosion(monster.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff6a00);
         const nearby = this.monsters.filter(
@@ -2172,7 +2700,12 @@ export class Game {
     if (leveled) {
       this.updatePlayerStats(this.effectiveStats());
       this.hud.showCenterMessage('升级！', `达到 Lv.${this.player.level}，获得 ${this.player.attributePoints} 点属性`, 2.2);
-      this.showAttributeAllocation();
+      // The final kill may also level the player. Do not pause the pending win
+      // behind an allocation panel when every final-floor objective is defeated.
+      const finalClear = this.floor % 5 === 0 && this.floorData?.rooms.filter(room => room.required).every(room =>
+        room.id && this.encounters?.state.started.includes(room.id)
+        && !this.monsters.some(monster => !monster.dead && monster.roomId === room.id));
+      if (!finalClear) this.showAttributeAllocation();
     }
   }
 
@@ -2242,7 +2775,7 @@ export class Game {
 
   private pickupDrop(drop: DropEntity): boolean {
     if (drop.kind === 'gold') {
-      this.gold += drop.amount ?? 0;
+      this.changeGold(drop.amount ?? 0, 'loot_pickup');
       this.audio.coin();
       return true;
     } else if (drop.kind === 'health') {
@@ -2264,6 +2797,7 @@ export class Game {
       return true;
     } else if (drop.kind === 'item' && drop.item) {
       if (this.inventory.add(drop.item)) {
+        this.recordItemAcquired(drop.item, 'loot_pickup');
         this.audio.pickup();
         this.hud.showLootMessage(`获得 ${drop.item.name}`, this.rarityColor(drop.item.rarity));
         return true;
@@ -2290,7 +2824,7 @@ export class Game {
   }
 
   private tryInteract(): boolean {
-    if (!this.floorData) return false;
+    if (!this.floorData || this.isGameplayPaused() || !this.player.alive) return false;
     if (this.interactionLabel() === '进入商店') {
       this.showShopMenu();
       return true;
@@ -2327,8 +2861,9 @@ export class Game {
         this.world.removeChest(chest.x, chest.z);
         const item = ItemGenerator.generate(this.floor, undefined, this.player.level);
         const gold = 10 + this.floor * 3;
-        this.gold += gold;
+        this.changeGold(gold, 'chest', { chest: key });
         if (this.inventory.add(item)) {
+          this.recordItemAcquired(item, 'chest');
           this.audio.pickup();
           this.hud.showLootMessage(`宝箱：${item.name} + ${gold} 金币`, this.rarityColor(item.rarity));
         } else {
@@ -2343,6 +2878,10 @@ export class Game {
   }
 
   private advanceFloor(): void {
+    if (this.floor >= BASIC_RUN_DEFINITION.floorCount) {
+      this.finishRun('victory');
+      return;
+    }
     this.floor++;
     this.player.heal(this.player.maxHealth * 0.25);
     this.player.addMana(this.player.maxMana * 0.5);
@@ -2352,16 +2891,51 @@ export class Game {
     this.saveGame();
   }
 
-  private respawnAfterDeath(): void {
-    const lostGold = Math.floor(this.gold * 0.1);
-    this.gold -= lostGold;
-    this.player.alive = true;
-    this.player.health = this.player.maxHealth;
-    this.player.mana = this.player.maxMana;
-    this.deathTimer = 0;
-    this.generateCurrentFloor();
-    this.hud.showCenterMessage('重新站起', `损失 ${lostGold} 金币`, 2.2);
-    this.requestPointerLock();
+  private finishRun(outcome: RunOutcome): void {
+    const envelope = this.envelope;
+    if (!envelope?.activeRun || this.failedSaveCandidate) return;
+    const base = structuredClone(envelope);
+    if (!base.activeRun) return;
+    if (this.running) {
+      base.activeRun.snapshot = this.captureRunSnapshot();
+      base.activeRun.maxLevel = Math.max(base.activeRun.maxLevel, this.player.level);
+      base.activeRun.upgradeCount = Math.max(base.activeRun.upgradeCount, this.upgradeCount);
+    }
+    base.revision += 1;
+    const candidate = RunManager.finish(base, outcome, Date.now());
+    const record = candidate.pendingSettlement;
+    if (!record) return;
+    this.running = false;
+    this.paused = true;
+    this.input.reset();
+    this.attackBuffer = 0;
+    this.player.moving = false;
+    this.player.sprinting = false;
+    this.audio.stopWalk();
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.inventoryUI.close(false);
+    this.closeSellOverlay();
+    this.closeCraftOverlay();
+    this.removePauseMenu();
+    this.removeFloorRestMenu();
+    this.closeAttributeAllocation();
+    this.closeSkillBar();
+    this.mobileBack.clear();
+    const saved = this.commitEnvelope(
+      candidate,
+      () => this.showSettlement(record, true),
+      (error) => this.showSettlement(record, false, error),
+    );
+    this.playtestRecorder.record('run_settled', {
+      runId: record.runId,
+      outcome: record.outcome,
+      floor: record.finalFloor,
+      level: record.finalLevel,
+      completedObjectives: record.completedObjectives,
+      totalXp: record.totalXp,
+      pointsEarned: record.pointsEarned,
+      saved,
+    });
   }
 
   private getTargetsInFront(aim: THREE.Vector3, range: number, halfAngle: number): Monster[] {
@@ -2442,6 +3016,108 @@ export class Game {
 
   private effectiveStats(): DerivedStats {
     return this.equipment.getDerivedStats(this.bonusAttributes);
+  }
+
+  private newGameSeed(): number {
+    const value = new URL(window.location.href).searchParams.get('seed');
+    if (value !== null && /^\d+$/.test(value)) {
+      const parsed = Number(value);
+      if (Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= 0xffffffff) return parsed >>> 0;
+    }
+    return Math.floor(Math.random() * 0xffffffff);
+  }
+
+  private startPlaytestSession(mode: 'new' | 'continue'): void {
+    this.playtestRecorder.startSession({
+      baseline: 'f947e70',
+      mode,
+      partialSession: true,
+      scopeNote: 'A playtest session from new/continue selection; it is not necessarily a complete run.',
+      timingBasis: 'foregroundRafSeconds',
+      seed: this.seed,
+      saveSlot: this.saveSlot,
+      startFloor: this.floor,
+      initialGold: this.gold,
+    });
+    this.lastPlaytestFrameTime = performance.now();
+    this.skipPlaytestFrameTime = true;
+  }
+
+  private playtestPhase(): PlaytestPhase {
+    if (this.paused || this.restOpen || this.attributeOpen || this.inventoryUI.open || this.skillOpen
+      || this.sellOverlay !== null || this.craftOverlay !== null) return 'menu';
+    return this.monsters.some(monster => !monster.dead) ? 'combat' : 'exploration';
+  }
+
+  private changeGold(amount: number, source: string, context: Record<string, unknown> = {}): void {
+    if (amount === 0) return;
+    const balanceBefore = this.gold;
+    this.gold += amount;
+    this.playtestRecorder.record('gold_changed', {
+      amount,
+      source,
+      balanceBefore,
+      balanceAfter: this.gold,
+      floor: this.floor,
+      ...context,
+    });
+  }
+
+  private recordItemAcquired(item: Item, source: string): void {
+    this.playtestRecorder.record('item_acquired', {
+      source,
+      floor: this.floor,
+      itemId: item.id,
+      itemName: item.name,
+      slot: item.slot,
+      rarity: item.rarity,
+      itemLevel: item.itemLevel,
+    });
+  }
+
+  private recordDeathTransition(wasAlive: boolean, cause: string, incomingDamage?: number): void {
+    if (!wasAlive || this.player.alive) return;
+    this.playtestRecorder.record('player_died', {
+      cause,
+      incomingDamage,
+      floor: this.floor,
+      floorSeed: this.currentFloorSeed,
+      level: this.player.level,
+      position: { x: this.player.position.x, y: this.player.position.y, z: this.player.position.z },
+      health: this.player.health,
+      mana: this.player.mana,
+      shield: this.player.shield,
+      statuses: this.player.statuses,
+      equipment: Object.fromEntries(Object.entries(this.equipment.equipment).map(([slot, item]) => [slot, item ? {
+        id: item.id,
+        name: item.name,
+        rarity: item.rarity,
+        itemLevel: item.itemLevel,
+      } : null])),
+      goldAtDeath: this.gold,
+      endsRun: true,
+    });
+    this.finishRun('death');
+  }
+
+  private resourceSnapshot(): Record<string, unknown> {
+    return {
+      floor: this.floor,
+      floorSeed: this.currentFloorSeed,
+      gold: this.gold,
+      materials: { ...this.materialCounts },
+      reforgeTickets: this.reforgeTickets,
+      level: this.player.level,
+      xp: this.player.xp,
+      health: this.player.health,
+      mana: this.player.mana,
+      inventoryCount: this.inventory.items.length,
+      kills: this.kills,
+    };
+  }
+
+  private recordResourceSnapshot(reason: string): void {
+    this.playtestRecorder.record('resource_snapshot', { reason, ...this.resourceSnapshot() });
   }
 
   private hudState() {
@@ -2685,7 +3361,8 @@ export class Game {
     if (!this.shopOpen) return;
     const item = this.inventory.remove(index);
     if (!item) return;
-    this.gold += item.sellPrice;
+    this.changeGold(item.sellPrice, 'shop_sell_item', { itemId: item.id, itemName: item.name });
+    this.playtestRecorder.record('shop_transaction', { action: 'sell_item', itemId: item.id, itemName: item.name, quantity: 1, goldAmount: item.sellPrice, floor: this.floor });
     this.audio.coin();
     this.saveGame();
     this.showShopMenu(`已出售 ${item.name}`);
@@ -2723,6 +3400,12 @@ export class Game {
         const removed = this.inventory.items.filter(item => selected.has(item));
         this.inventory.items = this.inventory.items.filter(item => !selected.has(item));
         this.addMaterials(CraftingSystem.bulkSalvageYield(removed));
+        this.playtestRecorder.record('craft_completed', {
+          action: 'bulk_salvage',
+          floor: this.floor,
+          itemCount: removed.length,
+          itemIds: removed.map(item => item.id),
+        });
         this.audio.pickup();
         this.showInventory();
         this.saveGame();
@@ -2744,7 +3427,8 @@ export class Game {
       }
     }
     if (count === 0) return;
-    this.gold += total;
+    this.changeGold(total, 'shop_sell_items', { quantity: count, maxRarity });
+    this.playtestRecorder.record('shop_transaction', { action: 'sell_items', quantity: count, maxRarity, goldAmount: total, floor: this.floor });
     this.audio.coin();
     this.showShopMenu(`已出售 ${count} 件装备，获得 ${total} 金币`);
     this.hud.showCenterMessage(`已出售 ${count} 件装备`, `获得 ${total} 金币`, 1.8);
@@ -2782,7 +3466,7 @@ export class Game {
   }
 
   private payCost(costs: { gold: number; materials: { materialId: MaterialId; amount: number }[] }): void {
-    this.gold -= costs.gold;
+    this.changeGold(-costs.gold, 'craft_cost');
     costs.materials.forEach((cost) => {
       this.materialCounts[cost.materialId] = Math.max(0, (this.materialCounts[cost.materialId] ?? 0) - cost.amount);
     });
@@ -2798,6 +3482,13 @@ export class Game {
     if (!item) return;
     const yields = CraftingSystem.salvageYield(item);
     this.addMaterials(yields);
+    this.playtestRecorder.record('craft_completed', {
+      action: 'salvage',
+      floor: this.floor,
+      itemId: item.id,
+      itemName: item.name,
+      materialsGained: yields,
+    });
     const text = yields.map((yieldItem) => `${this.materialLabel(yieldItem.materialId)} +${yieldItem.amount}`).join(' · ') || '无材料';
     this.hud.showLootMessage(`分解 ${item.name}：${text}`, this.rarityColor(item.rarity));
     this.audio.pickup();
@@ -2815,7 +3506,19 @@ export class Game {
       return;
     }
     this.payCost(cost);
-    this.inventory.items[index] = CraftingSystem.upgradeItem(item);
+    const upgraded = CraftingSystem.upgradeItem(item);
+    this.inventory.items[index] = upgraded;
+    this.upgradeCount++;
+    if (this.envelope?.activeRun) this.envelope.activeRun.upgradeCount = this.upgradeCount;
+    this.playtestRecorder.record('craft_completed', {
+      action: 'upgrade',
+      floor: this.floor,
+      itemId: item.id,
+      itemName: item.name,
+      itemLevelBefore: item.itemLevel,
+      itemLevelAfter: upgraded.itemLevel,
+      cost,
+    });
     this.audio.levelUp();
     this.showInventory();
     this.hud.showCenterMessage('升级成功', `${item.name} → Lv.${item.itemLevel + 1}`, 1.6);
@@ -2833,6 +3536,14 @@ export class Game {
     this.reforgeTickets--;
     const reforged = CraftingSystem.reforgeItem(item);
     this.inventory.items[index] = reforged;
+    this.playtestRecorder.record('craft_completed', {
+      action: 'reforge',
+      floor: this.floor,
+      itemId: item.id,
+      itemNameBefore: item.name,
+      itemNameAfter: reforged.name,
+      reforgeTicketsSpent: 1,
+    });
     this.audio.pickup();
     this.showInventory();
     this.hud.showLootMessage(`重铸完成：${reforged.name}`, this.rarityColor(reforged.rarity));
@@ -2850,7 +3561,7 @@ export class Game {
     return colors[rarity] ?? 0xc9ced6;
   }
 
-  private saveGame(): void {
+  private captureRunSnapshot(): SaveData {
     const data: SaveData = {
       version: 2,
       floorProgress: this.encounters?.state,
@@ -2893,7 +3604,46 @@ export class Game {
       shopGambles: this.shopGambles,
       shopHeals: this.shopHeals,
       playerStatuses: this.player.statuses,
+      runtime: {
+        elapsed: Math.max(0, this.elapsed),
+        shield: Math.max(0, this.player.shield),
+        invulnerable: Math.max(0, this.player.invulnerable),
+        attackTimer: Math.max(0, this.attackTimer),
+        comboCount: Math.max(0, this.comboCount),
+        comboTimer: Math.max(0, this.comboTimer),
+        lowHealthShieldCooldown: Math.max(0, this.lowHealthShieldCooldown),
+        skillCooldowns: Object.fromEntries(this.skills.map(skill => [skill.id, Math.max(0, skill.cooldownRemaining)])),
+      },
     };
-    SaveManager.save(data, this.saveSlot);
+    return data;
+  }
+
+  private saveGame(): boolean {
+    if (!this.envelope?.activeRun) return true;
+    if (this.failedSaveCandidate) return false;
+    const candidate = structuredClone(this.envelope);
+    if (!candidate.activeRun) return true;
+    candidate.activeRun.maxLevel = Math.max(candidate.activeRun.maxLevel, this.player.level);
+    candidate.activeRun.upgradeCount = Math.max(candidate.activeRun.upgradeCount, this.upgradeCount);
+    candidate.activeRun.snapshot = this.captureRunSnapshot();
+    candidate.revision += 1;
+    const resumeAfterRetry = () => {
+      this.removeStartMenu();
+      this.paused = false;
+      this.lastTime = performance.now();
+      if (this.running) this.requestPointerLock();
+    };
+    const result = SaveManager.saveEnvelope(candidate, this.saveSlot);
+    if (result.ok) {
+      this.envelope = candidate;
+      return true;
+    }
+    this.failedSaveCandidate = candidate;
+    this.retryAfterSave = resumeAfterRetry;
+    this.paused = true;
+    this.input.reset();
+    this.attackBuffer = 0;
+    this.showSaveRetry(result.error);
+    return false;
   }
 }

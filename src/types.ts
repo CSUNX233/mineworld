@@ -156,6 +156,16 @@ export interface FloorProgress {
 }
 
 export interface SaveData {
+  runtime?: {
+    elapsed: number;
+    shield: number;
+    invulnerable: number;
+    attackTimer: number;
+    comboCount: number;
+    comboTimer: number;
+    lowHealthShieldCooldown: number;
+    skillCooldowns: Record<string, number>;
+  };
   floorProgress?: FloorProgress;
   openedChests?: string[];
   buildRanks?: Record<string, number>;
