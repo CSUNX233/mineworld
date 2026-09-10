@@ -32,6 +32,8 @@ export class PlayerController {
   private jumpBuffer = 0;
   private firstPerson = false;
   private shake = 0;
+  private hitShake = 0;
+  private hitShakeTime = 0;
   private dashVelocity = new THREE.Vector3();
   private dashTime = 0;
 
@@ -78,7 +80,15 @@ export class PlayerController {
     this.shake = Math.min(0.5, this.shake + amount);
   }
 
+  addHitShake(impact: number, crit: boolean): void {
+    // Area hits refresh one short pulse, rather than adding one shake per enemy.
+    this.hitShake = Math.max(this.hitShake, Math.min(0.055, 0.012 + impact * 0.023 + (crit ? 0.009 : 0)));
+    this.hitShakeTime = 0.14;
+  }
+
   resetView(floorData: FloorData | null = null): void {
+    this.hitShake = 0;
+    this.hitShakeTime = 0;
     this.cameraYaw = this.player.yaw;
     this.cameraPitch = this.firstPerson ? 0 : this.thirdPersonPitch;
     this.boomDistance = this.cameraDistance;
@@ -215,7 +225,13 @@ export class PlayerController {
       this.camera.position.copy(origin).addScaledVector(boom, this.boomDistance);
       this.camera.lookAt(origin.clone().addScaledVector(forward, 1.5));
     }
-    if (this.shake > 0) {
+    if (this.shake > 0 || this.hitShakeTime > 0) {
+      this.hitShakeTime = Math.max(0, this.hitShakeTime - dt);
+      const pulse = this.hitShake * (this.hitShakeTime / 0.14) ** 2 * (this.firstPerson ? 0.6 : 1);
+      const phase = (0.14 - this.hitShakeTime) * 85;
+      this.camera.position.x += Math.sin(phase) * pulse;
+      this.camera.position.y += Math.cos(phase * 1.3) * pulse * 0.65;
+      if (this.hitShakeTime === 0) this.hitShake = 0;
       const amount = this.shake * 0.35;
       this.camera.position.x += (Math.random() - 0.5) * amount;
       this.camera.position.y += (Math.random() - 0.5) * amount;

@@ -1,0 +1,382 @@
+/* Sunlit Quest menu surfaces. The shared atlas and parchment frames live in sunlit.css. */
+.sunlit-menu-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+  pointer-events: auto;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(40, 127, 128, .34), transparent 42%),
+    rgba(8, 21, 34, .91);
+}
+
+.sunlit-pause-overlay { z-index: 220; }
+.sunlit-talent-overlay { z-index: 240; }
+.sunlit-skill-menu-overlay {
+  z-index: 245;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding-left: max(12px, env(safe-area-inset-left));
+}
+.sunlit-fixed-overlay { position: fixed; z-index: 260; }
+
+#ui-root .panel > .panel-close-button,
+.sunlit-fixed-overlay .panel > .panel-close-button {
+  position: sticky;
+  top: max(4px, env(safe-area-inset-top));
+  z-index: 20;
+  float: right;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  margin: -4px -4px 4px 8px;
+  padding: 0;
+  color: #fff0cb;
+  background: var(--sunlit-navy);
+  border: 6px solid transparent;
+  border-image: var(--sunlit-frame) 48 fill / 6px / 0 stretch;
+  border-radius: 0;
+  cursor: pointer;
+  font: 900 18px/1 var(--hud-font);
+  touch-action: manipulation;
+}
+
+/* Craft/sell confirmations are mounted on body instead of #ui-root. */
+.sunlit-fixed-overlay .panel {
+  color: var(--sunlit-ink);
+  background: var(--sunlit-paper);
+  border: 14px solid transparent;
+  border-image: var(--sunlit-panel) 48 fill / 14px / 0 stretch;
+  border-radius: 0;
+  box-shadow: 0 8px 0 #10203680, 0 16px 44px #07182f80;
+  image-rendering: pixelated;
+}
+.sunlit-fixed-overlay .sunlit-menu-button {
+  display: block;
+  min-width: min(220px, 100%);
+  min-height: 46px;
+  margin: 14px auto 0;
+  padding: 10px 20px;
+  color: #fff0cb;
+  background: var(--sunlit-navy);
+  border: 6px solid transparent;
+  border-image: var(--sunlit-frame) 48 fill / 6px / 0 stretch;
+  border-radius: 0;
+  cursor: pointer;
+  font: 800 16px/1.35 var(--hud-font);
+  touch-action: manipulation;
+}
+.sunlit-fixed-overlay .sunlit-menu-button.is-secondary { color: #c3f2df; }
+.sunlit-fixed-overlay .sunlit-menu-button:disabled { opacity: .5; cursor: not-allowed; }
+
+#ui-root .sunlit-menu-panel {
+  width: min(620px, 100%);
+  max-height: calc(100dvh - 24px);
+  padding: clamp(18px, 4vw, 30px);
+  overflow-y: auto;
+  text-align: center;
+}
+
+#ui-root .sunlit-pause-panel { width: min(410px, 94vw); max-height: 90dvh; }
+#ui-root .sunlit-pause-panel.is-mobile { padding-top: 48px; }
+#ui-root .sunlit-confirm-panel { width: min(460px, 92vw); padding: 24px; text-align: center; }
+.sunlit-fixed-overlay .sunlit-confirm-panel { width: min(460px, 92vw); padding: 24px; text-align: center; }
+
+.sunlit-brand-title,
+.sunlit-menu-title,
+.sunlit-screen-title,
+.run-talent-header h2 {
+  color: #20374f;
+  font-weight: 900;
+  letter-spacing: .06em;
+  line-height: 1.2;
+  text-align: center;
+  text-shadow: 0 2px 0 rgba(255, 247, 213, .8);
+}
+
+.sunlit-brand-title {
+  margin: 12px 0 22px;
+  color: #173553;
+  font-size: clamp(42px, 10vw, 62px);
+  letter-spacing: .03em;
+  text-shadow: 0 3px 0 #d7a447, 0 6px 0 rgba(24, 48, 75, .22);
+}
+
+.sunlit-menu-title { margin: 0 0 14px; font-size: 28px; }
+.sunlit-menu-title.is-large { font-size: 34px; }
+.sunlit-screen-title { margin: 0 0 8px; font-size: 28px; }
+
+#ui-root .sunlit-menu-button {
+  display: block;
+  min-width: min(220px, 100%);
+  min-height: 46px;
+  margin: 14px auto 0;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  touch-action: manipulation;
+  white-space: normal;
+}
+
+#ui-root .sunlit-menu-button.is-secondary { color: #c3f2df !important; }
+#ui-root .sunlit-menu-button.is-danger { color: #ffd2c0 !important; background: #5e3040 !important; }
+
+.sunlit-menu-notice,
+.sunlit-notice {
+  margin: 12px 0;
+  padding: 9px 11px;
+  color: #45351f;
+  background: rgba(215, 164, 71, .2);
+  border-left: 4px solid var(--sunlit-gold);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.sunlit-menu-notice.is-error { color: #762f2f; background: rgba(151, 61, 54, .12); border-left-color: #a84840; }
+.sunlit-menu-notice.is-success { color: #185e59; background: rgba(40, 127, 128, .13); border-left-color: var(--sunlit-teal); }
+.sunlit-menu-help { max-width: 340px; margin: 8px auto 0; color: var(--sunlit-muted); font-size: 11px; line-height: 1.55; }
+
+.sunlit-save-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.sunlit-save-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: stretch; }
+.sunlit-save-row.has-delete { grid-template-columns: minmax(0, 1fr) auto; }
+#ui-root .sunlit-save-button { width: 100%; min-width: 0; margin: 0; text-align: left; }
+#ui-root .sunlit-delete-button { min-width: 76px; margin: 0; padding-inline: 12px; }
+
+.sunlit-setting-label { margin-top: 16px; color: #31465b; font-size: 13px; font-weight: 800; }
+.sunlit-range { width: min(240px, 90%); min-height: 30px; cursor: pointer; }
+.sunlit-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #31465b;
+  font-size: 13px;
+  font-weight: 700;
+}
+.sunlit-toggle-row input { width: 18px; height: 18px; }
+
+.sunlit-run-screen { max-width: 620px; margin: auto; color: var(--sunlit-ink); text-align: left; line-height: 1.6; }
+.sunlit-copy { margin: 8px 0 14px; color: var(--sunlit-muted); font-size: 13px; overflow-wrap: anywhere; }
+.sunlit-action-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+#ui-root .sunlit-action-row .sunlit-menu-button { flex: 1 1 190px; margin: 0; }
+.sunlit-resource-banner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 14px; font-weight: 800; }
+.sunlit-inline-icon { width: 28px; height: 28px; }
+
+.sunlit-choice-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  color: #f3e3bd;
+  background: var(--sunlit-navy);
+  border: 7px solid transparent;
+  border-image: var(--sunlit-frame) 48 fill / 7px / 0 stretch;
+  image-rendering: pixelated;
+}
+.sunlit-choice-card.is-locked { filter: saturate(.62); }
+.sunlit-choice-card.is-unlocked { box-shadow: inset 0 0 0 2px rgba(40, 127, 128, .7); }
+.sunlit-card-icon { width: 52px; height: 52px; }
+.sunlit-card-copy { min-width: 0; }
+.sunlit-card-copy strong { color: #ffe2a3; font-size: 15px; }
+.sunlit-card-copy .sunlit-copy { margin: 3px 0 0; color: #cabd9f; font-size: 12px; }
+#ui-root .sunlit-card-action { min-width: 150px; margin: 0; }
+
+.sunlit-archive { margin-top: 16px; padding: 10px 12px; border: 2px solid rgba(73, 78, 72, .35); }
+.sunlit-archive summary { color: #32475d; font-weight: 800; cursor: pointer; }
+.sunlit-settlement-totals { padding: 12px 14px; line-height: 1.7; }
+.sunlit-reward-heading { display: flex; align-items: center; gap: 6px; color: #ffe3a5; font-weight: 900; }
+.sunlit-settlement-totals strong { display: block; margin-top: 6px; color: #9ce2d0; font-size: 15px; }
+
+#ui-root .sunlit-rest-panel { color: var(--sunlit-ink); }
+#ui-root .sunlit-rest-panel > h2 { color: #20374f; text-shadow: 0 2px rgba(255, 247, 213, .8); }
+#ui-root .sunlit-rest-panel > p:not(.merchant-wallet) { color: var(--sunlit-muted); line-height: 1.55; }
+#ui-root .sunlit-rest-panel .merchant-wallet { color: #176c6b; font-weight: 800; }
+
+.sunlit-talent-shell {
+  width: min(1000px, 95vw);
+  max-height: 90dvh;
+  min-width: 0;
+  padding: 18px;
+  overflow: auto;
+}
+.run-talent-panel { box-sizing: border-box; width: 100%; color: var(--sunlit-ink); font: 13px/1.45 var(--hud-font); overflow-x: hidden; }
+.run-talent-panel * { box-sizing: border-box; min-width: 0; }
+.run-talent-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.run-talent-header h2 { margin: 0 0 5px; font-size: 24px; text-align: left; }
+.run-talent-summary { margin: 0; color: var(--sunlit-muted); }
+.run-talent-summary strong { color: #16716d; }
+.run-talent-cadence { margin: 8px 0 14px; padding: 9px 11px; border-left: 4px solid var(--sunlit-teal); background: rgba(40, 127, 128, .11); color: #3d514e; overflow-wrap: anywhere; }
+#ui-root .run-talent-reset,
+#ui-root .run-talent-action { min-height: 44px; padding: 8px 12px; font: inherit; font-weight: 800; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
+#ui-root .run-talent-reset { flex: 0 1 205px; }
+.run-talent-core { max-width: 490px; margin: 0 auto 12px; }
+.run-talent-branches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.run-talent-lane { padding: 9px; border: 2px solid rgba(68, 82, 88, .28); background: rgba(255, 246, 215, .23); }
+.run-talent-lane h3 { margin: 0 0 8px; color: #2d5161; font-size: 15px; }
+.run-talent-lane-spreading h3 { color: #9a5a25; }
+.run-talent-lane-consuming h3 { color: #8d3e36; }
+.run-talent-lane-utility { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.run-talent-lane-utility h3 { grid-column: 1 / -1; color: #216c6b; }
+.run-talent-node {
+  margin: 7px 0;
+  padding: 9px;
+  color: #f2dfb7;
+  background: #223b56;
+  border: 6px solid transparent;
+  border-image: var(--sunlit-frame) 48 fill / 6px / 0 stretch;
+  image-rendering: pixelated;
+}
+.run-talent-node.is-unlocked { box-shadow: inset 0 0 0 2px var(--sunlit-gold); }
+.run-talent-node.is-available { box-shadow: inset 0 0 0 2px #3ca19c; }
+.run-talent-node.is-locked { color: #9da8aa; filter: saturate(.48); }
+.run-talent-node-heading { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.run-talent-icon { width: 34px; height: 34px; }
+.run-talent-node-heading strong { color: #ffe1a3; font-size: 14px; }
+.run-talent-cost { color: #92d8ca; white-space: nowrap; }
+.run-talent-node p { min-height: 3em; margin: 7px 0; color: #d5c9ad; overflow-wrap: anywhere; }
+.run-talent-relations { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 7px; margin: 7px 0; color: #c1b79f; font-size: 11px; }
+.run-talent-relations dt { color: #82c3bb; }
+.run-talent-relations dd { margin: 0; overflow-wrap: anywhere; }
+#ui-root .run-talent-action { width: 100%; margin-top: 5px; }
+.run-talent-invalid { color: #923c39; font-weight: 800; }
+
+.sunlit-skill-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(900px, calc(100vw - 24px));
+  height: min(600px, calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  min-width: 0;
+  padding: 18px 20px;
+  overflow: hidden;
+}
+#ui-root .sunlit-skill-panel > .panel-close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  float: none;
+  margin: 0;
+}
+.sunlit-skill-header {
+  min-width: 0;
+  padding: 0 52px 10px;
+  border-bottom: 2px solid rgba(79, 75, 60, .26);
+}
+.sunlit-skill-header .sunlit-menu-title { margin-bottom: 8px; }
+.sunlit-skill-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px 6px 10px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.sunlit-skill-hint { margin: 10px 0 14px; padding: 9px 12px; text-align: center; font-size: 12px; }
+.sunlit-skill-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 9px 11px;
+  color: #f0dfba;
+  background: var(--sunlit-navy);
+  border: 6px solid transparent;
+  border-image: var(--sunlit-frame) 48 fill / 6px / 0 stretch;
+  image-rendering: pixelated;
+}
+.sunlit-skill-row.is-equipped { box-shadow: inset 0 0 0 2px var(--sunlit-teal); }
+.sunlit-skill-row.is-locked { filter: saturate(.4); }
+.sunlit-skill-icon { width: 52px; height: 52px; }
+.sunlit-skill-copy { min-width: 0; }
+.sunlit-config-skill-name { display: flex; flex-wrap: wrap; gap: 3px 6px; color: #ffe4ab; font-weight: 900; }
+.sunlit-config-skill-name span { color: #8ed7cc; font-size: 11px; white-space: nowrap; }
+.sunlit-skill-description { margin-top: 3px; color: #c5baa0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+#ui-root .sunlit-skill-action { min-width: 88px; margin: 0; padding: 7px 10px; font-size: 14px; }
+#ui-root .sunlit-skill-action.is-equipped { color: #9be6d8 !important; }
+.sunlit-skill-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  border-top: 2px solid rgba(79, 75, 60, .26);
+}
+#ui-root .sunlit-skill-footer .sunlit-menu-button { margin: 0; }
+
+.sunlit-confirm-copy { margin: 12px 0 18px; color: var(--sunlit-muted); font-size: 13px; line-height: 1.55; }
+.sunlit-confirm-copy [style*="color:#ff7b7b"] { color: #923c39 !important; font-weight: 800; }
+
+.build-choices { margin: 14px 0; padding: 12px; color: var(--sunlit-ink); background: rgba(239, 221, 179, .72); border: 2px solid rgba(71, 77, 69, .3); }
+.build-choices h3 { margin: 0 0 10px; color: #2b4356; font-size: 14px; line-height: 1.45; }
+#ui-root .build-choice {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 62px;
+  margin: 7px 0;
+  padding: 8px 10px;
+  text-align: left;
+  box-shadow: inset 4px 0 0 var(--build-accent);
+}
+.build-choice-icon { width: 46px; height: 46px; }
+.build-choice-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.build-choice-copy strong { color: #ffe4ac; }
+.build-choice-copy > span { color: #c9bea5; font-size: 11px; line-height: 1.45; }
+
+@media (max-width: 760px), (orientation: portrait) {
+  #ui-root .sunlit-menu-panel { padding: 16px; }
+  .sunlit-choice-card { grid-template-columns: 44px minmax(0, 1fr); }
+  .sunlit-card-icon { width: 42px; height: 42px; }
+  #ui-root .sunlit-card-action { grid-column: 1 / -1; width: 100%; }
+  .run-talent-header { flex-direction: column; gap: 9px; }
+  #ui-root .run-talent-reset { width: 100%; flex-basis: auto; }
+  .run-talent-branches { grid-template-columns: minmax(0, 1fr); }
+  .run-talent-lane-utility { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (orientation: portrait) and (max-width: 760px) {
+  .sunlit-skill-list { grid-template-columns: minmax(0, 1fr); }
+  .sunlit-skill-header { padding-inline: 44px; }
+}
+
+@media (max-width: 520px) {
+  .sunlit-save-row.has-delete { grid-template-columns: minmax(0, 1fr) 72px; }
+  #ui-root .sunlit-delete-button { min-width: 0; padding-inline: 6px; }
+  .sunlit-skill-row { grid-template-columns: 42px minmax(0, 1fr); }
+  .sunlit-skill-icon { width: 40px; height: 40px; }
+  #ui-root .sunlit-skill-action { grid-column: 1 / -1; width: 100%; }
+  .run-talent-lane-utility { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  #ui-root .sunlit-menu-panel,
+  #ui-root .sunlit-pause-panel,
+  .sunlit-skill-panel,
+  .sunlit-talent-shell { max-height: 94dvh; }
+  .sunlit-brand-title { margin-block: 4px 10px; font-size: 38px; }
+  #ui-root .sunlit-menu-button { min-height: 42px; margin-top: 8px; }
+  .sunlit-setting-label { margin-top: 9px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #ui-root .sunlit-menu-button:not(:disabled) { transition: filter 100ms ease, transform 100ms ease; }
+  #ui-root .sunlit-menu-button:active:not(:disabled) { transform: translateY(2px); }
+}

@@ -40,7 +40,7 @@ export class Minimap {
     ctx.clearRect(0, 0, this.size, this.size);
     if (!floor) return;
     const scale = this.size / floor.size;
-    ctx.fillStyle = '#111722';
+    ctx.fillStyle = '#1c304a';
     ctx.fillRect(0, 0, this.size, this.size);
 
     if (this.baseFloor !== floor) {
@@ -49,17 +49,17 @@ export class Minimap {
       this.baseCanvas.width = this.size;
       this.baseCanvas.height = this.size;
       const baseCtx = this.baseCanvas.getContext('2d')!;
-      baseCtx.fillStyle = '#111722';
+      baseCtx.fillStyle = '#1c304a';
       baseCtx.fillRect(0, 0, this.size, this.size);
       for (let z = 0; z < floor.size; z++) {
         for (let x = 0; x < floor.size; x++) {
           const kind = floor.grid[z][x];
           if (kind === BlockKind.Wall || kind === BlockKind.Obstacle) {
-            baseCtx.fillStyle = '#59606a';
+            baseCtx.fillStyle = '#73857d';
           } else if (kind === BlockKind.Portal) {
             baseCtx.fillStyle = '#c05bff';
           } else {
-            baseCtx.fillStyle = '#202b38';
+            baseCtx.fillStyle = '#cbb781';
           }
           baseCtx.fillRect(x * scale, z * scale, Math.max(1, scale), Math.max(1, scale));
         }

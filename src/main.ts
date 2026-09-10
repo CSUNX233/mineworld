@@ -2,6 +2,9 @@ import { Game } from './core/Game';
 import { MobileGestureGuard } from './core/MobileGestureGuard';
 import { installMobileShell } from './utils/mobile';
 import './style.css';
+import './ui/sunlit.css';
+import './ui/sunlit-inventory.css';
+import './ui/sunlit-menus.css';
 
 installMobileShell();
 MobileGestureGuard.install();

@@ -1,4 +1,6 @@
+import { pixelText, setPixelText } from './PixelNumbers';
 import { STATUSES } from '../data/elements';
+import { createUiIcon } from './UiAssets';
 import type { ActorStatus } from '../types';
 
 export interface HUDState {
@@ -18,6 +20,7 @@ export interface HUDState {
 }
 
 export interface SkillHUDState {
+  id?: string;
   name: string;
   key: string;
   cooldown: number;
@@ -26,10 +29,16 @@ export interface SkillHUDState {
 }
 
 export class HUD {
+  private barValues = [0, 0, 0, 0];
+  private barTargets = [0, 0, 0, 0];
+  private barsReady = false;
+  private barLevel = 0;
+
   private interaction: HTMLDivElement;
   private objective: HTMLDivElement;
   private container: HTMLDivElement;
   private hpFill: HTMLDivElement;
+  private shieldFill: HTMLDivElement;
   private hpText: HTMLDivElement;
   private mpFill: HTMLDivElement;
   private mpText: HTMLDivElement;
@@ -48,6 +57,7 @@ export class HUD {
   private messageDuration = 0;
   private combo = 0;
   private comboTimer = 0;
+  private skillSignature = '';
   onMuteToggle: (() => void) | null = null;
 
   constructor(private root: HTMLElement) {
@@ -81,10 +91,17 @@ export class HUD {
     this.container.appendChild(bars);
 
     const hp = document.createElement('div');
-    hp.className = 'bar';
+    hp.className = 'bar health-bar';
+    const hpTrack = document.createElement('div');
+    hpTrack.className = 'bar-track';
+    hp.appendChild(hpTrack);
     this.hpFill = document.createElement('div');
     this.hpFill.className = 'bar-fill hp-fill';
-    hp.appendChild(this.hpFill);
+    hpTrack.appendChild(this.hpFill);
+    this.shieldFill = document.createElement('div');
+    this.shieldFill.className = 'bar-fill shield-fill';
+    this.shieldFill.style.width = '0%';
+    hpTrack.appendChild(this.shieldFill);
     this.hpText = document.createElement('div');
     this.hpText.style.position = 'absolute';
     this.hpText.style.inset = '0';
@@ -98,11 +115,14 @@ export class HUD {
     bars.appendChild(hp);
 
     const mp = document.createElement('div');
-    mp.className = 'bar';
+    mp.className = 'bar mana-bar';
+    const mpTrack = document.createElement('div');
+    mpTrack.className = 'bar-track';
+    mp.appendChild(mpTrack);
     mp.style.height = '9px';
     this.mpFill = document.createElement('div');
     this.mpFill.className = 'bar-fill mp-fill';
-    mp.appendChild(this.mpFill);
+    mpTrack.appendChild(this.mpFill);
     this.mpText = document.createElement('div');
     this.mpText.style.position = 'absolute';
     this.mpText.style.inset = '0';
@@ -116,11 +136,14 @@ export class HUD {
     bars.appendChild(mp);
 
     const xp = document.createElement('div');
-    xp.className = 'bar';
+    xp.className = 'bar experience-bar';
+    const xpTrack = document.createElement('div');
+    xpTrack.className = 'bar-track';
+    xp.appendChild(xpTrack);
     xp.style.height = '7px';
     this.xpFill = document.createElement('div');
     this.xpFill.className = 'bar-fill xp-fill';
-    xp.appendChild(this.xpFill);
+    xpTrack.appendChild(this.xpFill);
     bars.appendChild(xp);
 
     this.levelText = document.createElement('div');
@@ -213,14 +236,20 @@ export class HUD {
   setState(state: HUDState): void {
     const maxHealth = Math.max(1, state.maxHealth);
     const maxMana = Math.max(1, state.maxMana);
-    this.hpFill.style.width = `${Math.max(0, Math.min(100, (state.health / maxHealth) * 100))}%`;
-    this.mpFill.style.width = `${Math.max(0, Math.min(100, (state.mana / maxMana) * 100))}%`;
-    this.xpFill.style.width = `${Math.max(0, Math.min(100, (state.xp / state.xpToNext) * 100))}%`;
-    this.hpText.textContent = `${Math.ceil(state.health)}/${Math.ceil(maxHealth)}`;
-    this.mpText.textContent = `${Math.ceil(state.mana)}/${Math.ceil(maxMana)}`;
-    const shield = state.shield > 0 ? `  <span style="color:#7fc4ff">护盾 ${Math.ceil(state.shield)}</span>` : '';
-    this.levelText.innerHTML = `Lv.${state.level} <span style="font-size:13px;color:#a9c8ff">${Math.ceil(state.health)}/${Math.ceil(state.maxHealth)}</span>${shield}`;
-    this.infoText.innerHTML = `第 ${state.floor} 层 · ${state.floorName}<br><span style="color:#ffd76a">金币 ${state.gold}</span> · 怪物 ${Math.max(0, state.monstersRemaining)} · 击杀 ${state.kills}`;
+    const ratio = (value: number, max: number) => Math.max(0, Math.min(100, value / max * 100));
+    this.barTargets = [ratio(state.health, maxHealth), ratio(state.shield, maxHealth),
+      ratio(state.mana, maxMana), ratio(state.xp, Math.max(1, state.xpToNext))];
+    if (!this.barsReady) {
+      this.barValues = [...this.barTargets];
+      this.barsReady = true;
+    }
+    // Level-up starts a fresh XP cycle instead of animating backwards through the old one.
+    if (this.barLevel !== state.level) this.barValues[3] = this.barTargets[3];
+    this.barLevel = state.level;
+    setPixelText(this.hpText, `${Math.ceil(state.health)}/${Math.ceil(maxHealth)}`);
+    setPixelText(this.mpText, `${Math.ceil(state.mana)}/${Math.ceil(maxMana)}`);
+    this.levelText.innerHTML = `Lv.${state.level} <span style="font-size:13px;color:#a9c8ff">经验 ${Math.floor(state.xp)}/${Math.ceil(state.xpToNext)}</span>`;
+    this.infoText.innerHTML = `第 ${state.floor} 层 · ${state.floorName}<br><span style="color:#ffd76a">金币 ${pixelText(String(state.gold)).outerHTML}</span> · 怪物 ${pixelText(String(Math.max(0, state.monstersRemaining))).outerHTML} · 击杀 ${pixelText(String(state.kills)).outerHTML}`;
     this.lowHealth.style.opacity = state.health / state.maxHealth < 0.28 ? '1' : '0';
   }
 
@@ -228,36 +257,36 @@ export class HUD {
     if (this.objective.textContent !== text) this.objective.textContent = text;
   }
 
-  updateSkills(skills: SkillHUDState[]): void {
-    this.skillContainer.innerHTML = '';
-    skills.forEach((skill) => {
+  updateSkills(skills: SkillHUDState[], mana = Infinity): void {
+    const signature = skills.map(skill => `${skill.id}:${skill.name}:${skill.key}`).join('|');
+    if (signature !== this.skillSignature) {
+      this.skillSignature = signature;
+      this.skillContainer.replaceChildren();
+      skills.forEach((skill) => {
       const box = document.createElement('div');
-      box.style.position = 'relative';
-      box.style.width = '46px';
-      box.style.height = '46px';
-      box.style.background = 'rgba(10,14,20,0.82)';
-      box.style.border = '1px solid #43516a';
-      box.style.borderRadius = '4px';
-      box.style.display = 'flex';
-      box.style.alignItems = 'center';
-      box.style.justifyContent = 'center';
-      box.style.fontSize = '18px';
-      box.title = `${skill.name} (${skill.key})`;
-
-      const ready = skill.cooldownRemaining <= 0;
-      box.style.color = ready ? '#e7f4ff' : '#5c6a7d';
-      box.textContent = skill.key.replace('Digit', '');
-      if (!ready) {
-        const overlay = document.createElement('div');
-        overlay.style.position = 'absolute';
-        overlay.style.left = '0';
-        overlay.style.right = '0';
-        overlay.style.bottom = '0';
-        overlay.style.height = `${(skill.cooldownRemaining / skill.cooldown) * 100}%`;
-        overlay.style.background = 'rgba(0,0,0,0.68)';
-        box.appendChild(overlay);
-      }
+      box.className = 'sunlit-skill';
+      box.appendChild(createUiIcon(skill.id ?? 'fireball'));
+      const overlay = document.createElement('div');
+      overlay.className = 'sunlit-skill-overlay';
+      const key = document.createElement('span');
+      key.className = 'sunlit-skill-key';
+      key.textContent = skill.key.replace('Digit', '');
+      const cooldown = document.createElement('span');
+      cooldown.className = 'sunlit-skill-timer';
+      const name = document.createElement('span');
+      name.className = 'sunlit-skill-name';
+      name.textContent = skill.name;
+      box.append(overlay, key, cooldown, name);
       this.skillContainer.appendChild(box);
+      });
+    }
+    skills.forEach((skill, index) => {
+      const box = this.skillContainer.children[index] as HTMLElement;
+      const cooling = skill.cooldownRemaining > 0;
+      box.classList.toggle('is-unavailable', cooling || mana < skill.manaCost);
+      box.title = `${skill.name} · 法力 ${skill.manaCost}${mana < skill.manaCost ? ' · 法力不足' : ''}`;
+      box.querySelector<HTMLElement>('.sunlit-skill-overlay')!.style.height = `${Math.max(0, Math.min(100, skill.cooldownRemaining / Math.max(.01, skill.cooldown) * 100))}%`;
+      box.querySelector<HTMLElement>('.sunlit-skill-timer')!.textContent = cooling ? skill.cooldownRemaining.toFixed(1) : mana < skill.manaCost ? '法力不足' : '';
     });
   }
 
@@ -319,6 +348,15 @@ export class HUD {
   }
 
   update(dt: number): void {
+    const bars = [this.hpFill, this.shieldFill, this.mpFill, this.xpFill];
+    for (let i = 0; i < bars.length; i++) {
+      const target = this.barTargets[i];
+      const speed = target < this.barValues[i] ? 16 : 10;
+      this.barValues[i] += (target - this.barValues[i]) * (1 - Math.exp(-speed * Math.max(0, dt)));
+      if (Math.abs(target - this.barValues[i]) < 0.03) this.barValues[i] = target;
+      bars[i].style.width = this.barValues[i] + '%';
+    }
+
     if (this.messageTimer < this.messageDuration) {
       this.messageTimer += dt;
       if (this.messageTimer >= this.messageDuration) {

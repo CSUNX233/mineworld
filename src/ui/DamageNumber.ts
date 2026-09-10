@@ -1,3 +1,4 @@
+import { pixelText } from './PixelNumbers';
 import * as THREE from 'three';
 
 interface Entry {
@@ -21,7 +22,7 @@ export class DamageNumberSystem {
   ): void {
     const element = document.createElement('div');
     element.className = 'damage-number';
-    element.textContent = text;
+    element.appendChild(pixelText(text, 'damage'));
     element.style.color = color;
     element.style.fontSize = `${Math.round((crit ? 28 : 19) * scale)}px`;
     if (crit) {

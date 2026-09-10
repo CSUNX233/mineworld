@@ -7,12 +7,32 @@ import {
   spentTalentPoints,
   type RunTalentState,
 } from '../progression/RunTalents';
+import { createUiIcon } from './UiAssets';
 
 const LANE_NAMES: Record<RunTalentLane, string> = {
   core: '核心',
   spreading: '蔓延之火',
   consuming: '吞噬之火',
   utility: '生存与资源',
+};
+
+const TALENT_ICONS: Record<string, string> = {
+  fire_seed: 'fireball',
+  spreading_flame: 'fireball',
+  ember_relay: 'fireball',
+  wide_wildfire: 'fireball',
+  many_sparks: 'fireball',
+  lasting_embers: 'fireball',
+  consuming_flame: 'detonate',
+  searing_appetite: 'detonate',
+  mana_from_ashes: 'detonate',
+  ash_guard: 'shield',
+  cremation: 'detonate',
+  tempered_skin: 'shield',
+  deep_reservoir: 'staff',
+  vital_spark: 'heal',
+  steady_flame: 'dash',
+  scavenger_instinct: 'bag',
 };
 
 function relationNames(ids: readonly string[] | undefined): string {
@@ -45,6 +65,7 @@ function buildTalentNode(
 
   const heading = document.createElement('div');
   heading.className = 'run-talent-node-heading';
+  heading.appendChild(createUiIcon(TALENT_ICONS[talent.id] ?? 'fireball', 'run-talent-icon'));
   const name = document.createElement('strong');
   name.textContent = talent.name;
   const cost = document.createElement('span');
@@ -77,6 +98,7 @@ function buildTalentNode(
   action.className = 'run-talent-action';
   action.disabled = unlocked || !canUnlock;
   action.textContent = unlocked ? '已点亮' : editable ? lockedReason(state, talent, budget) : '仅在安全房可点亮';
+  action.setAttribute('aria-label', `${talent.name}：${action.textContent}`);
   if (canUnlock) action.addEventListener('click', () => onUnlock(talent.id));
 
   article.append(heading, description);
@@ -104,54 +126,6 @@ function buildLane(
   return section;
 }
 
-function panelStyles(): HTMLStyleElement {
-  const style = document.createElement('style');
-  style.textContent = `
-    .run-talent-panel { box-sizing: border-box; width: 100%; max-width: 980px; padding: 16px; color: #edf3f8; background: #0e1722; border: 1px solid #4a6178; border-radius: 8px; font: 13px/1.45 var(--hud-font, monospace); overflow-x: hidden; }
-    .run-talent-panel * { box-sizing: border-box; min-width: 0; }
-    .run-talent-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
-    .run-talent-header h2 { margin: 0 0 5px; font-size: 22px; color: #fff1cf; }
-    .run-talent-summary { margin: 0; color: #b8c9d9; }
-    .run-talent-summary strong { color: #ffcf72; }
-    .run-talent-cadence { margin: 8px 0 14px; padding: 8px 10px; border-left: 3px solid #dd8a45; background: #172535; color: #cbd9e6; overflow-wrap: anywhere; }
-    .run-talent-reset, .run-talent-action { min-height: 44px; border: 1px solid #607992; border-radius: 5px; padding: 8px 12px; color: #edf5fc; background: #21364a; font: inherit; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
-    .run-talent-reset { flex: 0 1 190px; }
-    .run-talent-reset:disabled, .run-talent-action:disabled { opacity: .48; cursor: default; }
-    .run-talent-core { max-width: 470px; margin: 0 auto 12px; }
-    .run-talent-branches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
-    .run-talent-lane { padding: 10px; border: 1px solid #33485e; border-radius: 7px; background: #111e2b; }
-    .run-talent-lane h3 { margin: 0 0 9px; font-size: 16px; }
-    .run-talent-lane-spreading h3 { color: #ffb45e; }
-    .run-talent-lane-consuming h3 { color: #ff7868; }
-    .run-talent-lane-utility { margin-top: 12px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-    .run-talent-lane-utility h3 { grid-column: 1 / -1; color: #a8d6ff; }
-    .run-talent-node { margin: 8px 0; padding: 10px; border: 1px solid #364a5d; border-radius: 6px; background: #172536; }
-    .run-talent-node.is-unlocked { border-color: #dfa451; background: #2b2a24; }
-    .run-talent-node.is-available { border-color: #65a8ca; box-shadow: inset 0 0 0 1px #65a8ca44; }
-    .run-talent-node.is-locked { color: #a1afbc; }
-    .run-talent-node-heading { display: flex; justify-content: space-between; gap: 8px; }
-    .run-talent-node-heading strong { color: #f3f6f9; font-size: 14px; }
-    .run-talent-cost { flex: 0 0 auto; color: #ffcf72; }
-    .run-talent-node p { margin: 7px 0; min-height: 3em; overflow-wrap: anywhere; }
-    .run-talent-relations { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 7px; margin: 7px 0; font-size: 11px; color: #b9c9d8; }
-    .run-talent-relations dt { color: #8197aa; }
-    .run-talent-relations dd { margin: 0; overflow-wrap: anywhere; }
-    .run-talent-action { width: 100%; margin-top: 5px; }
-    .run-talent-invalid { color: #ff9187; }
-    @media (max-width: 760px), (orientation: portrait) {
-      .run-talent-panel { width: 100%; padding: 11px; }
-      .run-talent-header { flex-direction: column; gap: 9px; }
-      .run-talent-reset { width: 100%; flex-basis: auto; }
-      .run-talent-branches { grid-template-columns: minmax(0, 1fr); }
-      .run-talent-lane-utility { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 430px) {
-      .run-talent-lane-utility { grid-template-columns: minmax(0, 1fr); }
-    }
-  `;
-  return style;
-}
-
 export function buildRunTalentPanel(
   state: RunTalentState,
   budget: number,
@@ -162,7 +136,6 @@ export function buildRunTalentPanel(
   const panel = document.createElement('section');
   panel.className = 'run-talent-panel';
   panel.setAttribute('aria-label', '局内天赋');
-  panel.appendChild(panelStyles());
 
   const valid = isValidRunTalentState(state);
   const spent = spentTalentPoints(state);

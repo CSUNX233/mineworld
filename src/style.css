@@ -61,6 +61,16 @@ canvas {
   background: linear-gradient(180deg, #ff5a5a, #b71c1c);
 }
 
+.shield-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: 100%;
+  background: linear-gradient(180deg, rgba(245, 248, 252, 0.9), rgba(156, 166, 180, 0.8));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.8), inset 0 -1px rgba(225, 232, 240, 0.65);
+  pointer-events: none;
+}
+
 .mp-fill {
   background: linear-gradient(180deg, #4da3ff, #154fa8);
 }

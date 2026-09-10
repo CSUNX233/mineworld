@@ -1,3 +1,4 @@
+import { HealthBarBreak } from './HealthBarBreak';
 import { BurnVisual } from './BurnVisual';
 import * as THREE from 'three';
 import type { ActorStatus, MonsterDefinition } from '../types';
@@ -7,20 +8,17 @@ export type MonsterState = 'idle' | 'patrol' | 'chase' | 'attack' | 'death';
 
 let nextMonsterId = 1;
 
-function createWhiteTexture(): THREE.Texture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 2;
-  canvas.height = 2;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, 2, 2);
-  const texture = new THREE.CanvasTexture(canvas);
+// Shared UI textures stay alive across rooms; individual monsters only own materials.
+function overlayTexture(name: string): THREE.Texture {
+  const texture = new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'assets/ui/sunlit/' + name + '.webp');
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = false;
   return texture;
 }
-
-const WHITE_TEXTURE = createWhiteTexture();
+const BAR_FRAME = overlayTexture('bar-track-frame');
+const BAR_FILL = overlayTexture('health');
 
 interface PartRef {
   mesh: THREE.Object3D;
@@ -60,6 +58,7 @@ export class Monster {
   private material: THREE.MeshLambertMaterial;
   private burnVisual: BurnVisual | null = null;
   private healthFill!: THREE.Sprite;
+  private healthBarBreak!: HealthBarBreak;
   private healthBarBg!: THREE.Sprite;
   private nameSprite!: THREE.Sprite;
   private parts: PartRef[] = [];
@@ -88,19 +87,24 @@ export class Monster {
   }
 
   private buildHealthBar(): void {
-    const bgMaterial = new THREE.SpriteMaterial({ map: WHITE_TEXTURE, color: 0x10151d, depthTest: false });
+    const bgMaterial = new THREE.SpriteMaterial({ map: BAR_FRAME, depthTest: false, depthWrite: false, transparent: true, toneMapped: false });
     const bg = new THREE.Sprite(bgMaterial);
     bg.scale.set(0.95, 0.12, 1);
+    bg.renderOrder = 10;
     this.healthBarBg = bg;
 
-    const fillMaterial = new THREE.SpriteMaterial({ map: WHITE_TEXTURE, color: 0x62e06a, depthTest: false });
+    const fillMaterial = new THREE.SpriteMaterial({ map: BAR_FILL, depthTest: false, depthWrite: false, transparent: true, toneMapped: false });
     const fill = new THREE.Sprite(fillMaterial);
-    fill.scale.set(0.88, 0.075, 1);
+    fill.scale.set(0.93, 0.65, 1);
+    fill.center.set(0.5, 0.5);
+    fill.position.x = 0;
+    fill.renderOrder = 11;
     fill.position.y = 0;
     fill.position.z = 0.001;
     bg.add(fill);
     this.group.add(bg);
     this.healthFill = fill;
+    this.healthBarBreak = new HealthBarBreak(bg);
     this.buildNameSprite();
     this.updateOverlayHeights();
   }
@@ -373,6 +377,7 @@ export class Monster {
   }
 
   update(dt: number, elapsed: number): void {
+    this.healthBarBreak.update(dt);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.attackWindup = Math.max(0, this.attackWindup - dt);
     this.attackWarning.visible = !this.dead && this.state === 'attack' && this.attackWindup > 0 && this.def.behavior !== 'boss';
@@ -392,7 +397,7 @@ export class Monster {
     const burningDamage = statusResult.burningDamage * Math.min(1, healthBeforeStatuses / Math.max(.000001, statusResult.damage));
     if (burning || burningDamage > 0) this.burnVisual ??= new BurnVisual(this.group);
     this.burnVisual?.update(dt, burning, burningDamage, this.dead, this.healthBarBg.position.y);
-    this.healthFill.material.color.setHex(burning ? 0xff8c32 : 0x62e06a);
+    this.healthFill.material.color.setHex(burning ? 0xffc090 : 0xffffff);
 
     this.bobPhase += dt * (this.state === 'chase' ? 7 : 3);
     const bob = this.dead ? 0 : Math.sin(this.bobPhase) * 0.08;
@@ -447,8 +452,9 @@ export class Monster {
       this.bodyGroup.rotation.x = Math.min(1.2, this.removalTimer * 3);
     }
 
-    const healthRatio = this.maxHealth > 0 ? Math.max(0, this.health / this.maxHealth) : 0;
-    this.healthFill.scale.x = Math.max(0.001, healthRatio * 0.88);
+    const healthRatio = this.maxHealth > 0 ? Math.max(0, Math.min(1, this.health / this.maxHealth)) : 0;
+    this.healthFill.scale.x = Math.max(0.001, healthRatio * 0.93);
+    this.healthFill.center.x = 0.465 / this.healthFill.scale.x;
     this.healthFill.visible = !this.dead;
   }
 

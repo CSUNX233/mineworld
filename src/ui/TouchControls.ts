@@ -1,5 +1,6 @@
 import type { InputManager } from '../core/InputManager';
 import { isMobileDevice } from '../utils/mobile';
+import { createUiIcon } from './UiAssets';
 
 export interface TouchCallbacks {
   onAttackPress: () => void;
@@ -14,6 +15,7 @@ export interface TouchCallbacks {
 }
 
 export interface TouchSkillState {
+  id?: string;
   name: string;
   manaCost: number;
   key: string;
@@ -186,6 +188,12 @@ export class TouchControls {
       const label = this.skillLabels[i];
       const overlay = this.skillOverlays[i];
       if (!button || !label || !overlay) continue;
+      const iconId = state?.id ?? '';
+      if (button.dataset.icon !== iconId) {
+        button.querySelector('.sunlit-icon')?.remove();
+        if (iconId) button.prepend(createUiIcon(iconId));
+        button.dataset.icon = iconId;
+      }
 
       if (state) {
         button.dataset.key = state.key;
@@ -335,7 +343,8 @@ export class TouchControls {
     row.style.display = 'flex';
     row.style.pointerEvents = 'none';
 
-    const inventory = this.makeButton('🎒', 'touch-button touch-utility');
+    const inventory = this.makeButton('背包', 'touch-button touch-utility');
+    inventory.replaceChildren(createUiIcon('bag'));
     inventory.title = '背包';
     this.bindTap(inventory, () => this.callbacks.onInventoryPress());
     row.appendChild(inventory);
@@ -348,7 +357,8 @@ export class TouchControls {
     row.appendChild(view);
     this.utilityButtons.push(view);
 
-    const skills = this.makeButton('✦', 'touch-button touch-utility');
+    const skills = this.makeButton('技能配置', 'touch-button touch-utility');
+    skills.replaceChildren(createUiIcon('staff'));
     skills.title = '技能配置';
     this.bindTap(skills, () => this.callbacks.onSkillBarPress());
     row.appendChild(skills);
@@ -358,7 +368,7 @@ export class TouchControls {
   }
 
   private createPauseButton(): HTMLDivElement {
-    const button = this.makeButton('⏸', 'touch-button touch-pause');
+    const button = this.makeButton('暂停', 'touch-button touch-pause');
     button.style.position = 'absolute';
     button.title = '暂停';
     this.bindTap(button, () => this.callbacks.onPausePress());

@@ -27,7 +27,7 @@ import { worldRayDistance } from '../world/SpatialQueries';
 import { RNG } from '../utils/RNG';
 import { RARITY_COLORS, RARITY_ORDER, xpToNext } from '../data/recipes';
 import type { ActorStatus, ElementType, Item, MaterialId, Rarity, SaveData, SavedMonster, ShopStockEntry, Slot, StatMap } from '../types';
-import { DEFAULT_SKILL_LOADOUT, SKILLS, keyToLabel, skillById } from '../data/skills';
+import { DEFAULT_SKILL_LOADOUT, SKILLS, skillById } from '../data/skills';
 import { MATERIALS, MATERIAL_ORDER } from '../data/materials';
 import { elementalDamage, applyElementalHit, applyStatus, type StatusedActor } from '../combat/ElementSystem';
 import { ShopSystem, SHOP_SLOTS } from '../items/ShopSystem';
@@ -57,6 +57,7 @@ import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import type { ArchetypeId, RunOutcome, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
 import { buildCampView, buildMigrationView, buildSettlementView } from '../ui/RunScreens';
 import { starterWeapon } from '../items/StarterEquipment';
+import { createUiIcon } from '../ui/UiAssets';
 
 interface DropEntity {
   mesh: THREE.Mesh;
@@ -80,6 +81,15 @@ interface SkillState {
   statusChance?: number;
   icon: string;
 }
+
+const SKILL_UI_ICONS: Record<string, string> = {
+  whirlwind: 'whirlwind',
+  dash: 'dash',
+  fireball: 'fireball',
+  detonate: 'detonate',
+  frost_nova: 'frost',
+  lightning_chain: 'lightning',
+};
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -300,12 +310,9 @@ export class Game {
     this.removeStartMenu();
     const { overlay, panel } = this.createStartMenuShell();
 
-    const title = document.createElement('div');
+    const title = document.createElement('h1');
     title.textContent = 'MineWorld';
-    title.style.fontSize = 'clamp(40px, 10vw, 52px)';
-    title.style.fontWeight = 'bold';
-    title.style.color = '#fff';
-    title.style.textShadow = '0 6px 20px #000';
+    title.className = 'sunlit-brand-title';
     panel.appendChild(title);
 
     const startButton = this.makeMenuButton('开始游戏');
@@ -320,6 +327,7 @@ export class Game {
   private showSaveSlotMenu(message = '', isError = false): void {
     this.removeStartMenu();
     const { overlay, panel } = this.createStartMenuShell();
+    panel.classList.add('sunlit-save-panel');
     let storageError = false;
     let slots: ReturnType<typeof SaveManager.listSlots> = [];
     try {
@@ -329,34 +337,34 @@ export class Game {
       storageError = true;
     }
 
-    const title = document.createElement('div');
+    const title = document.createElement('h2');
     title.textContent = '选择存档';
-    title.style.cssText = 'font-size:28px;font-weight:bold;color:#fff;text-shadow:0 4px 14px #000';
+    title.className = 'sunlit-menu-title';
     panel.appendChild(title);
 
     if (message) {
       const notice = document.createElement('div');
       notice.setAttribute('role', isError ? 'alert' : 'status');
       notice.textContent = message;
-      notice.style.cssText = `margin:12px 0 0;color:${isError ? '#ff9b9b' : '#9fd4ad'};font-size:14px;line-height:1.5`;
+      notice.className = `sunlit-menu-notice ${isError ? 'is-error' : 'is-success'}`;
       panel.appendChild(notice);
     }
     if (storageError) {
       const notice = document.createElement('div');
       notice.setAttribute('role', 'alert');
       notice.textContent = '无法访问本地存档，请检查浏览器存储权限后重试。';
-      notice.style.cssText = 'margin:12px 0 0;color:#ff9b9b;font-size:14px;line-height:1.5';
+      notice.className = 'sunlit-menu-notice is-error';
       panel.appendChild(notice);
     }
 
     const list = document.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:16px';
+    list.className = 'sunlit-save-list';
     slots.forEach((slot) => {
       const state = slot.state ?? (slot.exists ? 'active' : 'empty');
       const stored = state !== 'empty';
       const corrupt = state === 'invalid';
       const row = document.createElement('div');
-      row.style.cssText = `display:grid;grid-template-columns:${stored ? 'minmax(0,1fr) auto' : '1fr'};gap:8px;align-items:stretch`;
+      row.className = `sunlit-save-row${stored ? ' has-delete' : ''}`;
 
       const selectButton = this.makeMenuButton(
         storageError
@@ -373,14 +381,10 @@ export class Game {
                   ? `存档 ${slot.slot + 1} · 第 ${slot.floor} 层 · Lv.${slot.level} · 继续游戏`
                   : `存档 ${slot.slot + 1} · 新档案`,
       );
-      selectButton.style.margin = '0';
-      selectButton.style.minWidth = '0';
-      selectButton.style.width = '100%';
+      selectButton.classList.add('sunlit-save-button');
       if (storageError || corrupt) {
         selectButton.disabled = true;
         selectButton.title = storageError ? '无法访问本地存档' : '这个存档无法读取，请删除后再使用此槽位';
-        selectButton.style.opacity = '0.62';
-        selectButton.style.cursor = 'not-allowed';
       } else {
         selectButton.onclick = () => this.selectSaveSlot(slot.slot);
       }
@@ -389,9 +393,7 @@ export class Game {
       if (stored && !storageError) {
         const deleteButton = this.makeMenuButton('删除');
         deleteButton.setAttribute('aria-label', `删除存档 ${slot.slot + 1}`);
-        deleteButton.style.cssText += ';margin:0;min-width:72px;padding:10px 14px;background:#65343b;border-color:#b66a73';
-        deleteButton.onmouseenter = () => { deleteButton.style.background = '#82434d'; };
-        deleteButton.onmouseleave = () => { deleteButton.style.background = '#65343b'; };
+        deleteButton.classList.add('is-danger', 'sunlit-delete-button');
         deleteButton.onclick = () => this.showDeleteSaveConfirmation(slot.slot, corrupt);
         row.appendChild(deleteButton);
       }
@@ -400,7 +402,7 @@ export class Game {
     panel.appendChild(list);
 
     const backButton = this.makeMenuButton('返回主菜单');
-    backButton.style.marginTop = '16px';
+    backButton.classList.add('is-secondary');
     backButton.onclick = () => this.showStartMenu();
     panel.appendChild(backButton);
 
@@ -413,19 +415,19 @@ export class Game {
   private showDeleteSaveConfirmation(slot: number, corrupt: boolean): void {
     this.removeStartMenu();
     const { overlay, panel } = this.createStartMenuShell();
+    panel.classList.add('sunlit-confirm-panel');
 
-    const title = document.createElement('div');
+    const title = document.createElement('h2');
     title.textContent = `删除存档 ${slot + 1}？`;
-    title.style.cssText = 'font-size:26px;font-weight:bold;color:#fff';
+    title.className = 'sunlit-menu-title';
     const warning = document.createElement('div');
     warning.setAttribute('role', 'alert');
     warning.textContent = `${corrupt ? '此存档已损坏且无法读取。' : '当前进度将被永久删除。'} 此操作不可恢复。`;
-    warning.style.cssText = 'margin-top:14px;color:#ffaaaa;font-size:16px;line-height:1.6';
+    warning.className = 'sunlit-menu-notice is-error';
     panel.append(title, warning);
 
     const confirmButton = this.makeMenuButton('确认删除（不可恢复）');
-    confirmButton.style.background = '#7b3039';
-    confirmButton.style.borderColor = '#d47780';
+    confirmButton.classList.add('is-danger');
     confirmButton.onclick = () => {
       try {
         SaveManager.clear(slot);
@@ -439,7 +441,7 @@ export class Game {
     panel.appendChild(confirmButton);
 
     const cancelButton = this.makeMenuButton('取消');
-    cancelButton.style.marginTop = '10px';
+    cancelButton.classList.add('is-secondary');
     cancelButton.onclick = () => this.showSaveSlotMenu();
     panel.appendChild(cancelButton);
 
@@ -639,11 +641,10 @@ export class Game {
 
   private createStartMenuShell(): { overlay: HTMLDivElement; panel: HTMLDivElement } {
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(20,28,42,0.88), rgba(5,7,12,0.96));pointer-events:auto;z-index:200;padding:12px;box-sizing:border-box';
+    overlay.className = 'sunlit-menu-overlay';
 
     const panel = document.createElement('div');
-    panel.className = 'panel mobile-scroll';
-    panel.style.cssText = 'text-align:center;width:min(620px, 100%);max-height:calc(100dvh - 24px);overflow-y:auto;box-sizing:border-box;padding:clamp(16px, 4vw, 28px)';
+    panel.className = 'panel mobile-scroll sunlit-menu-panel';
     return { overlay, panel };
   }
 
@@ -666,59 +667,19 @@ export class Game {
   private makeMenuButton(label: string): HTMLButtonElement {
     const button = document.createElement('button');
     button.textContent = label;
-    button.style.display = 'block';
-    button.style.margin = '18px auto 0';
-    button.style.minWidth = '220px';
-    button.style.minHeight = '44px';
-    button.style.padding = '12px 24px';
-    button.style.fontSize = '18px';
-    button.style.fontFamily = 'inherit';
-    button.style.background = '#2c5f8a';
-    button.style.color = '#fff';
-    button.style.border = '1px solid #6fa9d8';
-    button.style.borderRadius = '4px';
-    button.style.cursor = 'pointer';
-    button.style.touchAction = 'manipulation';
-    button.onmouseenter = () => {
-      button.style.background = '#3b78ad';
-    };
-    button.onmouseleave = () => {
-      button.style.background = '#2c5f8a';
-    };
+    button.className = 'sunlit-menu-button';
     return button;
   }
 
   private addPanelCloseButton(panel: HTMLDivElement, onClick: () => void): void {
-    if (!this.mobile) return;
     panel.style.position = 'relative';
-    panel.classList.add('mobile-scroll');
-    panel.style.maxHeight = '88dvh';
-    panel.style.overflowY = 'auto';
-    panel.style.minWidth = '0';
-    panel.style.width = 'min(640px, 94vw)';
-    panel.style.paddingTop = '54px';
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = '✕';
     button.className = 'panel-close-button';
-    button.style.position = 'absolute';
-    button.style.right = '10px';
-    button.style.top = '10px';
-    button.style.width = '42px';
-    button.style.height = '42px';
-    button.style.minWidth = '42px';
-    button.style.minHeight = '42px';
-    button.style.padding = '0';
-    button.style.background = 'rgba(20,28,42,0.86)';
-    button.style.color = '#e7e9ee';
-    button.style.border = '1px solid #59647a';
-    button.style.borderRadius = '6px';
-    button.style.fontSize = '18px';
-    button.style.fontWeight = 'bold';
-    button.style.cursor = 'pointer';
-    button.style.touchAction = 'manipulation';
+    button.setAttribute('aria-label', '关闭面板');
     button.onclick = onClick;
-    panel.appendChild(button);
+    panel.prepend(button);
   }
 
   private bindOverlayMaskClose(overlay: HTMLDivElement, close: () => void): void {
@@ -1257,7 +1218,7 @@ export class Game {
       this.hudTimer = 0.1;
       this.hud.setState(this.hudState());
       const skillStates = this.skillHudStates();
-      this.hud.updateSkills(skillStates);
+      this.hud.updateSkills(skillStates, this.player.mana);
       this.touchControls?.updateSkillStates(skillStates, this.player.mana);
       this.hud.setStatuses(this.player.statuses);
       this.minimap.update(this.floorData, this.player, this.monsters, this.encounters?.state);
@@ -1389,32 +1350,19 @@ export class Game {
   private showPauseMenu(): void {
     this.removePauseMenu();
     const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.inset = '0';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.background = 'rgba(4,6,10,0.82)';
-    overlay.style.pointerEvents = 'auto';
-    overlay.style.zIndex = '220';
+    overlay.className = 'sunlit-menu-overlay sunlit-pause-overlay';
 
     const panel = document.createElement('div');
-    panel.style.textAlign = 'center';
-    panel.className = 'panel mobile-scroll';
-    panel.style.maxHeight = '88dvh';
-    panel.style.overflowY = 'auto';
-    panel.style.padding = this.mobile ? '48px 20px 20px' : '24px';
-    panel.style.width = 'min(380px, 94vw)';
-    const title = document.createElement('div');
+    panel.className = 'panel mobile-scroll sunlit-menu-panel sunlit-pause-panel';
+    if (this.mobile) panel.classList.add('is-mobile');
+    const title = document.createElement('h2');
     title.textContent = '游戏暂停';
-    title.style.fontSize = '34px';
-    title.style.fontWeight = 'bold';
-    title.style.color = '#fff';
+    title.className = 'sunlit-menu-title is-large';
     panel.appendChild(title);
 
     const seedInfo = document.createElement('div');
     seedInfo.textContent = `本局种子 ${this.seed}（地图/遭遇可复现，掉落不保证一致）`;
-    seedInfo.style.cssText = 'margin-top:8px;color:#8fa3bc;font-size:12px;line-height:1.5';
+    seedInfo.className = 'sunlit-menu-help';
     panel.appendChild(seedInfo);
 
     const continueBtn = this.makeMenuButton('继续游戏');
@@ -1428,17 +1376,16 @@ export class Game {
     panel.appendChild(exportBtn);
     const exportHelp = document.createElement('div');
     exportHelp.textContent = '记录仅保存在内存，最多 2000 条事件；不会上传，刷新页面会清空。';
-    exportHelp.style.cssText = 'margin-top:8px;color:#8fa3bc;font-size:12px;line-height:1.5';
+    exportHelp.className = 'sunlit-menu-help';
     panel.appendChild(exportHelp);
     const exitBtn = this.makeMenuButton('返回主菜单');
+    exitBtn.classList.add('is-secondary');
     exitBtn.onclick = () => this.exitToMainMenu();
     panel.appendChild(exitBtn);
 
     const lookLabel = document.createElement('div');
     lookLabel.textContent = '视角灵敏度';
-    lookLabel.style.marginTop = '18px';
-    lookLabel.style.color = '#b8c8de';
-    lookLabel.style.fontSize = '14px';
+    lookLabel.className = 'sunlit-setting-label';
     panel.appendChild(lookLabel);
     const lookSensitivity = document.createElement('input');
     lookSensitivity.type = 'range';
@@ -1446,24 +1393,17 @@ export class Game {
     lookSensitivity.max = '2.5';
     lookSensitivity.step = '0.1';
     lookSensitivity.value = String(SettingsManager.getLookSensitivity());
-    lookSensitivity.style.width = '220px';
+    lookSensitivity.className = 'sunlit-range';
+    lookSensitivity.setAttribute('aria-label', '视角灵敏度');
     lookSensitivity.oninput = () => SettingsManager.setLookSensitivity(Number(lookSensitivity.value));
     panel.appendChild(lookSensitivity);
 
     const followRow = document.createElement('label');
-    followRow.style.display = 'flex';
-    followRow.style.alignItems = 'center';
-    followRow.style.justifyContent = 'center';
-    followRow.style.gap = '8px';
-    followRow.style.marginTop = '12px';
-    followRow.style.color = '#b8c8de';
-    followRow.style.fontSize = '14px';
+    followRow.className = 'sunlit-toggle-row';
     followRow.textContent = '前进时自动回正镜头';
     const followToggle = document.createElement('input');
     followToggle.type = 'checkbox';
     followToggle.checked = SettingsManager.getCameraFollow();
-    followToggle.style.width = '18px';
-    followToggle.style.height = '18px';
     followToggle.onchange = () => SettingsManager.setCameraFollow(followToggle.checked);
     followRow.appendChild(followToggle);
     panel.appendChild(followRow);
@@ -1471,14 +1411,12 @@ export class Game {
     cameraHelp.textContent = this.mobile
       ? '拖动画面转向 · 摇杆轻推慢走、外推冲刺'
       : '鼠标转向 · 滚轮调距离 · R 回正 · 按住右键保持面向';
-    cameraHelp.style.cssText = 'margin-top:10px;color:#8fa3bc;font-size:12px;max-width:320px;line-height:1.6';
+    cameraHelp.className = 'sunlit-menu-help';
     panel.appendChild(cameraHelp);
 
     const sfxLabel = document.createElement('div');
     sfxLabel.textContent = '音效音量';
-    sfxLabel.style.marginTop = '18px';
-    sfxLabel.style.color = '#b8c8de';
-    sfxLabel.style.fontSize = '14px';
+    sfxLabel.className = 'sunlit-setting-label';
     panel.appendChild(sfxLabel);
     const sfxVolume = document.createElement('input');
     sfxVolume.type = 'range';
@@ -1486,15 +1424,14 @@ export class Game {
     sfxVolume.max = '1';
     sfxVolume.step = '0.05';
     sfxVolume.value = String(this.audio.currentVolume);
-    sfxVolume.style.width = '220px';
+    sfxVolume.className = 'sunlit-range';
+    sfxVolume.setAttribute('aria-label', '音效音量');
     sfxVolume.oninput = () => this.audio.setSfxVolume(Number(sfxVolume.value));
     panel.appendChild(sfxVolume);
 
     const musicLabel = document.createElement('div');
     musicLabel.textContent = '背景音乐音量';
-    musicLabel.style.marginTop = '12px';
-    musicLabel.style.color = '#b8c8de';
-    musicLabel.style.fontSize = '14px';
+    musicLabel.className = 'sunlit-setting-label';
     panel.appendChild(musicLabel);
     const musicVolume = document.createElement('input');
     musicVolume.type = 'range';
@@ -1502,7 +1439,8 @@ export class Game {
     musicVolume.max = '1';
     musicVolume.step = '0.05';
     musicVolume.value = String(this.audio.currentMusicVolume);
-    musicVolume.style.width = '220px';
+    musicVolume.className = 'sunlit-range';
+    musicVolume.setAttribute('aria-label', '背景音乐音量');
     musicVolume.oninput = () => this.audio.setMusicVolume(Number(musicVolume.value));
     panel.appendChild(musicVolume);
     if (this.mobile) {
@@ -1549,7 +1487,7 @@ export class Game {
     const overlay = document.createElement('div');
     overlay.className = 'merchant-overlay';
     const panel = document.createElement('div');
-    panel.className = 'panel merchant-panel mobile-scroll';
+    panel.className = 'panel merchant-panel mobile-scroll sunlit-rest-panel';
     const title = document.createElement('h2');
     title.textContent = shop ? '游商驿站' : `第 ${this.floor} 层主线完成`;
     const status = document.createElement('p');
@@ -1714,24 +1652,11 @@ export class Game {
     if (document.pointerLockElement) document.exitPointerLock();
 
     const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.inset = '0';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.background = 'rgba(4,6,10,0.82)';
-    overlay.style.pointerEvents = 'auto';
-    overlay.style.zIndex = '240';
+    overlay.className = 'sunlit-menu-overlay sunlit-talent-overlay';
 
     const panel = document.createElement('div');
-    panel.className = 'panel';
+    panel.className = 'panel sunlit-talent-shell';
     if (this.mobile) panel.classList.add('mobile-scroll');
-    panel.style.maxHeight = '86vh';
-    panel.style.overflow = 'auto';
-    panel.style.padding = '18px';
-    panel.style.width = 'min(960px, 94vw)';
-    panel.style.minWidth = '0';
-    panel.style.boxSizing = 'border-box';
     this.attributePanel = panel;
     this.renderCharacterPanel();
 
@@ -1762,7 +1687,7 @@ export class Game {
     if (this.migratedRunTalents) {
       const note = document.createElement('p');
       note.textContent = '本局已接续新天赋规则：旧属性、天赋和层间专精已归并，按等级与已完成 Boss 目标恢复可用点数，请在安全房重新规划。装备和局外档案保留。';
-      note.style.color = '#ffd391';
+      note.className = 'sunlit-menu-notice';
       panel.appendChild(note);
     }
     panel.appendChild(buildRunTalentPanel(this.runTalents, this.currentTalentBudget(), this.canEditRunTalents(),
@@ -1770,6 +1695,7 @@ export class Game {
     const skills = this.makeMenuButton('技能栏配置');
     skills.onclick = () => { this.closeAttributeAllocation(); this.showSkillBar(); };
     const close = this.makeMenuButton('关闭');
+    close.classList.add('is-secondary');
     close.onclick = () => { this.closeAttributeAllocation(); this.requestPointerLock(); };
     panel.append(skills, close);
   }
@@ -1826,24 +1752,11 @@ export class Game {
     if (document.pointerLockElement) document.exitPointerLock();
 
     const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.inset = '0';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.background = 'rgba(4,6,10,0.82)';
-    overlay.style.pointerEvents = 'auto';
-    overlay.style.zIndex = '245';
+    overlay.className = 'sunlit-menu-overlay sunlit-skill-menu-overlay';
 
     const panel = document.createElement('div');
-    panel.className = 'panel';
+    panel.className = 'panel sunlit-skill-panel';
     if (this.mobile) panel.classList.add('mobile-scroll');
-    panel.style.maxHeight = '88vh';
-    panel.style.overflow = 'auto';
-    panel.style.padding = '18px';
-    panel.style.width = 'min(640px, 94vw)';
-    panel.style.minWidth = '0';
-    panel.style.boxSizing = 'border-box';
     this.skillPanel = panel;
     this.renderSkillPanel();
 
@@ -1860,62 +1773,57 @@ export class Game {
     panel.innerHTML = '';
     if (panel === this.attributePanel) this.addPanelCloseButton(panel, () => this.closeAttributeAllocation());
     if (panel === this.skillPanel) this.addPanelCloseButton(panel, () => this.closeSkillBar());
-    const title = document.createElement('div');
+    const header = document.createElement('header');
+    header.className = 'sunlit-skill-header';
+    const title = document.createElement('h2');
     title.textContent = '技能栏配置';
-    title.style.fontSize = '25px';
-    title.style.fontWeight = 'bold';
-    title.style.color = '#fff';
-    title.style.textAlign = 'center';
-    panel.appendChild(title);
+    title.className = 'sunlit-menu-title';
 
     const hint = document.createElement('div');
     hint.textContent = `已装备 ${this.skillLoadout.length}/4 · ${this.canEditRunTalents() ? '安全房可调整技能栏' : '战斗或通道中仅可查看'}`;
-    hint.style.margin = '10px 0 14px';
-    hint.style.color = '#b8c8de';
-    hint.style.fontSize = '13px';
-    hint.style.textAlign = 'center';
-    panel.appendChild(hint);
+    hint.className = 'sunlit-skill-hint sunlit-inset';
+    header.append(title, hint);
+    panel.appendChild(header);
+
+    const list = document.createElement('div');
+    list.className = 'sunlit-skill-list mobile-scroll';
+    list.setAttribute('aria-label', '可配置技能');
 
     SKILLS.forEach((skill) => {
       const unlocked = this.isSkillUnlocked(skill.id);
       const equipped = this.skillLoadout.includes(skill.id);
+      const equippedSlot = this.skillLoadout.indexOf(skill.id);
       const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.alignItems = 'center';
-      row.style.gap = '8px';
-      row.style.margin = '6px 0';
-      row.style.padding = '8px 10px';
-      row.style.background = equipped ? '#243a52' : '#151c28';
-      row.style.border = equipped ? '1px solid #6fa9d8' : '1px solid #354156';
-      row.style.borderRadius = '4px';
+      row.className = `sunlit-skill-row${equipped ? ' is-equipped' : ''}${unlocked ? '' : ' is-locked'}`;
 
-      const icon = document.createElement('span');
-      icon.textContent = skill.icon;
-      icon.style.fontSize = '24px';
+      const icon = createUiIcon(SKILL_UI_ICONS[skill.id] ?? skill.id, 'sunlit-skill-icon');
       row.appendChild(icon);
 
       const info = document.createElement('div');
-      info.style.flex = '1';
+      info.className = 'sunlit-skill-copy';
       const cooldown = Math.max(.3, skill.cooldown * (skill.id === 'fireball' ? this.fireModifiers.fireballCooldownMultiplier : 1) * (1 - this.effectiveStats().cooldownReduction));
       const manaCost = Math.max(0, Math.round(skill.manaCost * (skill.id === 'fireball' ? this.fireModifiers.fireballManaCostMultiplier : 1)));
-      info.innerHTML = `<div style="font-weight:bold;color:#e7f4ff">${skill.name} <span style="color:#8fa7c5">[${keyToLabel(skill.key)}]</span></div><div style="font-size:12px;color:#8296ad;margin-top:2px">${skill.description} · ${cooldown.toFixed(1)}s · 法力 ${manaCost}</div>`;
+      const skillName = document.createElement('div');
+      skillName.className = 'sunlit-config-skill-name';
+      skillName.append(document.createTextNode(`${skill.name} `));
+      const key = document.createElement('span');
+      key.textContent = equippedSlot >= 0 ? `[槽位 ${equippedSlot + 1}]` : '[未配置]';
+      skillName.appendChild(key);
+      const description = document.createElement('div');
+      description.className = 'sunlit-skill-description';
+      description.textContent = `${skill.description} · ${cooldown.toFixed(1)}s · 法力 ${manaCost}`;
+      info.append(skillName, description);
       row.appendChild(info);
 
       const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'sunlit-menu-button sunlit-skill-action';
       if (!unlocked) {
         button.textContent = '未解锁';
         button.disabled = true;
-        button.style.background = '#28303d';
-        button.style.color = '#677487';
       } else {
         button.textContent = equipped ? '卸载' : '装备';
-        button.style.background = equipped ? '#5a4a1f' : '#2c5f8a';
-        button.style.color = '#fff';
-        button.style.border = '1px solid #8b7a3f';
-        button.style.borderRadius = '4px';
-        button.style.padding = '6px 10px';
-        button.style.cursor = 'pointer';
-        button.style.minHeight = '44px';
+        if (equipped) button.classList.add('is-equipped');
         button.disabled = !this.canEditRunTalents();
         button.onclick = () => {
           if (!this.canEditRunTalents()) return;
@@ -1924,15 +1832,19 @@ export class Game {
           this.renderSkillPanel();
         };
       }
+      button.setAttribute('aria-label', `${button.textContent}技能：${skill.name}`);
       row.appendChild(button);
-      panel.appendChild(row);
+      list.appendChild(row);
     });
+    panel.appendChild(list);
 
+    const footer = document.createElement('footer');
+    footer.className = 'sunlit-skill-footer';
     const closeButton = this.makeMenuButton('关闭');
-    closeButton.style.display = 'block';
-    closeButton.style.marginTop = '14px';
+    closeButton.classList.add('is-secondary');
     closeButton.onclick = () => this.closeSkillBar();
-    panel.appendChild(closeButton);
+    footer.appendChild(closeButton);
+    panel.appendChild(footer);
   }
 
   private addSkillToLoadout(id: string): void {
@@ -2107,7 +2019,7 @@ export class Game {
         monster.def.resistances,
         monster.statuses,
       );
-      this.applyMonsterDamage(monster, result.damage, result.crit);
+      this.applyMonsterDamage(monster, result.damage, result.crit, 1.3);
       this.applyPlayerElementalHit(monster, 'fire', stats.attack * 1.1, 0.2);
     });
   }
@@ -2142,7 +2054,7 @@ export class Game {
           monster.def.resistances,
           monster.statuses,
         );
-        this.applyMonsterDamage(monster, result.damage, result.crit);
+        this.applyMonsterDamage(monster, result.damage, result.crit, 0.25);
         this.applyPlayerElementalHit(monster, 'fire', stats.attack * 0.22, 0.12);
       });
     window.setTimeout(() => {
@@ -2191,7 +2103,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit);
+      this.applyMonsterDamage(target, result.damage, result.crit, 0.65);
       this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.6, skill.statusChance);
     });
   }
@@ -2214,7 +2126,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit);
+      this.applyMonsterDamage(target, result.damage, result.crit, 1.1);
       this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance);
     });
     if (this.equipment.hasSpecial('dashInvincibility')) {
@@ -2323,7 +2235,7 @@ export class Game {
           target.def.resistances,
           target.statuses,
         );
-        this.applyMonsterDamage(target, result.damage, result.crit);
+        this.applyMonsterDamage(target, result.damage, result.crit, 0.85);
         this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance);
       });
   }
@@ -2344,7 +2256,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit);
+      this.applyMonsterDamage(target, result.damage, result.crit, 0.45);
       this.applyPlayerElementalHit(target, skill.element, stats.attack * Math.max(0.45, 1.35 - index * 0.25), skill.statusChance);
       this.effects.explosion(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x8ed4ff);
     });
@@ -2590,14 +2502,14 @@ export class Game {
     const hitImpact = Math.max(0.25, Math.min(1.3, impact));
     monster.hitFlash = Math.max(monster.hitFlash, 0.05 + hitImpact * 0.07);
     this.hitstopTimer = Math.max(this.hitstopTimer, 0.012 + hitImpact * 0.03);
-    this.controller.addShake(Math.min(0.12, hitImpact * 0.055));
+    this.controller.addHitShake(hitImpact, crit);
     const color = crit ? '#ff4b4b' : '#ffffff';
     this.hud.spawnDamage(String(damage), color, crit, crit ? 1.35 : 1);
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.8, 0)), monster.def.color, crit ? 10 : 5, crit ? 3 : 2);
     this.audio.hit(crit);
     if (crit) {
       this.hitstopTimer = Math.max(this.hitstopTimer, 0.05);
-      this.controller.addShake(0.09);
+
     }
     if (killed) this.onMonsterKilled(monster, crit);
   }
@@ -2608,7 +2520,7 @@ export class Game {
     this.kills++;
     this.audio.kill();
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.9, 0)), monster.def.color, 22, 5);
-    if (crit) this.controller.addShake(0.08);
+
 
     if (this.equipment.hasSpecial('explosiveKill')) {
       this.effects.explosion(monster.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff7a2a);
@@ -3146,6 +3058,7 @@ export class Game {
 
   private skillHudStates(): SkillHUDState[] {
     return this.skills.map((skill) => ({
+      id: skill.id,
       name: skill.name,
       key: skill.key,
       cooldown: skill.cooldown,
@@ -3218,28 +3131,16 @@ export class Game {
     if (!item) return;
     this.closeSellOverlay();
     const overlay = document.createElement('div');
-    overlay.style.position = 'fixed';
-    overlay.style.inset = '0';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.background = 'rgba(0,0,0,0.65)';
-    overlay.style.pointerEvents = 'auto';
-    overlay.style.zIndex = '260';
+    overlay.className = 'sunlit-menu-overlay sunlit-fixed-overlay';
 
     const panel = document.createElement('div');
-    panel.className = 'panel';
-    panel.style.padding = '18px 22px';
-    panel.style.textAlign = 'center';
-    const title = document.createElement('div');
+    panel.className = 'panel sunlit-confirm-panel';
+    const title = document.createElement('h2');
     title.textContent = '确认出售';
-    title.style.fontSize = '24px';
-    title.style.fontWeight = 'bold';
-    title.style.color = '#fff';
+    title.className = 'sunlit-menu-title';
     panel.appendChild(title);
     const info = document.createElement('div');
-    info.style.margin = '12px 0 18px';
-    info.style.color = '#b8c8de';
+    info.className = 'sunlit-confirm-copy';
     info.textContent = `${item.name} · 售价 ${item.sellPrice} 金币`;
     panel.appendChild(info);
     const confirm = this.makeMenuButton('确认出售');
@@ -3249,6 +3150,7 @@ export class Game {
     };
     panel.appendChild(confirm);
     const cancel = this.makeMenuButton('取消');
+    cancel.classList.add('is-secondary');
     cancel.onclick = () => this.closeSellOverlay();
     panel.appendChild(cancel);
 
@@ -3308,35 +3210,20 @@ export class Game {
   private showCraftOverlay(title: string, infoHTML: string, onConfirm: () => void, confirmDisabled = false): void {
     this.closeCraftOverlay();
     const overlay = document.createElement('div');
-    overlay.style.position = 'fixed';
-    overlay.style.inset = '0';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.background = 'rgba(0,0,0,0.68)';
-    overlay.style.pointerEvents = 'auto';
-    overlay.style.zIndex = '260';
+    overlay.className = 'sunlit-menu-overlay sunlit-fixed-overlay';
 
     const panel = document.createElement('div');
-    panel.className = 'panel';
-    panel.style.padding = '18px 22px';
-    panel.style.textAlign = 'center';
-    const titleEl = document.createElement('div');
+    panel.className = 'panel sunlit-confirm-panel';
+    const titleEl = document.createElement('h2');
     titleEl.textContent = title;
-    titleEl.style.fontSize = '24px';
-    titleEl.style.fontWeight = 'bold';
-    titleEl.style.color = '#fff';
+    titleEl.className = 'sunlit-menu-title';
     panel.appendChild(titleEl);
     const info = document.createElement('div');
-    info.style.margin = '12px 0 18px';
-    info.style.color = '#b8c8de';
-    info.style.fontSize = '13px';
-    info.style.lineHeight = '1.55';
+    info.className = 'sunlit-confirm-copy';
     info.innerHTML = infoHTML;
     panel.appendChild(info);
     const confirm = this.makeMenuButton(confirmDisabled ? '资源不足' : '确认');
     confirm.disabled = confirmDisabled;
-    confirm.style.opacity = confirmDisabled ? '0.55' : '1';
     confirm.onclick = () => {
       if (confirmDisabled) return;
       this.audio.uiConfirm();
@@ -3345,6 +3232,7 @@ export class Game {
     };
     panel.appendChild(confirm);
     const cancel = this.makeMenuButton('取消');
+    cancel.classList.add('is-secondary');
     cancel.onclick = () => {
       this.audio.uiClick();
       this.closeCraftOverlay();

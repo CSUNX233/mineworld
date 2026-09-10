@@ -1,11 +1,12 @@
+import { pixelText, setPixelText } from './PixelNumbers';
 import type { EquipmentManager } from '../items/EquipmentManager';
 import type { Inventory } from '../items/Inventory';
 import type { Item, Rarity, Slot, Stat } from '../types';
-import { RARITY_COLORS } from '../data/recipes';
 import { SETS, setDisplayName } from '../data/sets';
 import { statLabel, formatValue } from '../items/AffixSystem';
 import { itemTooltipHTML } from './ItemTooltip';
 import { isMobileDevice } from '../utils/mobile';
+import { createItemIcon, createUiIcon, UI_RARITY_COLORS } from './UiAssets';
 
 const SLOT_ORDER: Slot[] = ['weapon', 'helmet', 'chest', 'legs', 'boots', 'ring', 'ring2', 'necklace', 'offhand'];
 const SLOT_LABELS: Record<Slot, string> = {
@@ -19,6 +20,21 @@ const SLOT_LABELS: Record<Slot, string> = {
   necklace: '项链',
   offhand: '副手',
 };
+
+const SLOT_ICONS: Record<Slot, string> = {
+  weapon: 'sword',
+  helmet: 'helmet',
+  chest: 'chest',
+  legs: 'legs',
+  boots: 'boots',
+  ring: 'ring',
+  ring2: 'ring',
+  necklace: 'necklace',
+  offhand: 'shield',
+};
+
+// Inventory frames use a brighter game-readable ladder without changing item rarity data.
+const INVENTORY_RARITY_COLORS = UI_RARITY_COLORS;
 
 export class InventoryUI {
   private panel: HTMLDivElement | null = null;
@@ -72,14 +88,14 @@ export class InventoryUI {
       this.root.appendChild(this.backdrop);
     }
     this.panel = document.createElement('div');
-    this.panel.className = mobile ? 'panel inventory-panel mobile-inventory' : 'panel inventory-panel';
+    this.panel.className = mobile ? 'panel inventory-panel sunlit-inventory mobile-inventory' : 'panel inventory-panel sunlit-inventory';
     this.panel.style.position = 'absolute';
     this.panel.style.left = '50%';
     this.panel.style.top = '50%';
     this.panel.style.transform = 'translate(-50%, -50%)';
-    this.panel.style.width = mobileLandscape ? '94vw' : mobile ? '96vw' : 'calc(720px + 0.5cm)';
+    this.panel.style.width = mobileLandscape ? '94vw' : mobile ? '96vw' : 'min(860px, calc(100vw - 24px))';
     this.panel.style.maxWidth = mobileLandscape ? '94vw' : mobile ? '96vw' : '94vw';
-    this.panel.style.height = mobile ? 'min(82vh, 720px)' : '540px';
+    this.panel.style.height = mobile ? 'min(82vh, 720px)' : 'min(570px, calc(100vh - 24px))';
     this.panel.style.maxHeight = mobile ? '82vh' : '90vh';
     this.panel.style.padding = mobile ? '12px 12px calc(12px + env(safe-area-inset-bottom))' : '16px';
     this.panel.style.display = 'grid';
@@ -110,8 +126,8 @@ export class InventoryUI {
       }
       header.appendChild(tabs);
       this.panel.appendChild(header);
-      this.addCloseButton(this.panel);
     }
+    this.addCloseButton(this.panel);
 
     const equipmentPanel = document.createElement('div');
     equipmentPanel.className = 'inventory-equipment';
@@ -129,9 +145,13 @@ export class InventoryUI {
       equipmentPanel.style.overflow = 'auto';
       equipmentPanel.style.maxHeight = mobileLandscape ? '100%' : '42vh';
     }
+    const equipmentTitle = document.createElement('div');
+    equipmentTitle.className = 'inventory-section-title inventory-equipment-title';
+    equipmentTitle.append(createUiIcon('sword', 'inventory-section-icon'), document.createTextNode('冒险装备'));
+    equipmentPanel.appendChild(equipmentTitle);
     SLOT_ORDER.forEach((slot) => {
       const item = equipment.get(slot);
-      const box = this.makeItemBox(item, `${SLOT_LABELS[slot]}${item ? `\n${item.name}` : ''}`);
+      const box = this.makeItemBox(item, `${SLOT_LABELS[slot]}${item ? `\n${item.name}` : ''}`, SLOT_ICONS[slot]);
       box.dataset.slot = slot;
       if (mobile) {
         box.classList.add('equipment-slot');
@@ -149,13 +169,12 @@ export class InventoryUI {
     });
     const stats = equipment.getDerivedStats();
     const summary = document.createElement('div');
+    summary.className = 'inventory-stat-summary';
     summary.style.gridColumn = '1 / -1';
     summary.style.marginTop = '8px';
     summary.style.paddingTop = '8px';
-    summary.style.borderTop = '1px solid #354156';
     summary.style.fontSize = '12px';
     summary.style.lineHeight = '1.55';
-    summary.style.color = '#a9c8ff';
     summary.innerHTML = [
       `攻击 ${Math.round(stats.attack)}`,
       `攻速 ${(stats.baseAttackSpeed * (1 + stats.attackSpeedBonus)).toFixed(2)}/s`,
@@ -171,21 +190,19 @@ export class InventoryUI {
     const activeSets = equipment.getActiveSetBonuses();
     if (activeSets.length > 0) {
       const setPanel = document.createElement('div');
+      setPanel.className = 'inventory-set-panel sunlit-inset';
       setPanel.style.gridColumn = '1 / -1';
       setPanel.style.marginTop = '6px';
       setPanel.style.padding = '7px 8px';
-      setPanel.style.background = '#151d2b';
-      setPanel.style.border = '1px solid #3d4a63';
-      setPanel.style.borderRadius = '4px';
       setPanel.style.fontSize = '11px';
       setPanel.style.lineHeight = '1.45';
 
       activeSets.forEach((set) => {
         const title = document.createElement('div');
-        title.style.color = '#ffd76a';
+        title.className = 'inventory-set-title';
         title.style.fontWeight = 'bold';
         title.style.marginBottom = '2px';
-        title.textContent = `${setDisplayName(set.setId)} x${set.count}`;
+        setPixelText(title, `${setDisplayName(set.setId)} x${set.count}`);
         setPanel.appendChild(title);
 
         const setDef = SETS[set.setId];
@@ -201,7 +218,7 @@ export class InventoryUI {
               .join(' · ');
             const specialText = bonus.special ? ` · ${this.specialLabel(bonus.special)}` : '';
             const line = document.createElement('div');
-            line.style.color = active ? '#c8e1ff' : '#5f6b7a';
+            line.className = active ? 'inventory-set-bonus is-active' : 'inventory-set-bonus';
             line.style.textDecoration = active ? 'none' : 'line-through';
             line.textContent = `${threshold}件：${statsText}${specialText}`;
             setPanel.appendChild(line);
@@ -215,10 +232,6 @@ export class InventoryUI {
     allocate.style.gridColumn = '1 / -1';
     allocate.style.marginTop = '4px';
     allocate.style.padding = '8px';
-    allocate.style.background = '#2c5f8a';
-    allocate.style.color = '#fff';
-    allocate.style.border = '1px solid #6fa9d8';
-    allocate.style.borderRadius = '4px';
     allocate.style.cursor = 'pointer';
     allocate.onclick = () => this.onAllocateClick?.();
     equipmentPanel.appendChild(allocate);
@@ -232,19 +245,20 @@ export class InventoryUI {
     right.style.minHeight = '0';
     right.style.overflow = 'hidden';
     const title = document.createElement('div');
-    title.textContent = `背包 ${inventory.items.length}/${inventory.capacity}`;
+    title.className = 'inventory-section-title inventory-bag-title';
+    title.append(createUiIcon('bag', 'inventory-section-icon'), pixelText(`背包 ${inventory.items.length}/${inventory.capacity}`));
     title.style.marginBottom = '8px';
     right.appendChild(title);
     if (this.materialText) {
       const materials = document.createElement('div');
-      materials.textContent = this.materialText;
+      materials.className = 'inventory-materials';
+      setPixelText(materials, this.materialText);
       materials.style.marginBottom = '8px';
       materials.style.fontSize = '12px';
-      materials.style.color = '#9fd0ff';
       right.appendChild(materials);
     }
     const grid = document.createElement('div');
-    grid.className = this.mobile ? 'inventory-grid mobile-scroll' : 'inventory-grid';
+    grid.className = this.mobile ? 'inventory-grid sunlit-inset mobile-scroll' : 'inventory-grid sunlit-inset';
     grid.style.flex = '1 1 0';
     grid.style.minHeight = '0';
     grid.style.alignContent = 'start';
@@ -274,12 +288,12 @@ export class InventoryUI {
     }
     right.appendChild(grid);
     const hint = document.createElement('div');
+    hint.className = 'inventory-hint';
     hint.textContent = this.mobile
       ? '点击查看详情、穿戴或打造；出售请前往地图商店'
       : '左键穿戴 · 右键分解/升级/重铸 · 出售请前往地图商店';
     hint.style.marginTop = '8px';
     hint.style.fontSize = '12px';
-    hint.style.color = '#7f8ca0';
     right.appendChild(hint);
 
     const bulkSell = document.createElement('div');
@@ -289,9 +303,9 @@ export class InventoryUI {
     bulkSell.style.alignItems = 'center';
     bulkSell.style.gap = '6px';
     const bulkLabel = document.createElement('span');
+    bulkLabel.className = 'inventory-bulk-label';
     bulkLabel.textContent = '批量处理';
     bulkLabel.style.fontSize = '12px';
-    bulkLabel.style.color = '#ffd76a';
     bulkSell.appendChild(bulkLabel);
 
     const rarityOptions: { value: Rarity; label: string }[] = [
@@ -303,10 +317,7 @@ export class InventoryUI {
     ];
     const raritySelect = document.createElement('select');
     raritySelect.setAttribute('aria-label', '批量处理品质');
-    raritySelect.style.background = '#1a2230';
-    raritySelect.style.color = '#ffd76a';
-    raritySelect.style.border = '1px solid #43516a';
-    raritySelect.style.borderRadius = '3px';
+    raritySelect.className = 'inventory-rarity-select';
     raritySelect.style.padding = '4px 6px';
     rarityOptions.forEach((option) => {
       const item = document.createElement('option');
@@ -320,18 +331,14 @@ export class InventoryUI {
 
     const sellAllButton = document.createElement('button');
     sellAllButton.textContent = '一键整理';
-    sellAllButton.style.background = '#7a5a18';
-    sellAllButton.style.color = '#fff';
-    sellAllButton.style.border = '1px solid #c58c28';
-    sellAllButton.style.borderRadius = '3px';
+    sellAllButton.className = 'inventory-bulk-action';
     sellAllButton.style.padding = '4px 8px';
     sellAllButton.style.cursor = 'pointer';
     sellAllButton.onclick = () => this.onSort?.();
     bulkSell.appendChild(sellAllButton);
     const salvageAllButton = sellAllButton.cloneNode(false) as HTMLButtonElement;
+    salvageAllButton.className = 'inventory-bulk-action inventory-salvage-all';
     salvageAllButton.textContent = '一键分解';
-    salvageAllButton.style.background = '#24465a';
-    salvageAllButton.style.borderColor = '#70b3d6';
     salvageAllButton.onclick = () => this.onSalvageAll?.(raritySelect.value as Rarity);
     bulkSell.appendChild(salvageAllButton);
 
@@ -346,30 +353,27 @@ export class InventoryUI {
   private openContextMenuAt(index: number, item: Item, clientX: number, clientY: number): void {
     this.closeDetails();
     const menu = document.createElement('div');
-    menu.className = 'panel context-menu';
+    menu.className = 'panel context-menu sunlit-context-menu';
     menu.style.position = 'fixed';
     menu.style.zIndex = '1200';
     menu.style.padding = '4px';
     menu.style.minWidth = '160px';
     menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - 180))}px`;
     menu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - 220))}px`;
-    const actions: { label: string; color: string; action: (() => void) | null }[] = [
-      { label: '分解', color: '#9fd0ff', action: this.onSalvage ? () => this.onSalvage?.(index) : null },
-      { label: '升级', color: '#7ee8a2', action: this.onUpgrade ? () => this.onUpgrade?.(index) : null },
-      { label: '重铸', color: '#d49bff', action: this.onReforge ? () => this.onReforge?.(index) : null },
+    const actions: { label: string; variant: string; action: (() => void) | null }[] = [
+      { label: '分解', variant: 'salvage', action: this.onSalvage ? () => this.onSalvage?.(index) : null },
+      { label: '升级', variant: 'upgrade', action: this.onUpgrade ? () => this.onUpgrade?.(index) : null },
+      { label: '重铸', variant: 'reforge', action: this.onReforge ? () => this.onReforge?.(index) : null },
     ];
     actions.forEach((entry) => {
       if (!entry.action) return;
       const button = document.createElement('button');
+      button.className = `context-action context-action-${entry.variant}`;
       button.textContent = entry.label;
       button.style.display = 'block';
       button.style.width = '100%';
       button.style.padding = '7px 10px';
       button.style.margin = '2px 0';
-      button.style.background = '#1a2230';
-      button.style.color = entry.color;
-      button.style.border = '1px solid #354156';
-      button.style.borderRadius = '3px';
       button.style.cursor = 'pointer';
       button.onclick = () => {
         this.closeDetails();
@@ -390,7 +394,7 @@ export class InventoryUI {
     const overlay = document.createElement('div');
     overlay.className = 'item-details-overlay';
     const panel = document.createElement('div');
-    panel.className = 'panel item-details mobile-scroll';
+    panel.className = 'panel item-details sunlit-item-details mobile-scroll';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', '物品详情');
     const info = document.createElement('div');
@@ -451,7 +455,8 @@ export class InventoryUI {
   private addCloseButton(panel: HTMLDivElement): void {
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = '✕';
+    button.setAttribute('aria-label', '关闭');
+    button.textContent = '×';
     button.className = 'panel-close-button';
     button.style.position = 'absolute';
     button.style.right = '10px';
@@ -461,10 +466,6 @@ export class InventoryUI {
     button.style.minWidth = '42px';
     button.style.minHeight = '42px';
     button.style.padding = '0';
-    button.style.background = 'rgba(20,28,42,0.86)';
-    button.style.color = '#e7e9ee';
-    button.style.border = '1px solid #59647a';
-    button.style.borderRadius = '6px';
     button.style.fontSize = '18px';
     button.style.fontWeight = 'bold';
     button.style.cursor = 'pointer';
@@ -473,13 +474,12 @@ export class InventoryUI {
     panel.appendChild(button);
   }
 
-  private makeItemBox(item: Item | null, label: string): HTMLDivElement {
+  private makeItemBox(item: Item | null, label: string, emptyIcon?: string): HTMLDivElement {
     const box = document.createElement('div');
+    box.className = item ? `inventory-item-slot sunlit-inset rarity-${item.rarity}` : 'inventory-item-slot sunlit-inset is-empty';
     box.style.width = this.mobile ? '48px' : '54px';
     box.style.height = this.mobile ? '48px' : '54px';
-    box.style.background = '#1a2230';
-    box.style.border = item ? `2px solid ${RARITY_COLORS[item.rarity]}` : '1px solid #354156';
-    box.style.borderRadius = '4px';
+    if (item) box.style.setProperty('--item-rarity', INVENTORY_RARITY_COLORS[item.rarity]);
     box.style.display = 'flex';
     box.style.alignItems = 'center';
     box.style.justifyContent = 'center';
@@ -488,18 +488,19 @@ export class InventoryUI {
     box.style.touchAction = this.mobile ? 'pan-y' : 'auto';
     box.title = label;
     if (item) {
-      box.innerHTML = `<span style="font-size:${this.mobile ? 21 : 24}px">${this.iconFor(item.icon)}</span>`;
+      box.appendChild(createItemIcon(item, 'inventory-item-icon'));
       if (item.affixes.length > 0) {
         const dot = document.createElement('span');
+        dot.className = 'inventory-affix-mark';
         dot.style.position = 'absolute';
         dot.style.top = '3px';
         dot.style.right = '3px';
         dot.style.width = '6px';
         dot.style.height = '6px';
-        dot.style.background = '#fff';
-        dot.style.borderRadius = '50%';
         box.appendChild(dot);
       }
+    } else if (emptyIcon) {
+      box.appendChild(createItemIcon({ icon: emptyIcon }, 'inventory-item-icon inventory-empty-icon'));
     }
     return box;
   }
@@ -515,14 +516,29 @@ export class InventoryUI {
     const show = (event: MouseEvent): void => {
       if (!this.tooltip) {
         this.tooltip = document.createElement('div');
-        this.tooltip.className = 'panel tooltip';
+        this.tooltip.className = 'panel tooltip sunlit-item-tooltip';
         this.tooltip.style.zIndex = '1000';
+        this.tooltip.innerHTML = html;
         document.body.appendChild(this.tooltip);
       }
-      this.tooltip.innerHTML = html;
       const margin = 16;
-      const left = Math.min(window.innerWidth - 300, event.clientX + margin);
-      const top = Math.min(window.innerHeight - 220, event.clientY + margin);
+      const viewportPadding = 8;
+      this.tooltip.style.maxWidth = `${Math.max(80, Math.min(320, window.innerWidth - viewportPadding * 2))}px`;
+      this.tooltip.style.maxHeight = `${Math.max(80, window.innerHeight - viewportPadding * 2)}px`;
+      this.tooltip.style.overflowY = 'auto';
+      const bounds = this.tooltip.getBoundingClientRect();
+      const right = event.clientX + margin;
+      const below = event.clientY + margin;
+      const preferredLeft = right + bounds.width <= window.innerWidth - viewportPadding
+        ? right
+        : event.clientX - margin - bounds.width;
+      const preferredTop = below + bounds.height <= window.innerHeight - viewportPadding
+        ? below
+        : event.clientY - margin - bounds.height;
+      const maxLeft = Math.max(viewportPadding, window.innerWidth - viewportPadding - bounds.width);
+      const maxTop = Math.max(viewportPadding, window.innerHeight - viewportPadding - bounds.height);
+      const left = Math.max(viewportPadding, Math.min(preferredLeft, maxLeft));
+      const top = Math.max(viewportPadding, Math.min(preferredTop, maxTop));
       this.tooltip.style.left = `${left}px`;
       this.tooltip.style.top = `${top}px`;
     };
@@ -532,22 +548,6 @@ export class InventoryUI {
       this.tooltip?.remove();
       this.tooltip = null;
     };
-  }
-
-  private iconFor(icon: string): string {
-    const map: Record<string, string> = {
-      sword: '⚔',
-      axe: '🪓',
-      hammer: '🔨',
-      helmet: '🪖',
-      chest: '🛡',
-      legs: '👖',
-      boots: '👢',
-      ring: '💍',
-      necklace: '📿',
-      shield: '🛡',
-    };
-    return map[icon] ?? '✦';
   }
 
   private specialLabel(special: string): string {

@@ -2,6 +2,7 @@ import type { SaveData } from '../types';
 import type { ArchetypeId, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
 import { META_NODES, XP_PER_POINT } from '../progression/MetaProgression';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
+import { createUiIcon } from './UiAssets';
 
 interface CampActions {
   start: (id: ArchetypeId) => void;
@@ -20,16 +21,16 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text = ''): HTML
 
 function panel(title: string, description: string): HTMLDivElement {
   const root = element('div');
-  root.style.cssText = 'color:#e7eef8;text-align:left;line-height:1.6;max-width:620px;margin:auto';
+  root.className = 'sunlit-run-screen';
   const heading = element('h2', title);
-  heading.style.cssText = 'font-size:28px;margin:0 0 8px;text-align:center';
+  heading.className = 'sunlit-screen-title';
   root.append(heading, paragraph(description));
   return root;
 }
 
 function paragraph(text: string): HTMLParagraphElement {
   const node = element('p', text);
-  node.style.cssText = 'color:#b6c8df;margin:8px 0 14px;font-size:14px;overflow-wrap:anywhere';
+  node.className = 'sunlit-copy';
   return node;
 }
 
@@ -37,14 +38,14 @@ function button(label: string, action: () => void, disabled = false): HTMLButton
   const node = element('button', label);
   node.type = 'button';
   node.disabled = disabled;
-  node.style.cssText = `min-height:44px;padding:10px 16px;border:1px solid #6fa9d8;border-radius:6px;background:#2c5f8a;color:#fff;font:inherit;cursor:${disabled ? 'not-allowed' : 'pointer'};opacity:${disabled ? '.5' : '1'};touch-action:manipulation;white-space:normal`;
+  node.className = 'sunlit-menu-button';
   node.onclick = action;
   return node;
 }
 
 function row(...children: HTMLElement[]): HTMLDivElement {
   const node = element('div');
-  node.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin:12px 0';
+  node.className = 'sunlit-action-row';
   node.append(...children);
   return node;
 }
@@ -53,15 +54,22 @@ function notice(root: HTMLElement, message?: string): void {
   if (!message) return;
   const node = paragraph(message);
   node.setAttribute('role', 'status');
-  node.style.color = '#ffd391';
+  node.classList.add('sunlit-notice');
   root.append(node);
 }
+
+const ARCHETYPE_ICONS: Record<ArchetypeId, string> = {
+  vanguard: 'sword',
+  arcanist: 'staff',
+  summoner: 'summon',
+};
 
 export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, message?: string): HTMLDivElement {
   const profile = envelope.profile;
   const root = panel('营地', '练成新的流派，再向深渊出发。每局的等级、装备与金币独立，局外解锁永久保留。');
   const points = element('div', `可用天赋点 ${profile.availableMetaPoints} · 研究经验 ${profile.researchXp} / ${XP_PER_POINT}`);
-  points.style.cssText = 'padding:12px;border:1px solid #6876a0;border-radius:6px;background:#252d46;color:#e6d4ff';
+  points.className = 'sunlit-inset sunlit-resource-banner';
+  points.prepend(createUiIcon('gem', 'sunlit-inline-icon'));
   root.append(points, paragraph(`再获得 ${Math.max(0, XP_PER_POINT - profile.researchXp)} 研究经验可得到 1 个天赋点。`));
   notice(root, message);
   root.append(paragraph('当前先开放火系局内树原型，任一起始武器均可使用火球并选择蔓延或引爆；近战与召唤新树将在后续阶段接入。旧层间专精已移除。'));
@@ -86,12 +94,17 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
     for (const node of META_NODES) {
       const unlocked = profile.unlockedNodes.includes(node.id);
       const card = element('div');
-      card.style.cssText = 'margin:10px 0;padding:12px 14px;border:1px solid #46566e;border-radius:7px;background:rgba(25,36,53,.8)';
+      card.className = `sunlit-choice-card${unlocked ? ' is-unlocked' : ' is-locked'}`;
+      const icon = createUiIcon(ARCHETYPE_ICONS[node.id], 'sunlit-card-icon');
       const title = element('strong', node.name);
-      card.append(title, paragraph(node.description));
-      card.append(unlocked
+      const copy = element('div');
+      copy.className = 'sunlit-card-copy';
+      copy.append(title, paragraph(node.description));
+      const action = unlocked
         ? button('以此流派出发', () => actions.start(node.id))
-        : button(`解锁 · ${node.cost} 天赋点`, () => actions.unlock(node.id), profile.availableMetaPoints < node.cost));
+        : button(`解锁 · ${node.cost} 天赋点`, () => actions.unlock(node.id), profile.availableMetaPoints < node.cost);
+      action.classList.add('sunlit-card-action');
+      card.append(icon, copy, action);
       root.append(card);
     }
   }
@@ -99,7 +112,7 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
   if (envelope.legacyArchive) {
     const old = envelope.legacyArchive.snapshot;
     const archive = element('details');
-    archive.style.cssText = 'margin-top:16px;padding:10px;border:1px solid #46566e;border-radius:6px';
+    archive.className = 'sunlit-archive';
     archive.append(element('summary', '旧版纪念记录'));
     archive.append(paragraph(`原角色 Lv.${old.player.level} · 第 ${old.floor} 层 · 金币 ${old.gold} · 背包装备 ${old.inventory.length} 件。旧版装备和进度作为记录保留，不带入新局。`));
     archive.append(button('导出旧版记录', actions.exportLegacy));
@@ -124,7 +137,11 @@ export function buildSettlementView(
         : '本局装备和资源不会带出，局外解锁继续保留。');
   root.append(paragraph(`到达第 ${record.finalFloor} 层 · Lv.${record.finalLevel} · 完成主线 ${record.completedObjectives} / ${floorCount * 2}`));
   const totals = element('div');
-  totals.style.cssText = 'padding:14px;border:1px solid #6876a0;border-radius:6px;background:#252d46';
+  totals.className = 'sunlit-inset sunlit-settlement-totals';
+  const rewardHeading = element('div');
+  rewardHeading.className = 'sunlit-reward-heading';
+  rewardHeading.append(createUiIcon('gem', 'sunlit-inline-icon'), document.createTextNode('研究结算'));
+  totals.append(rewardHeading);
   totals.append(element('div', `${victory ? '通关基础奖励' : extracted ? '提前结算奖励' : '进度奖励'}：${record.baseXp} 研究经验`));
   if (record.challengeXp) totals.append(element('div', `挑战奖励：${record.challengeXp} 研究经验`));
   if (record.growthXp) totals.append(element('div', `成长补偿：${record.growthXp} 研究经验`));
