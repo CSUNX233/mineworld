@@ -1,3 +1,4 @@
+import type { FinalBossState } from './monsters/FinalBossController';
 import type { RunTalentState } from './progression/RunTalents';
 export type Rarity = 'common' | 'magic' | 'rare' | 'epic' | 'legendary';
 
@@ -80,6 +81,11 @@ export interface Item {
 export type RoomKind = 'start' | 'battle' | 'elite' | 'treasure' | 'sanctuary' | 'exit';
 
 export interface Room {
+  cells?: { x: number; z: number }[];
+  center?: { x: number; z: number };
+  entrances?: { x: number; z: number }[];
+  shape?: string;
+  encounterId?: string;
   id?: string;
   kind?: RoomKind;
   required?: boolean;
@@ -99,6 +105,8 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
+  generationVersion?: 1 | 2;
+  layoutKind?: string;
   merchant?: { x: number; z: number };
   connections?: [string, string][];
   size: number;
@@ -113,6 +121,7 @@ export interface FloorData {
 }
 
 export interface MonsterDefinition {
+  role?: 'support' | 'guardian' | 'controller';
   id: string;
   name: string;
   health: number;
@@ -139,6 +148,7 @@ export interface ShopStockEntry {
 }
 
 export interface SavedMonster {
+  mechanicState?: import('./monsters/EncounterMechanics').SerializedMechanicState;
   statuses?: ActorStatus[];
   roomId?: string;
   defId: string;
@@ -158,8 +168,11 @@ export interface FloorProgress {
 }
 
 export interface SaveData {
+  mapGenerationVersion?: 1 | 2;
+  mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {
+    finalBoss?: FinalBossState;
     elapsed: number;
     shield: number;
     invulnerable: number;

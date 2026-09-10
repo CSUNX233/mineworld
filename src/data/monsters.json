@@ -72,8 +72,8 @@
     "behavior": "charger",
     "element": "fire",
     "statusChance": 0.2,
-    "resistances": { "fire": 35 },
-    "immunities": ["burning"]
+    "resistances": { "fire": 48 },
+    "immunities": []
   },
   {
     "id": "golem",
@@ -148,8 +148,8 @@
     "behavior": "charger",
     "element": "fire",
     "statusChance": 0.28,
-    "resistances": { "fire": 45, "frost": -15 },
-    "immunities": ["burning"]
+    "resistances": { "fire": 62, "frost": -15 },
+    "immunities": []
   },
   {
     "id": "shadow_wraith",
@@ -190,6 +190,66 @@
     "immunities": ["frozen"]
   },
   {
+    "id": "ruin_acolyte",
+    "name": "遗迹祈疗者",
+    "health": 64,
+    "attack": 8,
+    "armor": 0,
+    "speed": 1.75,
+    "detectRadius": 17,
+    "attackRange": 9,
+    "attackCooldown": 2.2,
+    "xp": 38,
+    "color": 6799432,
+    "minFloor": 3,
+    "behavior": "ranged",
+    "role": "support",
+    "element": "frost",
+    "statusChance": 0.08,
+    "resistances": { "frost": 25, "shadow": 10 },
+    "immunities": []
+  },
+  {
+    "id": "ruin_guardian",
+    "name": "遗迹盾卫",
+    "health": 128,
+    "attack": 16,
+    "armor": 4,
+    "speed": 1.55,
+    "detectRadius": 15,
+    "attackRange": 1.8,
+    "attackCooldown": 1.35,
+    "xp": 44,
+    "color": 5802649,
+    "minFloor": 3,
+    "behavior": "melee",
+    "role": "guardian",
+    "element": "physical",
+    "statusChance": 0.1,
+    "resistances": { "physical": 16, "frost": 12 },
+    "immunities": []
+  },
+  {
+    "id": "ruin_geomancer",
+    "name": "遗迹地术师",
+    "health": 86,
+    "attack": 15,
+    "armor": 1,
+    "speed": 1.65,
+    "detectRadius": 18,
+    "attackRange": 10,
+    "attackCooldown": 2.0,
+    "xp": 52,
+    "color": 11034812,
+    "minFloor": 6,
+    "behavior": "ranged",
+    "role": "controller",
+    "element": "shadow",
+    "statusChance": 0.12,
+    "resistances": { "shadow": 25, "fire": 10 },
+    "immunities": []
+  },
+  {
     "id": "boss",
     "name": "深渊领主",
     "health": 760,
@@ -206,6 +266,25 @@
     "element": "shadow",
     "statusChance": 0.18,
     "resistances": { "physical": 18, "fire": 20, "frost": 20, "lightning": 20, "poison": 35, "shadow": 30 },
+    "immunities": ["frozen"]
+  },
+  {
+    "id": "ruins_warden",
+    "name": "遗迹监守者",
+    "health": 900,
+    "attack": 30,
+    "armor": 6,
+    "speed": 1.8,
+    "detectRadius": 28,
+    "attackRange": 2.5,
+    "attackCooldown": 1.4,
+    "xp": 500,
+    "color": 8567706,
+    "minFloor": 25,
+    "behavior": "boss",
+    "element": "shadow",
+    "statusChance": 0.2,
+    "resistances": { "physical": 20, "fire": 20, "frost": 18, "lightning": 15, "poison": 25, "shadow": 30 },
     "immunities": ["frozen"]
   }
 ]

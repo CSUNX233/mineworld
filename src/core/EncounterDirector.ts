@@ -1,3 +1,4 @@
+import { roomContainsPoint } from '../world/RoomGeometry';
 import type { FloorData, FloorProgress, Room } from '../types';
 
 export class EncounterDirector {
@@ -12,7 +13,7 @@ export class EncounterDirector {
   }
 
   roomAt(x: number, z: number): Room | undefined {
-    return this.floor.rooms.find(room => x >= room.x && x < room.x + room.width && z >= room.z && z < room.z + room.depth);
+    return this.floor.rooms.find(room => roomContainsPoint(room, x, z));
   }
 
   enter(x: number, z: number): Room | null {

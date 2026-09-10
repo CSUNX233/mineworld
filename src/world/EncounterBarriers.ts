@@ -1,3 +1,4 @@
+import { roomContainsCell } from './RoomGeometry';
 import type { FloorData, Room } from '../types';
 import { isWalkable } from './FloorGenerator';
 
@@ -31,18 +32,13 @@ function barriersForRoom(floor: FloorData, room: Room): EncounterBarrier[] {
   };
 
   for (let z = room.z; z < room.z + room.depth; z++) {
-    if (isDoorCell(floor, room.x, z, room.x - 1, z))
-      add(room.x - half, room.x + half, z, z + 1, 1, 0);
-    const east = room.x + room.width - 1;
-    if (isDoorCell(floor, east, z, east + 1, z))
-      add(room.x + room.width - half, room.x + room.width + half, z, z + 1, -1, 0);
-  }
-  for (let x = room.x; x < room.x + room.width; x++) {
-    if (isDoorCell(floor, x, room.z, x, room.z - 1))
-      add(x, x + 1, room.z - half, room.z + half, 0, 1);
-    const south = room.z + room.depth - 1;
-    if (isDoorCell(floor, x, south, x, south + 1))
-      add(x, x + 1, room.z + room.depth - half, room.z + room.depth + half, 0, -1);
+    for (let x = room.x; x < room.x + room.width; x++) {
+      if (!roomContainsCell(room, x, z)) continue;
+      if (!roomContainsCell(room, x - 1, z) && isDoorCell(floor, x, z, x - 1, z)) add(x - half, x + half, z, z + 1, 1, 0);
+      if (!roomContainsCell(room, x + 1, z) && isDoorCell(floor, x, z, x + 1, z)) add(x + 1 - half, x + 1 + half, z, z + 1, -1, 0);
+      if (!roomContainsCell(room, x, z - 1) && isDoorCell(floor, x, z, x, z - 1)) add(x, x + 1, z - half, z + half, 0, 1);
+      if (!roomContainsCell(room, x, z + 1) && isDoorCell(floor, x, z, x, z + 1)) add(x, x + 1, z + 1 - half, z + 1 + half, 0, -1);
+    }
   }
   return result;
 }
@@ -76,7 +72,7 @@ export function findEncounterRoomPosition(
   let bestDistance = Infinity;
   for (let z = room.z + 1; z < room.z + room.depth - 1; z++) {
     for (let x = room.x + 1; x < room.x + room.width - 1; x++) {
-      if (!isWalkable(floor, x, z)) continue;
+      if (!isWalkable(floor, x, z) || !roomContainsCell(room, x, z)) continue;
       const candidate = { x: x + 0.5, z: z + 0.5 };
       const distance = (candidate.x - nearX) ** 2 + (candidate.z - nearZ) ** 2;
       if (distance < bestDistance) {

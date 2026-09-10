@@ -1,3 +1,4 @@
+import { BurnVisual } from './BurnVisual';
 import * as THREE from 'three';
 import type { ActorStatus, MonsterDefinition } from '../types';
 import { applyStatus, updateStatuses } from '../combat/ElementSystem';
@@ -57,6 +58,7 @@ export class Monster {
   private bobPhase = Math.random() * Math.PI * 2;
   private bodyGroup = new THREE.Group();
   private material: THREE.MeshLambertMaterial;
+  private burnVisual: BurnVisual | null = null;
   private healthFill!: THREE.Sprite;
   private healthBarBg!: THREE.Sprite;
   private nameSprite!: THREE.Sprite;
@@ -378,12 +380,19 @@ export class Monster {
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     this.lostTargetTimer = Math.max(0, this.lostTargetTimer - dt);
 
+    const healthBeforeStatuses = this.dead ? 0 : this.health;
     const statusResult = updateStatuses(this, dt, this.def.resistances);
     this.slowMultiplier = statusResult.slowMultiplier;
     this.extraLightningMultiplier = statusResult.extraLightningMultiplier;
     if (statusResult.damage > 0 && !this.dead) {
-      this.takeDamage(statusResult.damage);
+      this.takeDamage(statusResult.damage, false);
     }
+
+    const burning = !this.dead && this.statuses.some(status => status.type === 'burning' && status.duration > 0);
+    const burningDamage = statusResult.burningDamage * Math.min(1, healthBeforeStatuses / Math.max(.000001, statusResult.damage));
+    if (burning || burningDamage > 0) this.burnVisual ??= new BurnVisual(this.group);
+    this.burnVisual?.update(dt, burning, burningDamage, this.dead, this.healthBarBg.position.y);
+    this.healthFill.material.color.setHex(burning ? 0xff8c32 : 0x62e06a);
 
     this.bobPhase += dt * (this.state === 'chase' ? 7 : 3);
     const bob = this.dead ? 0 : Math.sin(this.bobPhase) * 0.08;
@@ -417,6 +426,9 @@ export class Monster {
     if (this.hitFlash > 0) {
       this.material.emissive.setHex(0xff2222);
       this.material.emissiveIntensity = 0.85;
+    } else if (burning) {
+      this.material.emissive.setHex(0xff5a0a);
+      this.material.emissiveIntensity = .25 + Math.sin(elapsed * 9) * .08;
     } else {
       this.material.emissive.setHex(0x000000);
       this.material.emissiveIntensity = 0;
@@ -440,10 +452,10 @@ export class Monster {
     this.healthFill.visible = !this.dead;
   }
 
-  takeDamage(amount: number): boolean {
+  takeDamage(amount: number, flash = true): boolean {
     if (this.dead) return false;
     this.health = Math.max(0, this.health - amount);
-    this.hitFlash = 0.12;
+    if (flash) this.hitFlash = 0.12;
     if (this.health <= 0) {
       this.die();
       return true;

@@ -1,27 +1,36 @@
 import type { FloorData, MonsterDefinition, SavedMonster, Room } from '../types';
 import monsterData from '../data/monsters.json';
+import { ENCOUNTERS, encounterById, type EncounterDefinition, type EncounterRole } from '../data/encounters';
 import { monsterAttack, monsterHealth, monsterXp } from '../data/recipes';
 import { RNG } from '../utils/RNG';
 import { BlockKind } from '../world/Block';
 import { Monster } from './Monster';
+import { attachMechanicVisual } from './MechanicVisual';
 
 const MONSTER_DEFS = monsterData as unknown as MonsterDefinition[];
 
 export class MonsterSpawner {
   static spawnEncounter(floor: FloorData, room: Room, player: { x: number; z: number }, rng: RNG): Monster[] {
     const pool = this.availableForFloor(floor.floor);
-    const cells: {x:number;z:number}[] = [];
-    for (let z = room.z + 1; z < room.z + room.depth - 1; z++)
-      for (let x = room.x + 1; x < room.x + room.width - 1; x++)
-        if (this.isWalkableCell(floor,x,z) && Math.hypot(x+.5-player.x,z+.5-player.z)>3) cells.push({x,z});
-    const spots = rng.shuffle(cells);
+    const roomCells = this.roomWalkableCells(floor, room);
+    const candidates = roomCells.filter(cell => Math.hypot(cell.x + .5 - player.x, cell.z + .5 - player.z) > 3);
     const bossRoom = room.kind === 'exit' && floor.floor % 5 === 0;
-    const count = bossRoom ? 3 : Math.min(4, 3 + Math.floor(floor.floor / 4));
-    return spots.slice(0,count).map((spot,i) => {
-      const behavior = i === 0 ? 'melee' : i === 1 ? 'ranged' : floor.floor > 2 ? 'charger' : 'melee';
-      const choices = pool.filter(def => def.behavior === behavior);
+    const desiredCount = bossRoom
+      ? Math.min(3, Math.max(1, Math.floor(roomCells.length / 14)))
+      : this.encounterSize(roomCells.length, floor.floor, room.kind === 'elite', rng);
+    const count = Math.min(desiredCount, Math.max(1, candidates.length));
+    const spawnPool = candidates.length ? candidates : roomCells;
+    const spots = this.pickSpacedSpots(spawnPool, count, rng);
+    const encounter = bossRoom ? undefined : this.pickEncounter(room, floor.floor, rng);
+    if (encounter) room.encounterId = encounter.id;
+    const roles = encounter ? this.rolesForEncounter(encounter, spots.length, roomCells.length, rng)
+      : this.fallbackRoles(spots.length, floor.floor);
+
+    return spots.map((spot, i) => {
+      const choices = pool.filter(def => this.roleForDefinition(def) === roles[i]);
       const def = bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
-      const monster = new Monster(def,spot.x+.5,spot.z+.5);
+      const monster = new Monster(def, spot.x + .5, spot.z + .5);
+      attachMechanicVisual(monster);
       monster.roomId = room.id!;
       monster.maxHealth = monsterHealth(def.health,floor.floor);
       monster.health = monster.maxHealth;
@@ -31,11 +40,12 @@ export class MonsterSpawner {
     });
   }
   static availableForFloor(floor: number): MonsterDefinition[] {
-    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.id !== 'boss');
+    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss');
   }
 
   static bossForFloor(floor: number): MonsterDefinition | null {
-    return MONSTER_DEFS.find((def) => def.id === 'boss') ?? null;
+    const id = floor === 25 ? 'ruins_warden' : 'boss';
+    return MONSTER_DEFS.find((def) => def.id === id) ?? null;
   }
 
   static definitionById(id: string): MonsterDefinition | null {
@@ -66,12 +76,13 @@ export class MonsterSpawner {
   }
 
   static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG): Monster | null {
-    const pool = this.availableForFloor(floorData.floor);
+    const pool = this.availableForFloor(floorData.floor).filter(def => !def.role);
     if (pool.length === 0) return null;
     const spot = this.findNearestWalkable(floorData, position.x, position.z);
     if (!spot) return null;
     const def = rng.pick(pool);
     const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
+    attachMechanicVisual(monster);
     monster.maxHealth = monsterHealth(def.health, floorData.floor);
     monster.health = monster.maxHealth;
     this.rollElite(monster, floorData.floor, rng);
@@ -84,6 +95,7 @@ export class MonsterSpawner {
     const spot = this.findNearestWalkable(floorData, saved.x, saved.z);
     if (!spot) return null;
     const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
+    attachMechanicVisual(monster);
     if (saved.elite && saved.eliteModifiers.length > 0) monster.setElite(saved.eliteModifiers);
     monster.statuses = structuredClone(saved.statuses ?? []);
     monster.roomId = saved.roomId ?? '';
@@ -120,6 +132,74 @@ export class MonsterSpawner {
       }
     }
     return null;
+  }
+
+  private static roomWalkableCells(floor: FloorData, room: Room): { x: number; z: number }[] {
+    if (room.cells?.length) return room.cells.filter(cell => this.isWalkableCell(floor, cell.x, cell.z));
+    const cells: { x: number; z: number }[] = [];
+    for (let z = room.z + 1; z < room.z + room.depth - 1; z++) {
+      for (let x = room.x + 1; x < room.x + room.width - 1; x++) {
+        if (this.isWalkableCell(floor, x, z)) cells.push({ x, z });
+      }
+    }
+    return cells;
+  }
+
+  private static encounterSize(cellCount: number, floor: number, elite: boolean, rng: RNG): number {
+    const spaceCap = Math.max(2, Math.min(8, Math.floor(cellCount / 10)));
+    const pressure = 2 + Math.floor(floor / 5) + (elite ? 1 : 0) + rng.int(0, 1);
+    return Math.min(spaceCap, Math.max(2, pressure));
+  }
+
+  private static pickEncounter(room: Room, floor: number, rng: RNG): EncounterDefinition | undefined {
+    const requested = encounterById(room.encounterId);
+    if (requested && requested.minFloor <= floor) return requested;
+    const eligible = ENCOUNTERS.filter(encounter => encounter.minFloor <= floor && encounter.roomKinds.includes(room.kind ?? 'battle'));
+    return eligible.length ? rng.pick(eligible) : undefined;
+  }
+
+  private static rolesForEncounter(
+    encounter: EncounterDefinition,
+    count: number,
+    roomCellCount: number,
+    rng: RNG,
+  ): EncounterRole[] {
+    const roles: EncounterRole[] = [];
+    const slotMax = (role: EncounterRole, max: number): number =>
+      roomCellCount < 34 && (role === 'guardian' || role === 'charger') ? Math.min(1, max) : max;
+    for (const slot of encounter.slots) {
+      const adjustedMax = slotMax(slot.role, slot.max);
+      for (let amount = 0; amount < Math.min(slot.min, adjustedMax) && roles.length < count; amount++) roles.push(slot.role);
+    }
+    while (roles.length < count) {
+      const options = encounter.slots.filter(slot => roles.filter(role => role === slot.role).length < slotMax(slot.role, slot.max));
+      if (!options.length) break;
+      roles.push(rng.pick(options).role);
+    }
+    while (roles.length < count) roles.push('melee');
+    return rng.shuffle(roles);
+  }
+
+  private static fallbackRoles(count: number, floor: number): EncounterRole[] {
+    return Array.from({ length: count }, (_, index) => index === 1 ? 'ranged' : index > 1 && floor > 2 ? 'charger' : 'melee');
+  }
+
+  private static roleForDefinition(def: MonsterDefinition): EncounterRole {
+    return def.role ?? (def.behavior === 'boss' ? 'melee' : def.behavior);
+  }
+
+  private static pickSpacedSpots(cells: { x: number; z: number }[], count: number, rng: RNG): { x: number; z: number }[] {
+    const shuffled = rng.shuffle(cells);
+    const picked: { x: number; z: number }[] = [];
+    for (const cell of shuffled) {
+      if (picked.every(other => Math.hypot(other.x - cell.x, other.z - cell.z) >= 1.5)) picked.push(cell);
+      if (picked.length >= count) return picked;
+    }
+    for (const cell of shuffled) {
+      if (!picked.includes(cell)) picked.push(cell);
+      if (picked.length >= count) break;
+    }
+    return picked;
   }
 
 }

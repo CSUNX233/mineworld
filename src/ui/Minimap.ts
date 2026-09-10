@@ -1,3 +1,4 @@
+import { roomCenter } from '../world/RoomGeometry';
 import type { FloorData, FloorProgress } from '../types';
 import { ROOM_COLORS } from '../data/rooms';
 import type { Monster } from '../monsters/Monster';
@@ -67,7 +68,8 @@ export class Minimap {
     ctx.drawImage(this.baseCanvas!, 0, 0);
     for (const room of floor.rooms) {
       if (!room.kind) continue;
-      const x=(room.x+room.width/2)*scale, z=(room.z+room.depth/2)*scale;
+      const center = roomCenter(room);
+      const x=center.x*scale, z=center.z*scale;
       const cleared = progress?.cleared.includes(room.id!);
       ctx.fillStyle = cleared ? '#68d49d' : `#${ROOM_COLORS[room.kind].toString(16).padStart(6,'0')}`;
       ctx.font = `bold ${this.size < 100 ? 9 : 13}px sans-serif`;

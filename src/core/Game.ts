@@ -1,3 +1,6 @@
+import { EncounterMechanics } from '../monsters/EncounterMechanics';
+import { roomCenter } from '../world/RoomGeometry';
+import { FinalBossController } from '../monsters/FinalBossController';
 import { deriveFireModifiers, createBurn, consumeBurn, type FireModifiers } from '../combat/FireBuild';
 import { createRunTalents, talentBudget, spentTalentPoints, canUnlockTalent, unlockRunTalent, resetRunTalents, resetTalentCost, talentStats, type RunTalentState } from '../progression/RunTalents';
 import { buildRunTalentPanel } from '../ui/RunTalentPanel';
@@ -14,6 +17,7 @@ import { PlayerController } from '../player/PlayerController';
 import { FirstPersonViewModel } from '../player/FirstPersonViewModel';
 import { Monster } from '../monsters/Monster';
 import { MonsterAI } from '../monsters/MonsterAI';
+import { encounterById } from '../data/encounters';
 import { MonsterSpawner } from '../monsters/MonsterSpawner';
 import { SummonedSkeleton } from '../monsters/SummonedSkeleton';
 import { BossController, type BossHost } from '../monsters/BossController';
@@ -87,6 +91,13 @@ export class Game {
   private audio = new AudioManager();
   private effects: Effects;
   private bossController: BossController;
+  private finalBossController = new FinalBossController(this.scene);
+  private encounterMechanics = new EncounterMechanics();
+  private readonly mechanicHost = {
+    addWorldObject: (object: THREE.Object3D) => { this.scene.add(object); },
+    removeWorldObject: (object: THREE.Object3D) => { this.scene.remove(object); },
+    damagePlayer: (amount: number, cause: 'controller_zone') => this.damagePlayerWithElement(amount, 'shadow', 0, cause),
+  };
   private world: World;
   private player = new Player();
   private firstPersonView: FirstPersonViewModel;
@@ -864,7 +875,9 @@ export class Game {
 
   private generateCurrentFloor(savedMonsters: SavedMonster[] | null = null, savedPortalActive: boolean | null = null, resume: SaveData | null = null): void {
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
-    const data = generateFloor(this.currentFloorSeed, this.floor);
+    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 2;
+    const data = generateFloor(this.currentFloorSeed, this.floor, generationVersion);
+    data.generationVersion = generationVersion;
     this.floorData = data;
     this.playtestRecorder.record('floor_entered', {
       floor: this.floor,
@@ -872,6 +885,8 @@ export class Game {
       runSeed: this.seed,
       resumed: Boolean(resume?.floorProgress),
       theme: data.theme.id,
+      layoutKind: data.layoutKind ?? 'legacy-grid',
+      generationVersion,
     });
     this.encounters = new EncounterDirector(data, resume?.floorProgress);
     this.hudTimer = 0;
@@ -920,6 +935,7 @@ export class Game {
       this.controller.resetView(data);
     }
     if (resume?.floorProgress) this.restoreEncounterBoundary();
+    if (resume?.runtime?.finalBoss && this.monsters.some(monster => monster.def.id === 'ruins_warden')) this.finalBossController.restore(resume.runtime.finalBoss);
     this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     this.world.setPortalActive(this.portalActive);
   }
@@ -972,7 +988,10 @@ export class Game {
         required: Boolean(room.required),
         monsterCount: wave.length,
       });
-      this.hud.showCenterMessage(ROOM_LABELS[room.kind!], room.required ? '屏障已封闭 · 清除本房守卫后解锁' : '屏障已封闭 · 清除后解锁并获得奖励', 1.5);
+      const encounter = encounterById(room.encounterId);
+      this.hud.showCenterMessage(encounter?.name ?? ROOM_LABELS[room.kind!], encounter
+        ? `屏障已封闭 · ${encounter.intent}`
+        : room.required ? '屏障已封闭 · 清除本房守卫后解锁' : '屏障已封闭 · 清除后解锁并获得奖励', encounter ? 3 : 1.5);
     }
     const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
     if (room || completedRooms.length) this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
@@ -1041,6 +1060,7 @@ export class Game {
     savedMonsters.forEach((saved) => {
       const monster = MonsterSpawner.spawnSaved(saved, this.floorData!);
       if (monster) {
+        this.encounterMechanics.restore(monster, saved.mechanicState);
         this.monsters.push(monster);
         this.scene.add(monster.group);
       }
@@ -1060,11 +1080,14 @@ export class Game {
         elite: monster.elite,
         eliteModifiers: [...monster.eliteModifiers],
         statuses: structuredClone(monster.statuses),
+        mechanicState: this.encounterMechanics.serialize(monster),
       }));
   }
 
   private clearEntities(): void {
     this.bossController.clearWarnings();
+    this.finalBossController.clear();
+    this.encounterMechanics.clear(this.mechanicHost);
     this.summons.forEach((summon) => summon.dispose(this.scene));
     this.summons = [];
     this.monsters.forEach((monster) => this.disposeObject(monster.group));
@@ -1983,7 +2006,7 @@ export class Game {
         target.def.resistances,
         target.statuses,
       );
-      this.applyMonsterDamage(target, result.damage, result.crit, profile.scale * 0.55);
+      this.applyMonsterDamage(target, result.damage, result.crit, profile.scale * 0.55, this.player.position);
       this.applyPlayerElementalHit(target, element, stats.attack * falloff, statusChance);
     });
 
@@ -2329,6 +2352,8 @@ export class Game {
 
   private updateMonsters(dt: number): void {
     if (!this.floorData) return;
+    this.encounterMechanics.update(dt, this.monsters, this.player, this.floorData, this.mechanicHost);
+    if (this.isGameplayPaused() || !this.player.alive) return;
     for (let i = this.monsters.length - 1; i >= 0; i--) {
       if (this.isGameplayPaused()) return;
       const monster = this.monsters[i];
@@ -2349,7 +2374,11 @@ export class Game {
           summonMinion: (position) => this.spawnBossMinion(position),
           showMessage: (title, subtitle) => this.hud.showCenterMessage(title, subtitle, 1.8),
         };
-        this.bossController.update(
+        if (monster.def.id === 'ruins_warden') this.finalBossController.update(dt, monster, this.player, this.floorData, {
+          ...host,
+          livingMinions: () => this.monsters.filter(other => !other.dead && other.roomId === monster.roomId && other !== monster).length,
+        }, MonsterSpawner.baseAttack(monster, this.floor));
+        else this.bossController.update(
           dt,
           monster,
           this.player,
@@ -2357,9 +2386,10 @@ export class Game {
           host,
           MonsterSpawner.baseAttack(monster, this.floor),
         );
-      } else {
+      } else if (!this.encounterMechanics.handles(monster)) {
         MonsterAI.update(monster, dt, this.player, this.floorData);
       }
+      this.encounterMechanics.afterAI(monster);
       monster.update(dt, this.elapsed);
       this.keepMonsterInBounds(monster);
       if (wasAliveBeforeUpdate && monster.dead) {
@@ -2371,6 +2401,7 @@ export class Game {
       const dz = this.player.position.z - monster.position.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
 
+      if (monster.dead || this.encounterMechanics.handles(monster)) continue;
       if (MonsterAI.shouldDealMelee(monster) && distance <= monster.def.attackRange + 0.5) {
         const damage = Math.max(1, MonsterSpawner.baseAttack(monster, this.floor));
         const wasAlive = this.player.alive;
@@ -2454,6 +2485,7 @@ export class Game {
     if (!this.floorData) return;
     const rng = new RNG(((this.currentFloorSeed ^ Math.floor(position.x * 7919) ^ Math.floor(position.z * 7919)) >>> 0));
     const boss = this.monsters.find(monster => monster.def.behavior === 'boss' && !monster.dead);
+    if (boss && this.monsters.filter(monster => !monster.dead && monster.roomId === boss.roomId && monster !== boss).length >= 4) return;
     const room = this.floorData.rooms.find(candidate => candidate.id === boss?.roomId);
     const spawnPosition = room ? findEncounterRoomPosition(this.floorData, room, position.x, position.z) : position;
     if (!spawnPosition) return;
@@ -2462,6 +2494,7 @@ export class Game {
     minion.maxHealth = Math.round(minion.maxHealth * 0.7);
     minion.health = minion.maxHealth;
     minion.roomId = boss?.roomId ?? '';
+    minion.attackCooldown = 1.5;
     this.monsters.push(minion);
     this.scene.add(minion.group);
     this.effects.burst(minion.position.clone().add(new THREE.Vector3(0, 0.8, 0)), minion.def.color, 12, 3);
@@ -2480,7 +2513,7 @@ export class Game {
         const element = projectile.element ?? 'physical';
         const raw = projectile.damage * (crit ? this.effectiveStats().critDamage : 1);
         const damage = elementalDamage(raw, element, hitMonster.def.resistances, hitMonster.statuses);
-        this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7);
+        this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7, projectile.position);
         if (this.isGameplayPaused()) return;
         const fire = projectile.fireModifiers ?? this.fireModifiers;
         if (element === 'fire' && fire.enabled) {
@@ -2549,8 +2582,10 @@ export class Game {
     }
   }
 
-  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1): void {
+  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3): void {
     if (monster.dead) return;
+    if (directSource) damage = this.encounterMechanics.onDirectHit(monster, directSource, damage);
+    if (monster.def.id === 'ruins_warden') damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
     const killed = monster.takeDamage(damage);
     const hitImpact = Math.max(0.25, Math.min(1.3, impact));
     monster.hitFlash = Math.max(monster.hitFlash, 0.05 + hitImpact * 0.07);
@@ -2568,6 +2603,8 @@ export class Game {
   }
 
   private onMonsterKilled(monster: Monster, crit: boolean): void {
+    if (monster.def.id === 'ruins_warden') this.finalBossController.clear();
+    else if (monster.def.behavior === 'boss') this.bossController.clearWarnings();
     this.kills++;
     this.audio.kill();
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.9, 0)), monster.def.color, 22, 5);
@@ -2784,7 +2821,7 @@ export class Game {
     if (merchant && Math.hypot(p.x - merchant.x - .5, p.z - merchant.z - .5) <= 2) return '进入商店';
     const room = this.encounters?.roomAt(p.x,p.z);
     if (room?.kind === 'sanctuary' && !this.encounters!.state.usedSanctuaries.includes(room.id!)
-      && Math.hypot(p.x-room.x-5,p.z-room.z-5)<2) return '圣所恢复';
+      && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) return '圣所恢复';
     if (this.portalActive && Math.abs(Math.floor(p.x) - this.floorData.portal.x) <= 1
       && Math.abs(Math.floor(p.z) - this.floorData.portal.z) <= 1) return '进入传送门';
     return this.floorData.chests.some((chest) => !this.openedChests.has(`${chest.x},${chest.z}`)
@@ -3537,6 +3574,8 @@ export class Game {
       floorProgress: this.encounters?.state,
       openedChests: [...this.openedChests],
       runTalents: structuredClone(this.runTalents),
+      mapGenerationVersion: this.floorData?.generationVersion ?? 1,
+      mapLayoutKind: this.floorData?.layoutKind,
       floor: this.floor,
       seed: this.seed,
       player: {
@@ -3571,6 +3610,7 @@ export class Game {
       shopHeals: this.shopHeals,
       playerStatuses: this.player.statuses,
       runtime: {
+        finalBoss: this.monsters.some(monster => monster.def.id === 'ruins_warden' && !monster.dead) ? this.finalBossController.snapshot() : undefined,
         elapsed: Math.max(0, this.elapsed),
         shield: Math.max(0, this.player.shield),
         invulnerable: Math.max(0, this.player.invulnerable),

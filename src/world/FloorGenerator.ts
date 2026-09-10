@@ -2,10 +2,208 @@ import type { FloorData, FloorTheme, Room, RoomKind } from '../types';
 import { BlockKind } from './Block';
 import { RNG } from '../utils/RNG';
 import floors from '../data/floors.json';
-import { ROOM_TEMPLATES } from '../data/rooms';
+import { ROOM_TEMPLATES, TACTICAL_ROOM_TEMPLATES, type TacticalRoomTemplateId } from '../data/rooms';
+import { createMapLayout, type LayoutNode, type RoomShape } from './MapLayout';
 
-/** Bounded room graph: two objective rooms on a short spine, optional loops. */
-export function generateFloor(seed: number, floor: number): FloorData {
+const RUINS_THEME: FloorTheme = {
+  id: 'stone-ruins', name: '石卫遗迹', wallType: 'brick', floorType: 'dungeon', accentType: 'mossy',
+};
+const TACTICAL_TEMPLATE_IDS = Object.keys(TACTICAL_ROOM_TEMPLATES) as TacticalRoomTemplateId[];
+
+interface SpatialRoom extends Room {
+  id: string;
+  kind: RoomKind;
+  cells: { x: number; z: number }[];
+  center: { x: number; z: number };
+  entrances: { x: number; z: number }[];
+  shape: RoomShape;
+  template: TacticalRoomTemplateId;
+}
+
+const cellKey = (x: number, z: number) => `${x},${z}`;
+
+function roomDimensions(node: LayoutNode, rng: RNG): { width: number; depth: number } {
+  if (node.kind === 'start') return { width: 9, depth: 9 };
+  if (node.kind === 'exit') return { width: rng.int(10, 11), depth: rng.int(10, 11) };
+  if (node.kind === 'elite') return { width: rng.int(10, 12), depth: rng.int(10, 12) };
+  if (node.kind === 'sanctuary' || node.kind === 'treasure')
+    return { width: rng.int(8, 10), depth: rng.int(8, 10) };
+  return { width: rng.int(9, 12), depth: rng.int(8, 11) };
+}
+
+function roomCells(x: number, z: number, width: number, depth: number, shape: RoomShape): { x: number; z: number }[] {
+  const cells: { x: number; z: number }[] = [];
+  for (let localZ = 0; localZ < depth; localZ++) {
+    for (let localX = 0; localX < width; localX++) {
+      if (shape === 'cut-corners') {
+        const cornerDistance = Math.min(
+          localX + localZ, width - 1 - localX + localZ,
+          localX + depth - 1 - localZ, width - 1 - localX + depth - 1 - localZ,
+        );
+        if (cornerDistance < 2) continue;
+      }
+      if (shape === 'l-shape' && localX >= Math.ceil(width * 0.65) && localZ < Math.floor(depth * 0.38)) continue;
+      cells.push({ x: x + localX, z: z + localZ });
+    }
+  }
+  return cells;
+}
+
+function nearestRoomCell(cells: { x: number; z: number }[], x: number, z: number): { x: number; z: number } {
+  return cells.reduce((best, cell) => {
+    const distance = (cell.x - x) ** 2 + (cell.z - z) ** 2;
+    const bestDistance = (best.x - x) ** 2 + (best.z - z) ** 2;
+    return distance < bestDistance ? cell : best;
+  });
+}
+
+function buildRoom(node: LayoutNode, rng: RNG): SpatialRoom {
+  const { width, depth } = roomDimensions(node, rng);
+  const x = Math.max(2, Math.round(node.cx - width / 2));
+  const z = Math.max(2, Math.round(node.cz - depth / 2));
+  const cells = roomCells(x, z, width, depth, node.shape);
+  const centerCell = nearestRoomCell(cells, Math.floor(node.cx), Math.floor(node.cz));
+  let template = rng.pick(TACTICAL_TEMPLATE_IDS);
+  if (node.kind === 'start' || node.kind === 'sanctuary' || node.kind === 'treasure')
+    template = rng.pick<TacticalRoomTemplateId>(['pillar-court', 'split-gallery']);
+  // The exit is a readable, open boss arena with cover around its perimeter.
+  if (node.kind === 'exit') template = 'pillar-court';
+  return {
+    id: node.id, kind: node.kind, required: node.required,
+    x, z, width, depth, cells,
+    center: { x: centerCell.x + 0.5, z: centerCell.z + 0.5 },
+    entrances: [], shape: node.shape, template,
+  };
+}
+
+function carveWide(grid: number[][], x: number, z: number, protectedCells: Set<string>): void {
+  for (let dz = -1; dz <= 1; dz++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const cellX = x + dx, cellZ = z + dz;
+      if (cellZ <= 0 || cellX <= 0 || cellZ >= grid.length - 1 || cellX >= grid.length - 1) continue;
+      grid[cellZ][cellX] = BlockKind.Floor;
+      protectedCells.add(cellKey(cellX, cellZ));
+    }
+  }
+}
+
+function carveLine(grid: number[][], from: { x: number; z: number }, to: { x: number; z: number }, protectedCells: Set<string>): void {
+  let x = from.x, z = from.z;
+  const dx = Math.abs(to.x - x), sx = x < to.x ? 1 : -1;
+  const dz = -Math.abs(to.z - z), sz = z < to.z ? 1 : -1;
+  let error = dx + dz;
+  for (;;) {
+    carveWide(grid, x, z, protectedCells);
+    if (x === to.x && z === to.z) break;
+    const doubled = error * 2;
+    if (doubled >= dz) { error += dz; x += sx; }
+    if (doubled <= dx) { error += dx; z += sz; }
+  }
+}
+
+function carveConnection(
+  grid: number[][],
+  from: { x: number; z: number },
+  to: { x: number; z: number },
+  protectedCells: Set<string>,
+  rng: RNG,
+): void {
+  const nearlyStraight = Math.abs(from.x - to.x) <= 2 || Math.abs(from.z - to.z) <= 2;
+  if (nearlyStraight || rng.chance(0.35)) {
+    carveLine(grid, from, to, protectedCells);
+    return;
+  }
+  const bend = rng.chance(0.5) ? { x: to.x, z: from.z } : { x: from.x, z: to.z };
+  carveLine(grid, from, bend, protectedCells);
+  carveLine(grid, bend, to, protectedCells);
+}
+
+function roomCenterCell(room: SpatialRoom): { x: number; z: number } {
+  return { x: Math.floor(room.center.x), z: Math.floor(room.center.z) };
+}
+
+function collectEntrances(room: SpatialRoom, grid: number[][]): { x: number; z: number }[] {
+  const mask = new Set(room.cells.map(cell => cellKey(cell.x, cell.z)));
+  return room.cells.filter(cell => {
+    const neighbours = [[cell.x - 1, cell.z], [cell.x + 1, cell.z], [cell.x, cell.z - 1], [cell.x, cell.z + 1]];
+    return neighbours.some(([x, z]) => !mask.has(cellKey(x, z)) && grid[z]?.[x] === BlockKind.Floor);
+  }).map(cell => ({ x: cell.x, z: cell.z }));
+}
+
+function addRoomObstacles(room: SpatialRoom, grid: number[][], protectedCells: Set<string>): void {
+  const localObstacles = TACTICAL_ROOM_TEMPLATES[room.template].obstacles(room.width, room.depth);
+  const center = roomCenterCell(room);
+  const mask = new Set(room.cells.map(cell => cellKey(cell.x, cell.z)));
+  for (const [localX, localZ] of localObstacles) {
+    const x = room.x + localX, z = room.z + localZ;
+    if (!mask.has(cellKey(x, z)) || protectedCells.has(cellKey(x, z))) continue;
+    if (Math.abs(x - center.x) + Math.abs(z - center.z) <= 1) continue;
+    grid[z][x] = BlockKind.Obstacle;
+  }
+}
+
+function openCellNear(
+  room: SpatialRoom,
+  grid: number[][],
+  rng: RNG,
+  excluded: readonly { x: number; z: number }[] = [],
+): { x: number; z: number } {
+  const center = roomCenterCell(room);
+  const excludedCells = new Set(excluded.map(cell => cellKey(cell.x, cell.z)));
+  const candidates = room.cells.filter(cell =>
+    grid[cell.z][cell.x] === BlockKind.Floor
+    && !excludedCells.has(cellKey(cell.x, cell.z))
+    && Math.abs(cell.x - center.x) + Math.abs(cell.z - center.z) >= 2
+    && cell.x > room.x && cell.x < room.x + room.width - 1
+    && cell.z > room.z && cell.z < room.z + room.depth - 1,
+  );
+  return candidates.length ? rng.pick(candidates) : center;
+}
+
+/** P3 generator: one stone-ruin theme, three topology families, and four tactical room modules. */
+function generateP3Floor(seed: number, floor: number): FloorData {
+  const rng = new RNG(seed);
+  const layout = createMapLayout(rng);
+  const rooms = layout.nodes.map(node => buildRoom(node, rng));
+  const size = Math.max(48, ...rooms.map(room => Math.max(room.x + room.width, room.z + room.depth) + 3));
+  const grid = Array.from({ length: size }, () => Array<number>(size).fill(BlockKind.Wall));
+  const protectedCells = new Set<string>();
+
+  for (const room of rooms)
+    for (const cell of room.cells) grid[cell.z][cell.x] = BlockKind.Floor;
+
+  const byId = new Map(rooms.map(room => [room.id, room]));
+  for (const [fromId, toId] of layout.edges) {
+    const from = byId.get(fromId), to = byId.get(toId);
+    if (!from || !to) continue;
+    carveConnection(grid, roomCenterCell(from), roomCenterCell(to), protectedCells, rng);
+  }
+
+  for (const room of rooms) addRoomObstacles(room, grid, protectedCells);
+  for (const room of rooms) room.entrances = collectEntrances(room, grid);
+
+  const startRoom = byId.get('room-7')!;
+  const exitRoom = byId.get('room-1')!;
+  const spawn = roomCenterCell(startRoom);
+  const portal = roomCenterCell(exitRoom);
+  grid[portal.z][portal.x] = BlockKind.Portal;
+
+  const chests = rooms.filter(room => room.kind === 'treasure').map(room => openCellNear(room, grid, rng));
+  const merchantRng = new RNG((seed ^ 0x5a17cafe ^ Math.imul(floor, 0x45d9f3b)) >>> 0);
+  const safeRooms = rooms.filter(room => room.kind === 'treasure' || room.kind === 'sanctuary');
+  const merchantRoom = merchantRng.pick(safeRooms);
+  const merchant = floor % 3 === 0 || merchantRng.chance(0.35)
+    ? openCellNear(merchantRoom, grid, merchantRng, chests) : undefined;
+
+  return {
+    generationVersion: 2, layoutKind: layout.kind,
+    size, grid, rooms, spawn, portal, chests, merchant,
+    connections: layout.edges, theme: RUINS_THEME, seed, floor,
+  };
+}
+
+/** Stable legacy generator used by generationVersion 1 saves. */
+export function generateLegacyFloor(seed: number, floor: number): FloorData {
   const rng = new RNG(seed);
   const size = 40;
   const grid = Array.from({ length: size }, () => Array<number>(size).fill(BlockKind.Wall));
@@ -59,6 +257,10 @@ export function generateFloor(seed: number, floor: number): FloorData {
   return { size, grid: rotated, rooms, spawn, portal, chests, merchant,
     connections: edges.map(([a,b]) => [rooms[a].id!,rooms[b].id!]),
     theme: themes[Math.min(themes.length - 1, Math.floor(Math.max(0, floor - 1) / 5))], seed, floor };
+}
+
+export function generateFloor(seed: number, floor: number, generationVersion: number = 2): FloorData {
+  return generationVersion === 1 ? generateLegacyFloor(seed, floor) : generateP3Floor(seed, floor);
 }
 
 export function isWalkable(floor: FloorData, x: number, z: number): boolean {

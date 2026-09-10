@@ -107,7 +107,11 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
     || !['elapsed', 'shield', 'invulnerable', 'attackTimer', 'comboCount', 'comboTimer', 'lowHealthShieldCooldown']
       .every(field => isNonNegativeNumber(runtime[field]))
     || !isNumericRecord(runtime.skillCooldowns))) return false;
+  if (snapshot.mapGenerationVersion !== undefined && snapshot.mapGenerationVersion !== 1 && snapshot.mapGenerationVersion !== 2) return false;
+  if (snapshot.mapLayoutKind !== undefined && typeof snapshot.mapLayoutKind !== 'string') return false;
+  if (snapshot.runtime?.finalBoss !== undefined && !validFinalBoss(snapshot.runtime.finalBoss)) return false;
   if (snapshot.runTalents !== undefined && !isValidRunTalentState(snapshot.runTalents)) return false;
+  if (snapshot.monsters !== undefined && (!Array.isArray(snapshot.monsters) || snapshot.monsters.some(monster => !isRecord(monster) || (monster.mechanicState !== undefined && !validMechanicState(monster.mechanicState))))) return false;
   if (snapshot.monsters?.some(monster => monster.statuses !== undefined && (!Array.isArray(monster.statuses) || monster.statuses.some(status =>
     !isRecord(status) || !['burning', 'frozen', 'shocked', 'poisoned', 'bleeding'].includes(status.type)
     || (status.sourceElement !== undefined && !['physical', 'fire', 'frost', 'lightning', 'poison', 'shadow'].includes(status.sourceElement))
@@ -131,6 +135,15 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
     && isNonNegativeNumber(snapshot.gold)
     && isNonNegativeNumber(snapshot.materials)
     && isNonNegativeNumber(snapshot.kills);
+}
+
+function validMechanicState(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.role === 'guardian') return isNonNegativeNumber(value.recovery);
+  if (value.role !== 'support' && value.role !== 'controller') return false;
+  return isNonNegativeNumber(value.cooldown)
+    && (value.interruptedCast === undefined || typeof value.interruptedCast === 'boolean')
+    && (value.role !== 'support' || (isNonNegativeNumber(value.healsRemaining) && Number.isInteger(value.healsRemaining) && value.healsRemaining <= 3));
 }
 
 function validateRun(value: unknown): value is RunState {
@@ -199,4 +212,14 @@ export function validateSaveEnvelope(value: unknown): ValidationResult<SaveEnvel
   }
 
   return { ok: true, value: value as unknown as SaveEnvelopeV3 };
+}
+
+function validFinalBoss(value: unknown): boolean {
+  if (!isRecord(value) || ![1, 2, 3].includes(value.phase as number)
+    || !isNonNegativeNumber(value.cooldown) || !isNonNegativeNumber(value.recovery)
+    || !isNonNegativeInteger(value.cycle) || !Array.isArray(value.warnings) || value.warnings.length > 4) return false;
+  return value.warnings.every(warning => isRecord(warning) && ['blast', 'sweep', 'reinforcement'].includes(warning.kind as string)
+    && ['x', 'z', 'dx', 'dz'].every(field => isFiniteNumber(warning[field]))
+    && ['remaining', 'duration', 'radius', 'damage'].every(field => isNonNegativeNumber(warning[field]))
+    && (warning.duration as number) > 0);
 }

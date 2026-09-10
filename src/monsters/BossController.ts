@@ -12,7 +12,7 @@ interface Warning {
   mesh: THREE.Mesh;
   life: number;
   maxLife: number;
-  kind: 'cone' | 'circle' | 'dash';
+  kind: 'cone' | 'circle' | 'dash' | 'summon';
   position: THREE.Vector3;
   direction: THREE.Vector3;
   radius: number;
@@ -72,6 +72,12 @@ export class BossController {
     this.summonTimer -= dt;
     this.dashTime -= dt;
 
+    if (this.warnings.some(warning => warning.kind === 'dash')) {
+      boss.velocity.set(0, 0, 0);
+      this.updateWarnings(dt, player, host);
+      return;
+    }
+
     if (this.dashTime > 0) {
       const speed = this.phase === 3 ? 15 : 12;
       boss.position.addScaledVector(this.dashDirection, speed * dt);
@@ -116,9 +122,11 @@ export class BossController {
     if (this.phase === 3 && this.summonTimer <= 0 && distance < 18) {
       for (let i = 0; i < 3; i++) {
         const angle = (Math.PI * 2 * i) / 3;
-        host.summonMinion(
-          boss.position.clone().add(new THREE.Vector3(Math.cos(angle) * 2.4, 0, Math.sin(angle) * 2.4)),
-        );
+        const target = boss.position.clone().add(new THREE.Vector3(Math.cos(angle) * 2.4, 0, Math.sin(angle) * 2.4));
+        const room = floor?.rooms.find(candidate => candidate.id === boss.roomId);
+        const spot = floor && room ? findEncounterRoomPosition(floor, room, target.x, target.z) : null;
+        if (spot) target.set(spot.x, 0, spot.z);
+        this.queueSummon(target);
       }
       this.summonTimer = 6;
     }
@@ -155,10 +163,17 @@ export class BossController {
     }
   }
 
+  private queueSummon(position: THREE.Vector3): void {
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(.8, 24), new THREE.MeshBasicMaterial({ color: 0x72caff, transparent: true, opacity: .4, depthWrite: false, side: THREE.DoubleSide }));
+    mesh.rotation.x = -Math.PI / 2; mesh.position.copy(position); mesh.position.y = .06;
+    this.scene.add(mesh);
+    this.warnings.push({ mesh, life: 1.5, maxLife: 1.5, kind: 'summon', position, direction: new THREE.Vector3(), radius: .8, halfAngle: 0, damage: 0, element: 'shadow' });
+  }
+
   private queueCone(boss: Monster, player: Player, attackDamage: number): void {
     const direction = new THREE.Vector3(player.position.x - boss.position.x, 0, player.position.z - boss.position.z).normalize();
     if (direction.lengthSq() === 0) direction.set(0, 0, 1);
-    const geometry = new THREE.RingGeometry(0.4, 5.5, 28, 1, 0, Math.PI / 2.4);
+    const geometry = new THREE.CircleGeometry(5.5, 32, -Math.atan2(direction.z, direction.x) - Math.PI / 4.8, Math.PI / 2.4);
     const material = new THREE.MeshBasicMaterial({
       color: 0xff3b3b,
       transparent: true,
@@ -169,7 +184,6 @@ export class BossController {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.copy(boss.position).add(new THREE.Vector3(0, 0.06, 0));
-    mesh.rotation.z = -Math.atan2(direction.x, direction.z);
     this.scene.add(mesh);
     this.audio.warn();
     this.warnings.push({
@@ -218,8 +232,8 @@ export class BossController {
   private queueDash(boss: Monster, player: Player, attackDamage: number): void {
     this.dashDirection = new THREE.Vector3(player.position.x - boss.position.x, 0, player.position.z - boss.position.z).normalize();
     if (this.dashDirection.lengthSq() === 0) this.dashDirection.set(0, 0, 1);
-    this.dashTime = 0.55;
-    const geometry = new THREE.PlaneGeometry(1.4, 8);
+    this.dashTime = 0;
+    const geometry = new THREE.PlaneGeometry(2.4, 8);
     const material = new THREE.MeshBasicMaterial({
       color: 0xff3b3b,
       transparent: true,
@@ -236,8 +250,8 @@ export class BossController {
     this.audio.warn();
     this.warnings.push({
       mesh,
-      life: 0.55,
-      maxLife: 0.55,
+      life: 0.8,
+      maxLife: 0.8,
       kind: 'dash',
       position: boss.position.clone(),
       direction: this.dashDirection.clone(),
@@ -253,7 +267,7 @@ export class BossController {
       const warning = this.warnings[i];
       warning.life -= dt;
       const progress = 1 - warning.life / warning.maxLife;
-      warning.mesh.scale.setScalar(Math.max(0.65, 1 - progress * 0.18));
+      warning.mesh.scale.setScalar(1);
       const material = warning.mesh.material as THREE.MeshBasicMaterial;
       material.opacity = Math.min(0.75, 0.35 + progress * 0.5);
 
@@ -268,6 +282,7 @@ export class BossController {
   }
 
   private resolveWarning(warning: Warning, player: Player, host: BossHost): void {
+    if (warning.kind === 'summon') { host.summonMinion(warning.position); return; }
     const dx = player.position.x - warning.position.x;
     const dz = player.position.z - warning.position.z;
     const distance = Math.hypot(dx, dz);
@@ -277,7 +292,8 @@ export class BossController {
       }
       return;
     }
-    const angle = Math.atan2(dx, dz) - Math.atan2(warning.direction.x, warning.direction.z);
+    const rawAngle = Math.atan2(dx, dz) - Math.atan2(warning.direction.x, warning.direction.z);
+    const angle = Math.atan2(Math.sin(rawAngle), Math.cos(rawAngle));
     if (warning.kind === 'cone') {
       if (distance <= warning.radius && Math.abs(angle) <= warning.halfAngle) {
         host.damagePlayer(warning.damage, warning.element, 0.22);
@@ -285,11 +301,8 @@ export class BossController {
       return;
     }
     if (warning.kind === 'dash') {
-      const forwardDistance = dx * warning.direction.x + dz * warning.direction.z;
-      const lateral = Math.abs(dx * warning.direction.z - dz * warning.direction.x);
-      if (forwardDistance > 0 && forwardDistance < warning.radius && lateral < 1.2) {
-        host.damagePlayer(warning.damage, warning.element, 0.25);
-      }
+      this.dashDirection.copy(warning.direction);
+      this.dashTime = .55;
     }
   }
 
@@ -300,5 +313,6 @@ export class BossController {
       (warning.mesh.material as THREE.Material).dispose();
     });
     this.warnings = [];
+    this.phase = 1; this.attackTimer = 1.2; this.dashTimer = 5; this.summonTimer = 4; this.dashTime = 0;
   }
 }

@@ -1,3 +1,4 @@
+import { roomCenter } from './RoomGeometry';
 import * as THREE from 'three';
 import type { FloorData } from '../types';
 import { BlockKind } from './Block';
@@ -92,7 +93,8 @@ export class World {
       const marker = new THREE.Mesh(new THREE.RingGeometry(0.9,1.12,32),
         new THREE.MeshBasicMaterial({color:ROOM_COLORS[room.kind],transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide}));
       marker.rotation.x = -Math.PI/2;
-      marker.position.set(room.x+5.5,.03,room.z+5.5);
+      const center = roomCenter(room);
+      marker.position.set(center.x,.03,center.z);
       this.group.add(marker);
     }
 

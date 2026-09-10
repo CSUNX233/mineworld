@@ -11,7 +11,7 @@
 | 游戏流程 | `core/Game.ts`、`EncounterDirector.ts` | 主菜单、开局、房间状态、暂停、层间休整、死亡 |
 | 战斗 | `player/CombatSystem.ts`、`combat/ProjectileSystem.ts`、`combat/FireBuild.ts` | 攻击查询、投射物运动与碰撞；伤害结算和效果触发仍由 Game 编排 |
 | 角色 | `player/`、`monsters/` | 控制、属性、动画、怪物行为与房间生成 |
-| 地图 | `world/FloorGenerator.ts`、`Navigation.ts`、`data/rooms.ts` | 房间图、模板、共享寻路、房间标记 |
+| 地图 | `world/MapLayout.ts`、`FloorGenerator.ts`、`RoomGeometry.ts`、`Navigation.ts`、`data/rooms.ts` | 路线拓扑、空间生成、真实房间范围、模板、共享寻路 |
 | 成长经济 | `items/`、`data/runTalents.ts`、`progression/RunTalents.ts` | 装备、词条、套装、商店、打造、局内天赋配置与规则 |
 | 画面声音 | `world/World.ts`、`core/Effects.ts`、`core/AudioManager.ts`、视图模型 | 渲染、特效、镜头与音频 |
 | 界面输入 | `ui/`、`core/InputManager.ts` | HUD、背包、局内天赋面板、键鼠与触屏输入 |
@@ -28,7 +28,9 @@ P1 在原单层玩法上增加有限单局与营地：一局 25 层，每 5 层�
 
 入口 → 主线战斗 → 出口战斗 → 休整/改点 → 下一层。两个主线房清理完成即可离开。外围环路提供精英、宝藏、恢复与额外战斗，可以按构筑和资源决定是否探索。商店是独立的地图交互格，生成在宝藏或恢复房的空闲位置；每三层保底一次，其余楼层 35% 概率出现，不占用传送门或扩大地形。独立随机数序列保持旧地图几何和存档坐标稳定。
 
-地图固定为 40×40、9 个房间。随机性来自旋转、连接、障碍模板和遭遇组合。难度增加通过敌人组合和数值实现；后续优先增加带机制的房间模板与事件，保持通行轴清楚，避免用面积延长单局。
+P3 新地图使用分支汇合、环路捷径、不对称区域三类结构，每层 6–8 个房间，四种战术障碍模板，面积不随楼层增长。RoomGeometry 统一房间掩码与中心，屏障、遭遇识别、刷怪与标记共同读取。旧存档当前楼层沿用原 40×40 生成器，下一层切换新版本。
+
+EncounterMechanics 独立管理护卫、治疗和控制区，MechanicVisual 提供可辨认的粗模提示；data/encounters 定义三套组合。FinalBossController 独立管理最终 Boss 的预警、阶段、暴露窗口与可序列化状态。详细规则与验收路径见 [P3 交付说明](P3_DELIVERY.md)。
 
 P2 移除旧层间专精与属性/旧天赋入口，统一为局内火系树。RunTalents 负责点数预算、前置、互斥、重置和属性；FireBuild 从节点 effects 计算点燃、传播与引爆参数；RunTalentPanel 只展示规则并回调。Game 负责安全区域判断、保存、命中目标与效果编排。火球主动命中才传播，传播不递归；引爆先移除燃烧再结算，抗性只计算一次。
 
@@ -36,7 +38,7 @@ EncounterBarriers 用当前 FloorData 的 WeakMap 保存动态屏障，World 同
 
 ## 性能与状态约定
 
-- 普通房间进入时生成 3–4 个敌人，避免开局生成整层敌人；同时激活多个房间时敌人仍可能累积。
+- 普通房间进入时才生成敌人，数量按楼层压力与房间面积计算、最多八只；机制单位和 Boss 援军另有上限。
 - HUD、技能状态与小地图每 0.1 秒刷新；输入、碰撞、动画和战斗效果逐帧处理。
 - 装备属性与特殊词条缓存由穿戴、卸下和整体替换使其失效。新增装备变更应走 EquipmentManager，额外属性采用新对象替换，避免原地修改使缓存过期。
 - 设置首次读取后缓存在内存，更新走 SettingsManager，镜头计算无需反复访问 localStorage。
