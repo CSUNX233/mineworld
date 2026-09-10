@@ -204,7 +204,7 @@ export class TouchControls {
         button.dataset.key = state.key;
         button.classList.remove('is-empty');
         const ready = state.cooldownRemaining <= 0 && mana >= state.manaCost;
-        label.textContent = state.cooldownRemaining > 0 ? state.cooldownRemaining.toFixed(1) : state.name;
+        label.textContent = state.cooldownRemaining > 0 ? state.cooldownRemaining.toFixed(1) : '';
         label.style.fontSize = '11px';
         button.setAttribute('aria-label', `${state.name}${mana < state.manaCost ? ' · 法力不足' : ''}`);
         button.setAttribute('aria-disabled', String(!ready));
@@ -217,7 +217,7 @@ export class TouchControls {
         button.dataset.key = '';
         button.classList.add('is-empty');
         button.classList.remove('is-cooldown');
-        label.textContent = '配置';
+        label.textContent = '+';
         label.style.fontSize = '11px';
         button.setAttribute('aria-label', '配置技能');
         button.setAttribute('aria-disabled', 'false');
@@ -274,7 +274,14 @@ export class TouchControls {
   }
 
   private createAttackButton(): HTMLDivElement {
-    const button = this.makeButton('⚔', 'touch-button touch-attack');
+    const button = this.makeButton('', 'touch-button touch-attack');
+    button.setAttribute('aria-label', '攻击，拖动调整方向');
+    const icon = document.createElement('img');
+    icon.className = 'touch-attack-icon';
+    icon.src = import.meta.env.BASE_URL + 'assets/ui/sunlit/attack/attack-2.webp';
+    icon.alt = '';
+    icon.draggable = false;
+    button.appendChild(icon);
     button.style.position = 'absolute';
     this.bindDirectionalControl(button, true);
     return button;
@@ -285,6 +292,7 @@ export class TouchControls {
     let startX = 0, startY = 0, cancelled = false, key = '';
     const thumb = document.createElement('span');
     thumb.className = 'touch-aim-thumb';
+    if (attack) thumb.style.backgroundImage = `url(${import.meta.env.BASE_URL}assets/ui/sunlit/attack/aim-thumb.webp)`;
     thumb.hidden = true;
     button.appendChild(thumb);
     let stickRadius = 20;
@@ -305,7 +313,7 @@ export class TouchControls {
       this.callbacks.onAimEnd(cancel || cancelled);
       indicator.hidden = true;
       thumb.hidden = true;
-      button.classList.remove('is-aiming', 'is-aim-cancelled');
+      button.classList.remove('is-aiming', 'is-aim-cancelled', 'is-attack-dragging');
       this.cancelAim = null;
     };
     button.addEventListener('pointerdown', event => {
@@ -322,7 +330,7 @@ export class TouchControls {
       this.cancelAim = () => finish(true);
       const rect = button.getBoundingClientRect();
       stickRadius = rect.width * 0.3;
-      thumb.hidden = false;
+      thumb.hidden = attack;
       thumb.style.transform = 'translate(-50%, -50%)';
       indicator.style.left = Math.max(90, Math.min(window.innerWidth - 90, rect.left + rect.width / 2)) + 'px';
       indicator.style.top = Math.max(32, rect.top - 52) + 'px';
@@ -340,6 +348,10 @@ export class TouchControls {
       const latest = samples?.length ? samples[samples.length - 1] : event;
       const dx = latest.clientX - startX, dy = latest.clientY - startY;
       const length = Math.hypot(dx, dy);
+      if (attack && length >= 5) {
+        button.classList.add('is-attack-dragging');
+        thumb.hidden = false;
+      }
       // Hysteresis prevents jitter between cast and cancel near the boundary.
       cancelled = !attack && length > (cancelled ? 130 : 150);
       const factor = Math.min(1, stickRadius / Math.max(1, length));
@@ -513,11 +525,19 @@ export class TouchControls {
       button.style.fontSize = '14px';
     });
     if (layout.landscape) {
+      this.utilityRow.style.left = '50%';
+      this.utilityRow.style.right = '';
+      this.utilityRow.style.transform = 'translateX(-50%)';
+      this.utilityRow.style.flexDirection = 'row';
       this.utilityRow.style.top = '';
       this.utilityRow.style.bottom = `calc(${layout.utilityBottom}px + env(safe-area-inset-bottom))`;
     } else {
+      this.utilityRow.style.left = '';
+      this.utilityRow.style.right = 'max(12px, env(safe-area-inset-right))';
+      this.utilityRow.style.transform = 'none';
+      this.utilityRow.style.flexDirection = 'column';
       this.utilityRow.style.bottom = '';
-      this.utilityRow.style.top = `calc(${layout.utilityTop}px + env(safe-area-inset-top))`;
+      this.utilityRow.style.top = 'calc(176px + env(safe-area-inset-top))';
     }
 
     this.pauseButton.style.right = 'calc(max(12px, env(safe-area-inset-right)) + 90px + 10px)';

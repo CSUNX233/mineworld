@@ -1,6 +1,7 @@
 import { pixelText, setPixelText } from './PixelNumbers';
 import { STATUSES } from '../data/elements';
 import { createUiIcon } from './UiAssets';
+import { combatArtUrl } from './CombatArt';
 import type { ActorStatus } from '../types';
 
 export interface HUDState {
@@ -51,6 +52,7 @@ export class HUD {
   private crosshair: HTMLDivElement;
   private skillContainer: HTMLDivElement;
   private statusContainer: HTMLDivElement;
+  private statusSignature = '';
   private damageLayer: HTMLDivElement;
   private muteButton: HTMLDivElement;
   private messageTimer = 0;
@@ -153,10 +155,12 @@ export class HUD {
     bars.appendChild(this.levelText);
 
     this.statusContainer = document.createElement('div');
+    this.statusContainer.className = 'hud-statuses';
     this.statusContainer.style.display = 'flex';
     this.statusContainer.style.gap = '5px';
     this.statusContainer.style.flexWrap = 'wrap';
     bars.appendChild(this.statusContainer);
+    bars.appendChild(this.objective);
 
     this.infoText = document.createElement('div');
     this.infoText.className = 'hud-info';
@@ -273,10 +277,7 @@ export class HUD {
       key.textContent = skill.key.replace('Digit', '');
       const cooldown = document.createElement('span');
       cooldown.className = 'sunlit-skill-timer';
-      const name = document.createElement('span');
-      name.className = 'sunlit-skill-name';
-      name.textContent = skill.name;
-      box.append(overlay, key, cooldown, name);
+      box.append(overlay, key, cooldown);
       this.skillContainer.appendChild(box);
       });
     }
@@ -291,12 +292,27 @@ export class HUD {
   }
 
   setStatuses(statuses: ActorStatus[]): void {
+    const signature = statuses.map(status => `${status.type}:${Math.ceil(status.duration)}`).join('|');
+    if (signature === this.statusSignature) return;
+    this.statusSignature = signature;
     this.statusContainer.innerHTML = '';
     statuses.forEach((status) => {
       const def = STATUSES[status.type];
       if (!def) return;
       const badge = document.createElement('span');
       badge.textContent = `${def.label}`;
+      if (status.type !== 'bleeding') {
+        const icon = document.createElement('img');
+        icon.src = combatArtUrl('statuses', status.type);
+        icon.alt = '';
+        icon.width = icon.height = 24;
+        icon.style.imageRendering = 'pixelated';
+        badge.prepend(icon);
+      }
+      badge.style.display = 'inline-flex';
+      badge.style.alignItems = 'center';
+      badge.style.gap = '3px';
+      badge.setAttribute('aria-label', `${def.label}，剩余 ${Math.ceil(status.duration)} 秒`);
       badge.style.padding = '2px 6px';
       badge.style.borderRadius = '3px';
       badge.style.background = `#${def.color.toString(16).padStart(6, '0')}66`;

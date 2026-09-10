@@ -10,6 +10,7 @@ import { createRunTalents, talentBudget, spentTalentPoints, canUnlockTalent, unl
 import { buildRunTalentPanel } from '../ui/RunTalentPanel';
 import { findEncounterRoomPosition } from '../world/EncounterBarriers';
 import * as THREE from 'three';
+import { preloadCombatArt } from '../ui/CombatArt';
 import type { DerivedStats } from '../items/EquipmentManager';
 import { EquipmentManager } from '../items/EquipmentManager';
 import { Inventory } from '../items/Inventory';
@@ -261,6 +262,8 @@ export class Game {
       });
     }
     this.inventoryUI = new InventoryUI(this.uiRoot);
+    preloadCombatArt();
+    this.inventoryUI.getCurrentStats = () => this.effectiveStats();
     this.inventoryUI.onEquip = (index) => this.equipFromInventory(index);
     this.inventoryUI.onUnequip = (slot) => this.unequipSlot(slot);
     this.inventoryUI.onSalvage = (index) => this.confirmSalvage(index);

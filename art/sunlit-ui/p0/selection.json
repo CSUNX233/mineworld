@@ -1,0 +1,11 @@
+{
+  "style": "Sunlit Quest",
+  "selected": {
+    "statuses": { "variant": "A", "file": "status-a.png", "columns": 4, "rows": 2 },
+    "effects": { "variant": "B", "file": "effects-b.png", "columns": 4, "rows": 2 },
+    "telegraphs": { "variant": "B", "file": "telegraphs-b.png", "columns": 3, "rows": 2 }
+  },
+  "preserveAllVariants": true,
+  "stage": "integrated",
+  "runtimeDirectory": "public/assets/ui/sunlit/p0"
+}

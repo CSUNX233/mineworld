@@ -1,5 +1,6 @@
 import { findEncounterRoomPosition, getEncounterBarriers } from '../world/EncounterBarriers';
 import * as THREE from 'three';
+import { decorateTelegraph, disposeTelegraphArt } from '../ui/CombatArt';
 import type { FloorData, ElementType } from '../types';
 import type { Monster } from './Monster';
 import type { Player } from '../player/Player';
@@ -166,6 +167,7 @@ export class BossController {
   private queueSummon(position: THREE.Vector3): void {
     const mesh = new THREE.Mesh(new THREE.CircleGeometry(.8, 24), new THREE.MeshBasicMaterial({ color: 0x72caff, transparent: true, opacity: .4, depthWrite: false, side: THREE.DoubleSide }));
     mesh.rotation.x = -Math.PI / 2; mesh.position.copy(position); mesh.position.y = .06;
+    decorateTelegraph(mesh, 'landing', 1.5);
     this.scene.add(mesh);
     this.warnings.push({ mesh, life: 1.5, maxLife: 1.5, kind: 'summon', position, direction: new THREE.Vector3(), radius: .8, halfAngle: 0, damage: 0, element: 'shadow' });
   }
@@ -184,6 +186,8 @@ export class BossController {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.copy(boss.position).add(new THREE.Vector3(0, 0.06, 0));
+    decorateTelegraph(mesh, 'cone', 2, 2, -Math.atan2(direction.z, direction.x) - Math.PI / 2);
+    mesh.children[0].position.set(direction.x * 2.8, -direction.z * 2.8, .015);
     this.scene.add(mesh);
     this.audio.warn();
     this.warnings.push({
@@ -201,7 +205,7 @@ export class BossController {
   }
 
   private queueCircle(player: Player, attackDamage: number): void {
-    const geometry = new THREE.RingGeometry(0.35, 2.7, 24);
+    const geometry = new THREE.CircleGeometry(3.1, 48);
     const material = new THREE.MeshBasicMaterial({
       color: this.phase === 2 ? 0xc05bff : 0xff6a2a,
       transparent: true,
@@ -213,6 +217,7 @@ export class BossController {
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.copy(player.position);
     mesh.position.y = 0.06;
+    decorateTelegraph(mesh, 'landing', 5.8);
     this.scene.add(mesh);
     this.audio.warn();
     this.warnings.push({
@@ -233,7 +238,8 @@ export class BossController {
     this.dashDirection = new THREE.Vector3(player.position.x - boss.position.x, 0, player.position.z - boss.position.z).normalize();
     if (this.dashDirection.lengthSq() === 0) this.dashDirection.set(0, 0, 1);
     this.dashTime = 0;
-    const geometry = new THREE.PlaneGeometry(2.4, 8);
+    const travel = (this.phase === 3 ? 15 : 12) * .55;
+    const geometry = new THREE.PlaneGeometry(3.6, travel + 3.6);
     const material = new THREE.MeshBasicMaterial({
       color: 0xff3b3b,
       transparent: true,
@@ -243,9 +249,10 @@ export class BossController {
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.copy(boss.position).addScaledVector(this.dashDirection, 4);
+    mesh.position.copy(boss.position).addScaledVector(this.dashDirection, travel / 2);
     mesh.position.y = 0.06;
     mesh.rotation.z = -Math.atan2(this.dashDirection.x, this.dashDirection.z);
+    decorateTelegraph(mesh, 'lane', 3.2, travel + 3.2);
     this.scene.add(mesh);
     this.audio.warn();
     this.warnings.push({
@@ -269,11 +276,12 @@ export class BossController {
       const progress = 1 - warning.life / warning.maxLife;
       warning.mesh.scale.setScalar(1);
       const material = warning.mesh.material as THREE.MeshBasicMaterial;
-      material.opacity = Math.min(0.75, 0.35 + progress * 0.5);
+      material.opacity = .15 + progress * .22;
 
       if (warning.life <= 0) {
         this.resolveWarning(warning, player, host);
         this.scene.remove(warning.mesh);
+        disposeTelegraphArt(warning.mesh);
         warning.mesh.geometry.dispose();
         material.dispose();
         this.warnings.splice(i, 1);
@@ -309,6 +317,7 @@ export class BossController {
   clearWarnings(): void {
     this.warnings.forEach((warning) => {
       this.scene.remove(warning.mesh);
+      disposeTelegraphArt(warning.mesh);
       warning.mesh.geometry.dispose();
       (warning.mesh.material as THREE.Material).dispose();
     });

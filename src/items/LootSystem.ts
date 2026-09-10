@@ -27,7 +27,7 @@ export class LootSystem {
     if (Math.random() < manaChance) drops.push({ kind: 'mana', amount: 12 + floor * 2 });
     if (Math.random() < 0.02) drops.push({ kind: 'reforgeTicket', amount: 1 });
     if (Math.random() < itemChance || isBoss) {
-      drops.push({ kind: 'item', item: ItemGenerator.generate(floor, undefined, playerLevel) });
+      drops.push({ kind: 'item', item: ItemGenerator.generate(floor, undefined, playerLevel, undefined, undefined, luck) });
     }
     return drops;
   }

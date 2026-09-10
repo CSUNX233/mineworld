@@ -164,6 +164,18 @@
 .mobile-ui #ui-root .hud-bars > div:nth-child(4) span { font-size: 9px !important; }
 .mobile-ui #ui-root .minimap { border-width: 5px !important; border-image-width: 5px !important; }
 .mobile-ui #ui-root .hud-objective { top: 126px; }
+#ui-root .hud-bars .hud-objective { position: static; max-width: 100%; margin-top: 2px; align-self: flex-start; }
+.mobile-ui #ui-root .hud-statuses { gap: 3px !important; }
+.mobile-ui #ui-root .hud-statuses > span { padding: 2px 3px !important; font-size: 9px !important; }
+.mobile-ui #ui-root .hud-statuses img { width: 18px; height: 18px; }
+.mobile-ui #ui-root .hud-bars { max-width: calc(100vw - max(14px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)) - 152px); }
+.mobile-ui #ui-root .hud-statuses > span { flex-shrink: 0; }
+@media (max-height: 420px) {
+  .mobile-ui #ui-root .hud-bars { gap: 2px !important; }
+  .mobile-ui #ui-root .bar { height: 18px; }
+  .mobile-ui #ui-root .hud-bars > .bar:nth-child(2) { height: 14px !important; }
+  .mobile-ui #ui-root .hud-bars > .bar:nth-child(3) { height: 8px !important; }
+}
 @media (orientation: landscape) {
   .mobile-ui #ui-root .hud-bars { width: min(32vw, 250px) !important; }
 }
@@ -214,6 +226,10 @@
 .touch-joystick > div { will-change: transform; }
 
 #ui-root .touch-utility { position: relative; }
+#ui-root .touch-skill-label:empty { display: none; }
+#ui-root .touch-attack-icon { position: absolute; width: 68%; height: 68%; object-fit: contain; image-rendering: pixelated; pointer-events: none; user-select: none; }
+#ui-root .touch-attack.is-attack-dragging .touch-attack-icon { visibility: hidden; }
+#ui-root .touch-attack .touch-aim-thumb { border: 0; background-color: transparent; background-size: contain; background-repeat: no-repeat; background-position: center; border-radius: 0; }
 .touch-move-zone { position: absolute; left: 0; bottom: 0; width: min(42vw, 300px); height: 52%; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
 @media (orientation: portrait) { .touch-move-zone { width: 45vw; height: 42%; } }
 #ui-root .touch-button.touch-inventory {

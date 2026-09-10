@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { combatTexture } from '../ui/CombatArt';
 
 /** Fixed, reusable particles and a billboard; no objects allocated per fire tick. */
 export class BurnVisual {
   private readonly flames = new THREE.Group();
-  private readonly particles: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>[] = [];
+  private readonly particles: THREE.Sprite[] = [];
   private readonly canvas = document.createElement('canvas');
   private readonly texture: THREE.CanvasTexture;
   private readonly label: THREE.Sprite;
@@ -14,13 +15,12 @@ export class BurnVisual {
   private lastText = '';
 
   constructor(parent: THREE.Group) {
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    for (let i = 0; i < 8; i++) {
-      const material = new THREE.MeshBasicMaterial({
-        color: i % 2 ? 0xff6a16 : 0xffd05a,
-        transparent: true, depthWrite: false,
+    for (let i = 0; i < 4; i++) {
+      const material = new THREE.SpriteMaterial({
+        map: combatTexture('effects', 'fire'),
+        transparent: true, depthWrite: false, toneMapped: false,
       });
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Sprite(material);
       this.particles.push(mesh);
       this.flames.add(mesh);
     }
@@ -58,8 +58,8 @@ export class BurnVisual {
       const phase = (this.clock * 1.3 + index / this.particles.length) % 1;
       const angle = index * 2.4 + this.clock * .4;
       particle.position.set(Math.cos(angle) * width, .15 + phase * height, Math.sin(angle) * width);
-      particle.scale.set(.12 * (1 - phase) + .05, .3 * (1 - phase) + .08, .12);
-      particle.rotation.z = Math.sin(this.clock * 5 + index) * .2;
+      particle.scale.set(.35 * (1 - phase) + .15, .55 * (1 - phase) + .2, 1);
+      particle.material.rotation = Math.sin(this.clock * 5 + index) * .2;
       particle.material.opacity = (1 - phase) * .85;
     });
   }

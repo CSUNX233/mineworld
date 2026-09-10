@@ -33,9 +33,10 @@ export class ItemGenerator {
     playerLevel: number = floor,
     rarityOverride?: Rarity,
     slotOverride?: Item['slot'],
+    luck = 0,
   ): Item {
     const base = rng.pick(slotOverride ? BASE_ITEMS.filter(base => base.slot === slotOverride) : BASE_ITEMS);
-    const rarity = rarityOverride ?? rng.weighted(rarityWeightsForFloor(floor)).rarity;
+    const rarity = rarityOverride ?? rng.weighted(rarityWeightsForFloor(floor, luck)).rarity;
     const itemLevel = Math.max(1, floor + rng.int(-1, 2));
     const [minAffixes, maxAffixes] = RARITY_AFFIX_COUNT[rarity];
     const affixCount = rng.int(minAffixes, maxAffixes);

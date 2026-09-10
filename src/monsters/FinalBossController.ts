@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decorateTelegraph, disposeTelegraphArt } from '../ui/CombatArt';
 import type { FloorData } from '../types';
 import type { Monster } from './Monster';
 import type { Player } from '../player/Player';
@@ -55,7 +56,7 @@ export class FinalBossController {
     for (const warning of [...this.state.warnings]) {
       warning.remaining = Math.max(0, warning.remaining - dt);
       const mesh = this.meshes.get(warning);
-      if (mesh) (mesh.material as THREE.MeshBasicMaterial).opacity = .25 + .45 * (1 - warning.remaining / warning.duration);
+      if (mesh) (mesh.material as THREE.MeshBasicMaterial).opacity = .15 + .22 * (1 - warning.remaining / warning.duration);
       if (warning.remaining > 0) continue;
       if (warning.kind === 'reinforcement') {
         if (host.livingMinions() < 4) host.summonMinion(new THREE.Vector3(warning.x, 0, warning.z));
@@ -112,11 +113,16 @@ export class FinalBossController {
       : new THREE.CircleGeometry(warning.radius, 32);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: warning.kind === 'reinforcement' ? 0x72caff : 0xff684c, transparent: true, opacity: .35, depthWrite: false, side: THREE.DoubleSide }));
     mesh.rotation.x = -Math.PI / 2; mesh.position.set(warning.x, .07, warning.z);
+    if (warning.kind === 'sweep') {
+      decorateTelegraph(mesh, 'cone', warning.radius * .65, warning.radius * .65, -angle - Math.PI / 2);
+      mesh.children[0].position.set(warning.dx * warning.radius * .5, -warning.dz * warning.radius * .5, .015);
+    } else decorateTelegraph(mesh, 'landing', warning.radius * 1.9);
     this.scene.add(mesh); this.meshes.set(warning, mesh);
   }
   private remove(warning: WardenWarning): void {
     const mesh = this.meshes.get(warning);
     if (!mesh) return;
+    disposeTelegraphArt(mesh);
     this.scene.remove(mesh); mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); this.meshes.delete(warning);
   }
   clear(): void {

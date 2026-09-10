@@ -1,5 +1,5 @@
 import { pixelText, setPixelText } from './PixelNumbers';
-import type { EquipmentManager } from '../items/EquipmentManager';
+import type { EquipmentManager, DerivedStats } from '../items/EquipmentManager';
 import type { Inventory } from '../items/Inventory';
 import type { Item, Rarity, Slot, Stat } from '../types';
 import { SETS, setDisplayName } from '../data/sets';
@@ -50,6 +50,7 @@ export class InventoryUI {
   open = false;
   attributePoints = 0;
   playerLevel = 1;
+  getCurrentStats: (() => DerivedStats) | null = null;
   materialText = '';
   onEquip: ((inventoryIndex: number) => void) | null = null;
   onUnequip: ((slot: Slot) => void) | null = null;
@@ -167,7 +168,7 @@ export class InventoryUI {
       }
       equipmentPanel.appendChild(box);
     });
-    const stats = equipment.getDerivedStats();
+    const stats = this.getCurrentStats?.() ?? equipment.getDerivedStats();
     const summary = document.createElement('div');
     summary.className = 'inventory-stat-summary';
     summary.style.gridColumn = '1 / -1';
@@ -185,6 +186,7 @@ export class InventoryUI {
       `移速 ${stats.moveSpeed.toFixed(2)}`,
       `回蓝 ${stats.manaRegen.toFixed(1)}/s`,
       `回血 ${stats.lifeRegen.toFixed(1)}/s`,
+      `幸运 ${Number(stats.luck.toFixed(1))}`,
     ].join(' · ');
     equipmentPanel.appendChild(summary);
     const setSummary = document.createElement('div');

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decorateTelegraph } from '../ui/CombatArt';
 import type { Monster } from './Monster';
 
 export type MechanicVisualPhase = 'idle' | 'casting' | 'exposed';
@@ -93,6 +94,7 @@ export function createZoneVisual(x: number, z: number, radius: number, phase: Zo
   const material = basicMaterial(phase === 'warning' ? 0xffb347 : 0xb62fff, phase === 'warning' ? 0.52 : 0.68);
   const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.05, radius - 0.14), radius, 32), material);
   ring.rotation.x = -Math.PI / 2;
+  decorateTelegraph(ring, 'circle', radius * 1.9);
   group.add(ring);
   if (phase === 'active') {
     const fill = new THREE.Mesh(new THREE.CircleGeometry(Math.max(0.05, radius - 0.16), 32), basicMaterial(0x7d1eb2, 0.2));

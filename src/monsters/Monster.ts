@@ -1,5 +1,6 @@
 import { HealthBarBreak } from './HealthBarBreak';
 import { BurnVisual } from './BurnVisual';
+import { combatTexture, decorateTelegraph } from '../ui/CombatArt';
 import * as THREE from 'three';
 import type { ActorStatus, MonsterDefinition } from '../types';
 import { applyStatus, updateStatuses } from '../combat/ElementSystem';
@@ -32,6 +33,7 @@ interface PartRef {
 export class Monster {
   roomId = '';
   private attackWarning: THREE.Mesh;
+  private statusIcons = new Map<string, THREE.Sprite>();
   readonly id: number;
   readonly group = new THREE.Group();
   readonly position = new THREE.Vector3();
@@ -80,6 +82,7 @@ export class Monster {
     this.attackWarning = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 32),
       new THREE.MeshBasicMaterial({ color: 0xff7c59, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }));
     this.attackWarning.rotation.x = -Math.PI / 2;
+    decorateTelegraph(this.attackWarning, 'circle', 1.9);
     this.attackWarning.position.y = 0.04;
     this.attackWarning.visible = false;
     this.group.add(this.attackWarning);
@@ -347,6 +350,10 @@ export class Monster {
     this.material.color.setHex(0xff8a1e);
     this.bodyGroup.scale.multiplyScalar(1.15);
     this.updateOverlayHeights();
+    const crest = new THREE.Sprite(new THREE.SpriteMaterial({ map: combatTexture('telegraphs', 'elite'), transparent: true, depthWrite: false, toneMapped: false }));
+    crest.scale.set(.38, .38, 1);
+    crest.position.set(-.67, this.healthBarBg.position.y + .04, 0);
+    this.group.add(crest);
     if (modifiers.includes('fast')) this.speedMultiplier = 1.4;
     const auraGeometry = new THREE.RingGeometry(0.62, 0.78, 24);
     const auraMaterial = new THREE.MeshBasicMaterial({
@@ -389,6 +396,20 @@ export class Monster {
     const statusResult = updateStatuses(this, dt, this.def.resistances);
     this.slowMultiplier = statusResult.slowMultiplier;
     this.extraLightningMultiplier = statusResult.extraLightningMultiplier;
+    for (const icon of this.statusIcons.values()) icon.visible = false;
+    let statusIndex = 0;
+    for (const status of this.statuses) {
+      if (this.dead || status.duration <= 0 || status.type === 'bleeding') continue;
+      let icon = this.statusIcons.get(status.type);
+      if (!icon) {
+        icon = new THREE.Sprite(new THREE.SpriteMaterial({ map: combatTexture('statuses', status.type), transparent: true, depthWrite: false, toneMapped: false }));
+        icon.scale.set(.28, .28, 1);
+        this.statusIcons.set(status.type, icon);
+        this.group.add(icon);
+      }
+      icon.visible = true;
+      icon.position.set(-.4 + statusIndex++ * .28, this.healthBarBg.position.y + .23, 0);
+    }
     if (statusResult.damage > 0 && !this.dead) {
       this.takeDamage(statusResult.damage, false);
     }
