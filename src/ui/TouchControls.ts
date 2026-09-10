@@ -1,8 +1,12 @@
+import { JoystickTapJump } from './JoystickTapJump';
 import type { InputManager } from '../core/InputManager';
 import { isMobileDevice } from '../utils/mobile';
 import { createUiIcon } from './UiAssets';
 
 export interface TouchCallbacks {
+  onAimBegin: (key: string | null) => void;
+  onAim: (x: number, y: number) => void;
+  onAimEnd: (cancel: boolean) => void;
   onAttackPress: () => void;
   onAttackRelease: () => void;
   onSkillPress: (key: string) => void;
@@ -96,7 +100,7 @@ export class TouchControls {
   private skillCluster: HTMLDivElement;
   private utilityRow: HTMLDivElement;
   private pauseButton: HTMLDivElement;
-  private jumpButton: HTMLDivElement;
+  private readonly tapJump = new JoystickTapJump();
   private interactButton: HTMLDivElement;
   private viewButton: HTMLDivElement | null = null;
   private enabled = false;
@@ -105,6 +109,9 @@ export class TouchControls {
   private skillLabels: HTMLDivElement[] = [];
   private skillOverlays: HTMLDivElement[] = [];
   private activePointer: number | null = null;
+  private joystickRect: DOMRect | null = null;
+  private joystickRest: { left: string; top: string; bottom: string } | null = null;
+  private sprintHeld = false;
   private activeLookPointer: { pointerId: number; lastX: number; lastY: number } | null = null;
   private mobile = isMobileDevice();
 
@@ -126,27 +133,20 @@ export class TouchControls {
     this.skillCluster = this.createSkillCluster();
     this.utilityRow = this.createUtilityRow();
     this.pauseButton = this.createPauseButton();
-    this.jumpButton = this.makeButton('跳跃', 'touch-button touch-jump');
-    this.jumpButton.title = '跳跃';
-    this.jumpButton.style.position = 'absolute';
-    this.jumpButton.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      this.jumpButton.setPointerCapture(event.pointerId);
-      this.input.press('Space');
-    });
-    const releaseJump = () => this.input.release('Space');
-    this.jumpButton.addEventListener('pointerup', releaseJump);
-    this.jumpButton.addEventListener('pointercancel', releaseJump);
     this.interactButton = this.makeButton('交互', 'touch-button touch-interact');
     this.interactButton.style.position = 'absolute';
     this.bindTap(this.interactButton, () => this.callbacks.onInteractPress());
 
+    const moveZone = document.createElement('div');
+    moveZone.className = 'touch-move-zone';
+    moveZone.setAttribute('aria-label', '移动触控区');
+    moveZone.addEventListener('pointerdown', event => this.onJoystickDown(event));
+    this.root.appendChild(moveZone);
     this.root.appendChild(this.joystick);
     this.root.appendChild(this.attackButton);
     this.root.appendChild(this.skillCluster);
     this.root.appendChild(this.utilityRow);
     this.root.appendChild(this.pauseButton);
-    this.root.appendChild(this.jumpButton);
     this.root.appendChild(this.interactButton);
 
     parent.appendChild(this.root);
@@ -158,13 +158,18 @@ export class TouchControls {
       window.addEventListener('pointerup', this.onWindowPointerUp);
       window.addEventListener('pointercancel', this.onWindowPointerCancel);
       window.addEventListener('resize', this.onResize);
+      window.addEventListener('blur', this.onSuspend);
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
       window.addEventListener('orientationchange', this.onResize);
       window.visualViewport?.addEventListener('resize', this.onResize);
     }
   }
 
+  private cancelAim: (() => void) | null = null;
+
   setGameplayState(enabled: boolean, firstPerson: boolean, interaction: string | null): void {
     if (this.enabled && !enabled) {
+      this.cancelAim?.();
       this.onJoystickUp();
       this.activeLookPointer = null;
       this.input.reset();
@@ -257,25 +262,99 @@ export class TouchControls {
     const release = (event: PointerEvent): void => {
       if (event.pointerId === this.activePointer) this.onJoystickUp();
     };
-    this.joystick.addEventListener('pointerup', release);
+    this.joystick.addEventListener('pointerup', event => {
+      if (event.pointerId !== this.activePointer) return;
+      this.onJoystickMove(event);
+      const jump = this.tapJump.end(event.clientX, event.clientY, event.timeStamp);
+      this.onJoystickUp(false);
+      if (jump) { this.input.press('Space'); this.input.release('Space'); }
+    });
     this.joystick.addEventListener('pointercancel', release);
+    this.joystick.addEventListener('lostpointercapture', release);
   }
 
   private createAttackButton(): HTMLDivElement {
     const button = this.makeButton('⚔', 'touch-button touch-attack');
     button.style.position = 'absolute';
-    button.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      button.setPointerCapture(event.pointerId);
-      this.callbacks.onAttackPress();
-    });
-    const release = (event: PointerEvent): void => {
-      if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
-      this.callbacks.onAttackRelease();
-    };
-    button.addEventListener('pointerup', release);
-    button.addEventListener('pointercancel', release);
+    this.bindDirectionalControl(button, true);
     return button;
+  }
+
+  private bindDirectionalControl(button: HTMLDivElement, attack: boolean): void {
+    let pointer: number | null = null;
+    let startX = 0, startY = 0, cancelled = false, key = '';
+    const thumb = document.createElement('span');
+    thumb.className = 'touch-aim-thumb';
+    thumb.hidden = true;
+    button.appendChild(thumb);
+    let stickRadius = 20;
+    const indicator = document.createElement('div');
+    indicator.className = 'touch-direction-indicator';
+    indicator.hidden = true;
+    this.root.appendChild(indicator);
+    const finish = (cancel: boolean) => {
+      if (pointer === null) return;
+      const id = pointer;
+      pointer = null;
+      if (button.hasPointerCapture(id)) button.releasePointerCapture(id);
+      if (attack) this.callbacks.onAttackRelease();
+      else if (!cancel && !cancelled && button.getAttribute('aria-disabled') !== 'true') {
+        this.callbacks.onSkillPress(key);
+        this.callbacks.onSkillRelease(key);
+      }
+      this.callbacks.onAimEnd(cancel || cancelled);
+      indicator.hidden = true;
+      thumb.hidden = true;
+      button.classList.remove('is-aiming', 'is-aim-cancelled');
+      this.cancelAim = null;
+    };
+    button.addEventListener('pointerdown', event => {
+      event.preventDefault(); event.stopPropagation();
+      if (!this.enabled || pointer !== null) return;
+      key = button.dataset.key ?? '';
+      if (!attack && !key) { this.callbacks.onSkillBarPress(); return; }
+      if (!attack && button.getAttribute('aria-disabled') === 'true') return;
+      this.cancelAim?.();
+      pointer = event.pointerId; startX = event.clientX; startY = event.clientY; cancelled = false;
+      button.setPointerCapture(pointer);
+      this.callbacks.onAimEnd(true);
+      this.callbacks.onAimBegin(attack ? null : key);
+      this.cancelAim = () => finish(true);
+      const rect = button.getBoundingClientRect();
+      stickRadius = rect.width * 0.3;
+      thumb.hidden = false;
+      thumb.style.transform = 'translate(-50%, -50%)';
+      indicator.style.left = Math.max(90, Math.min(window.innerWidth - 90, rect.left + rect.width / 2)) + 'px';
+      indicator.style.top = Math.max(32, rect.top - 52) + 'px';
+      indicator.classList.remove('has-direction');
+      indicator.style.color = '#fff0ce';
+      button.classList.add('is-aiming');
+      indicator.hidden = false;
+      indicator.textContent = attack ? '拖动调整方向' : '拖动瞄准 · 松手施放';
+      if (attack) this.callbacks.onAttackPress();
+    });
+    const move = (event: PointerEvent) => {
+      if (event.pointerId !== pointer) return;
+      event.preventDefault(); event.stopPropagation();
+      const samples = event.getCoalescedEvents?.();
+      const latest = samples?.length ? samples[samples.length - 1] : event;
+      const dx = latest.clientX - startX, dy = latest.clientY - startY;
+      const length = Math.hypot(dx, dy);
+      // Hysteresis prevents jitter between cast and cancel near the boundary.
+      cancelled = !attack && length > (cancelled ? 130 : 150);
+      const factor = Math.min(1, stickRadius / Math.max(1, length));
+      thumb.style.transform = 'translate(calc(-50% + ' + dx * factor + 'px), calc(-50% + ' + dy * factor + 'px))';
+      button.classList.toggle('is-aim-cancelled', cancelled);
+      indicator.style.color = cancelled ? '#ff927b' : '#fff0ce';
+      indicator.textContent = cancelled ? '松手取消 · 拖回继续瞄准' : length < 5 ? '拖动瞄准' : '➤';
+      indicator.style.setProperty('--aim-angle', Math.atan2(dy, dx) + 'rad');
+      indicator.classList.toggle('has-direction', !cancelled && length >= 5);
+      if (!cancelled) this.callbacks.onAim(dx, dy);
+    };
+    button.addEventListener('pointermove', move);
+    button.addEventListener('pointerup', event => { if (event.pointerId === pointer) { move(event); finish(false); } });
+    button.addEventListener('pointercancel', event => { if (event.pointerId === pointer) finish(true); });
+    button.addEventListener('lostpointercapture', event => { if (event.pointerId === pointer) finish(true); });
   }
 
   private createSkillCluster(): HTMLDivElement {
@@ -310,20 +389,7 @@ export class TouchControls {
       overlay.style.pointerEvents = 'none';
       button.appendChild(overlay);
 
-      button.addEventListener('pointerdown', (event) => {
-        event.preventDefault();
-        button.setPointerCapture(event.pointerId);
-        const key = button.dataset.key;
-        if (key && button.getAttribute('aria-disabled') !== 'true') this.callbacks.onSkillPress(key);
-        else if (!key) this.callbacks.onSkillBarPress();
-      });
-      const release = (event: PointerEvent): void => {
-        if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
-        const key = button.dataset.key;
-        if (key) this.callbacks.onSkillRelease(key);
-      };
-      button.addEventListener('pointerup', release);
-      button.addEventListener('pointercancel', release);
+      this.bindDirectionalControl(button, false);
 
       cluster.appendChild(button);
       this.skillButtons.push(button);
@@ -343,7 +409,7 @@ export class TouchControls {
     row.style.display = 'flex';
     row.style.pointerEvents = 'none';
 
-    const inventory = this.makeButton('背包', 'touch-button touch-utility');
+    const inventory = this.makeButton('背包', 'touch-button touch-utility touch-inventory');
     inventory.replaceChildren(createUiIcon('bag'));
     inventory.title = '背包';
     this.bindTap(inventory, () => this.callbacks.onInventoryPress());
@@ -358,7 +424,7 @@ export class TouchControls {
     this.utilityButtons.push(view);
 
     const skills = this.makeButton('技能配置', 'touch-button touch-utility');
-    skills.replaceChildren(createUiIcon('staff'));
+    skills.textContent = '技能';
     skills.title = '技能配置';
     this.bindTap(skills, () => this.callbacks.onSkillBarPress());
     row.appendChild(skills);
@@ -454,16 +520,11 @@ export class TouchControls {
       this.utilityRow.style.top = `calc(${layout.utilityTop}px + env(safe-area-inset-top))`;
     }
 
-    this.pauseButton.style.right = `calc(${layout.pauseRight + 84}px + env(safe-area-inset-right))`;
-    this.pauseButton.style.top = `calc(${layout.pauseTop}px + env(safe-area-inset-top))`;
+    this.pauseButton.style.right = 'calc(max(12px, env(safe-area-inset-right)) + 90px + 10px)';
+    this.pauseButton.style.top = 'max(12px, env(safe-area-inset-top))';
     this.pauseButton.style.width = `${layout.pauseSize}px`;
     this.pauseButton.style.height = `${layout.pauseSize}px`;
     this.pauseButton.style.fontSize = `${Math.max(18, Math.round(layout.pauseSize * 0.38))}px`;
-    this.jumpButton.style.left = `calc(${layout.joystickLeft + layout.joystickSize + 12}px + env(safe-area-inset-left))`;
-    this.jumpButton.style.bottom = `calc(${layout.joystickBottom}px + env(safe-area-inset-bottom))`;
-    this.jumpButton.style.width = '48px';
-    this.jumpButton.style.height = '48px';
-    this.jumpButton.style.fontSize = '12px';
     this.interactButton.style.left = '50%';
     this.interactButton.style.transform = 'translateX(-50%)';
     this.interactButton.style.bottom = `calc(${layout.landscape ? 76 : 180}px + env(safe-area-inset-bottom))`;
@@ -474,15 +535,28 @@ export class TouchControls {
   }
 
   private onJoystickDown(event: PointerEvent): void {
-    if (this.activePointer !== null) return;
+    event.preventDefault();
+    if (!this.enabled || this.activePointer !== null) return;
+    event.stopPropagation();
+    const size = this.joystick.getBoundingClientRect();
+    this.joystickRest = { left: this.joystick.style.left, top: this.joystick.style.top, bottom: this.joystick.style.bottom };
+    // Anchor at the finger so a press never starts movement before an intentional drag.
+    this.joystick.style.left = (event.clientX - size.width / 2) + 'px';
+    this.joystick.style.top = (event.clientY - size.height / 2) + 'px';
+    this.joystick.style.bottom = 'auto';
+    this.joystickRect = new DOMRect(event.clientX - size.width / 2, event.clientY - size.height / 2, size.width, size.height);
+    this.stick.style.transition = 'none';
     this.activePointer = event.pointerId;
+    this.tapJump.begin(event.clientX, event.clientY, event.timeStamp);
     this.joystick.setPointerCapture(event.pointerId);
     this.onJoystickMove(event);
   }
 
   private onJoystickMove(event: PointerEvent): void {
     if (this.activePointer !== event.pointerId) return;
-    const rect = this.joystick.getBoundingClientRect();
+    for (const sample of event.getCoalescedEvents?.() ?? []) this.tapJump.move(sample.clientX, sample.clientY);
+    this.tapJump.move(event.clientX, event.clientY);
+    const rect = this.joystickRect ?? this.joystick.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
     const dx = event.clientX - centerX;
@@ -494,19 +568,30 @@ export class TouchControls {
     const ny = length > 0 ? dy / length : 0;
     this.stick.style.transform = `translate(calc(-50% + ${nx * clampedLength}px), calc(-50% + ${ny * clampedLength}px))`;
 
-    const deadZone = Math.max(4, rect.width * 0.05);
+    const deadZone = Math.max(3, rect.width * 0.035);
     const strength = Math.max(0, Math.min(1, (length - deadZone) / (max - deadZone)));
     this.input.setAnalogMovement(nx * strength, -ny * strength);
 
-    if (length >= rect.width * 0.5) {
+    this.sprintHeld = length >= rect.width * (this.sprintHeld ? 0.43 : 0.5);
+    if (this.sprintHeld) {
       this.input.press('ShiftLeft');
     } else {
       this.input.release('ShiftLeft');
     }
   }
 
-  private onJoystickUp(): void {
+  private onJoystickUp(cancelTap = true): void {
+    if (cancelTap) this.tapJump.cancel();
+    const pointer = this.activePointer;
     this.activePointer = null;
+    if (pointer !== null && this.joystick.hasPointerCapture(pointer)) this.joystick.releasePointerCapture(pointer);
+    this.joystickRect = null;
+    if (this.joystickRest) {
+      Object.assign(this.joystick.style, this.joystickRest);
+      this.joystickRest = null;
+    }
+    this.sprintHeld = false;
+    this.stick.style.transition = 'transform 90ms ease-out';
     this.stick.style.transform = 'translate(-50%, -50%)';
     this.input.setAnalogMovement(0, 0);
     this.input.release('KeyW');
@@ -582,18 +667,27 @@ export class TouchControls {
 
   private onResize = (): void => {
     if (!this.mobile) return;
+    this.cancelAim?.();
     this.onJoystickUp();
     this.activeLookPointer = null;
     this.input.reset();
     this.applyLayout(getLayout());
   };
 
+  private onSuspend = (): void => {
+    this.cancelAim?.(); this.onJoystickUp(); this.activeLookPointer = null; this.input.reset();
+  };
+  private onVisibilityChange = (): void => { if (document.hidden) this.onSuspend(); };
+
   dispose(): void {
+    this.cancelAim?.();
     window.removeEventListener('pointerdown', this.onWindowPointerDown);
     window.removeEventListener('pointermove', this.onWindowPointerMove);
     window.removeEventListener('pointerup', this.onWindowPointerUp);
     window.removeEventListener('pointercancel', this.onWindowPointerCancel);
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('blur', this.onSuspend);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     window.removeEventListener('orientationchange', this.onResize);
     window.visualViewport?.removeEventListener('resize', this.onResize);
     this.root.remove();

@@ -8,7 +8,7 @@ import { itemTooltipHTML } from './ItemTooltip';
 import { isMobileDevice } from '../utils/mobile';
 import { createItemIcon, createUiIcon, UI_RARITY_COLORS } from './UiAssets';
 
-const SLOT_ORDER: Slot[] = ['weapon', 'helmet', 'chest', 'legs', 'boots', 'ring', 'ring2', 'necklace', 'offhand'];
+const SLOT_ORDER: Slot[] = ['weapon', 'helmet', 'offhand', 'ring', 'chest', 'ring2', 'necklace', 'legs', 'boots'];
 const SLOT_LABELS: Record<Slot, string> = {
   weapon: '武器',
   helmet: '头盔',
@@ -187,45 +187,22 @@ export class InventoryUI {
       `回血 ${stats.lifeRegen.toFixed(1)}/s`,
     ].join(' · ');
     equipmentPanel.appendChild(summary);
+    const setSummary = document.createElement('div');
+    setSummary.className = 'inventory-set-summary';
     const activeSets = equipment.getActiveSetBonuses();
-    if (activeSets.length > 0) {
-      const setPanel = document.createElement('div');
-      setPanel.className = 'inventory-set-panel sunlit-inset';
-      setPanel.style.gridColumn = '1 / -1';
-      setPanel.style.marginTop = '6px';
-      setPanel.style.padding = '7px 8px';
-      setPanel.style.fontSize = '11px';
-      setPanel.style.lineHeight = '1.45';
-
-      activeSets.forEach((set) => {
-        const title = document.createElement('div');
-        title.className = 'inventory-set-title';
-        title.style.fontWeight = 'bold';
-        title.style.marginBottom = '2px';
-        setPixelText(title, `${setDisplayName(set.setId)} x${set.count}`);
-        setPanel.appendChild(title);
-
-        const setDef = SETS[set.setId];
-        if (!setDef) return;
-        Object.keys(setDef.bonuses)
-          .map(Number)
-          .sort((a, b) => a - b)
-          .forEach((threshold) => {
-            const bonus = setDef.bonuses[threshold];
-            const active = set.count >= threshold;
-            const statsText = Object.entries(bonus.stats)
-              .map(([stat, value]) => `${statLabel(stat as Stat)} +${formatValue(stat as Stat, value)}`)
-              .join(' · ');
-            const specialText = bonus.special ? ` · ${this.specialLabel(bonus.special)}` : '';
-            const line = document.createElement('div');
-            line.className = active ? 'inventory-set-bonus is-active' : 'inventory-set-bonus';
-            line.style.textDecoration = active ? 'none' : 'line-through';
-            line.textContent = `${threshold}件：${statsText}${specialText}`;
-            setPanel.appendChild(line);
-          });
-      });
-      equipmentPanel.appendChild(setPanel);
+    for (const set of activeSets) {
+      const line = document.createElement('div');
+      line.textContent = this.setSummary(set.setId, set.count);
+      line.title = line.textContent;
+      setSummary.appendChild(line);
     }
+    if (!activeSets.length) setSummary.textContent = '尚未装备套装';
+    equipmentPanel.appendChild(setSummary);
+    const setButton = document.createElement('button');
+    setButton.className = 'inventory-set-button';
+    setButton.textContent = '套装属性';
+    setButton.onclick = () => this.openSetDetails(setButton);
+    equipmentPanel.appendChild(setButton);
     const allocate = document.createElement('button');
     allocate.className = 'inventory-allocate';
     allocate.textContent = this.attributePoints > 0 ? `局内天赋 · 可用 ${this.attributePoints} 点` : '局内天赋';
@@ -387,6 +364,77 @@ export class InventoryUI {
       if (!this.contextMenu?.contains(event.target as Node)) this.closeDetails();
     };
     window.addEventListener('pointerdown', this.dismissContext);
+  }
+
+  private setSummary(id: string, count: number): string {
+    const thresholds = Object.keys(SETS[id]?.bonuses ?? {}).map(Number);
+    return setDisplayName(id) + ' ' + count + '/' + Math.max(1, ...thresholds);
+  }
+
+  private openSetDetails(trigger: HTMLButtonElement): void {
+    this.closeDetails();
+    this.tooltip?.remove();
+    this.tooltip = null;
+    const overlay = document.createElement('div');
+    overlay.className = 'inventory-set-overlay';
+    const panel = document.createElement('div');
+    panel.className = 'panel inventory-set-dialog';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', '套装属性');
+    const header = document.createElement('div');
+    header.className = 'inventory-set-dialog-header';
+    const heading = document.createElement('strong');
+    heading.textContent = '套装属性';
+    const close = document.createElement('button');
+    close.className = 'panel-close-button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', '关闭套装属性');
+    close.onclick = () => { this.closeDetails(); trigger.focus(); };
+    header.append(heading, close);
+    const setPanel = document.createElement('div');
+    setPanel.className = 'inventory-set-dialog-body mobile-scroll';
+    const activeSets = this.equipment?.getActiveSetBonuses() ?? [];
+    if (!activeSets.length) setPanel.textContent = '尚未装备套装。穿戴套装装备后，可在这里查看件数和全部套装效果。';
+      activeSets.forEach((set) => {
+        const title = document.createElement('div');
+        title.className = 'inventory-set-title';
+        title.style.fontWeight = 'bold';
+        title.style.marginBottom = '2px';
+        setPixelText(title, this.setSummary(set.setId, set.count));
+        setPanel.appendChild(title);
+
+        const setDef = SETS[set.setId];
+        if (!setDef) return;
+        Object.keys(setDef.bonuses)
+          .map(Number)
+          .sort((a, b) => a - b)
+          .forEach((threshold) => {
+            const bonus = setDef.bonuses[threshold];
+            const active = set.count >= threshold;
+            const statsText = Object.entries(bonus.stats)
+              .map(([stat, value]) => `${statLabel(stat as Stat)} +${formatValue(stat as Stat, value)}`)
+              .join(' · ');
+            const specialText = bonus.special ? ` · ${this.specialLabel(bonus.special)}` : '';
+            const line = document.createElement('div');
+            line.className = active ? 'inventory-set-bonus is-active' : 'inventory-set-bonus';
+            line.dataset.active = String(active);
+            line.textContent = `${active ? '已激活' : '未激活'} · ${threshold}件：${statsText}${specialText}${bonus.description ? ' · ' + bonus.description : ''}`;
+            setPanel.appendChild(line);
+          });
+      });
+
+    panel.append(header, setPanel);
+    overlay.appendChild(panel);
+    overlay.onclick = event => { if (event.target === overlay) close.click(); };
+    overlay.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close.click(); }
+      if (event.key === 'Tab') { event.preventDefault(); close.focus(); }
+    });
+    this.root.appendChild(overlay);
+    this.contextMenu = overlay;
+    this.onDetailsOpen?.();
+    close.focus();
   }
 
   private openItemDetails(item: Item, index: number | null, slot?: Slot): void {

@@ -5,11 +5,13 @@ const SETTINGS_KEY = 'mineworld_settings_v1';
 export interface GameSettings {
   lookSensitivity: number;
   cameraFollow: boolean;
+  shakeStrength: number;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
   lookSensitivity: 1,
   cameraFollow: false,
+  shakeStrength: 1,
 };
 
 export class SettingsManager {
@@ -19,6 +21,7 @@ export class SettingsManager {
     const defaultSettings: GameSettings = {
       ...DEFAULT_SETTINGS,
       lookSensitivity: isMobileDevice() ? 1.8 : 1,
+      shakeStrength: isMobileDevice() ? 0.6 : 1,
     };
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
@@ -30,6 +33,7 @@ export class SettingsManager {
             ? parsed.lookSensitivity
             : defaultSettings.lookSensitivity,
         cameraFollow: parsed.cameraFollow === true,
+        shakeStrength: typeof parsed.shakeStrength === 'number' && Number.isFinite(parsed.shakeStrength) ? Math.max(0, Math.min(1, parsed.shakeStrength)) : defaultSettings.shakeStrength,
       };
     } catch {
       return this.cached = defaultSettings;
@@ -52,6 +56,13 @@ export class SettingsManager {
   static setLookSensitivity(value: number): void {
     const settings = SettingsManager.load();
     settings.lookSensitivity = value;
+    SettingsManager.save(settings);
+  }
+
+  static getShakeStrength(): number { return SettingsManager.load().shakeStrength; }
+  static setShakeStrength(value: number): void {
+    const settings = SettingsManager.load();
+    settings.shakeStrength = Math.max(0, Math.min(1, value));
     SettingsManager.save(settings);
   }
 

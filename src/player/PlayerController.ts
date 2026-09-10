@@ -1,3 +1,4 @@
+import { isMobileDevice } from '../utils/mobile';
 import * as THREE from 'three';
 import type { FloorData } from '../types';
 import { BlockKind } from '../world/Block';
@@ -22,7 +23,15 @@ function lerpAngle(current: number, target: number, t: number): number {
 }
 
 export class PlayerController {
+  private readonly touchDevice = isMobileDevice();
   private cameraDistance = 6;
+  private cameraAnchorY: number | null = null;
+  private clearanceTime = 0;
+  private forwardTravelTime = 0;
+  private manualLookTime = 0;
+  private touchAim: THREE.Vector3 | null = null;
+  private touchAimLife = 0;
+  private currentFloor: FloorData | null = null;
   private boomDistance = 6;
   private cameraYaw = 0;
   private cameraPitch = 0.52;
@@ -64,16 +73,17 @@ export class PlayerController {
     this.recenterYaw = null;
   }
 
-  get bodyVisible(): boolean {
-    return !this.firstPerson && this.camera.position.distanceTo(
-      this.player.position.clone().add(new THREE.Vector3(0, 1.35, 0)),
-    ) > 1.05;
+  get isTouchAiming(): boolean { return this.touchAim !== null; }
+  get bodyOpacity(): number {
+    if (this.firstPerson) return 0;
+    const distance = this.camera.position.distanceTo(this.player.position.clone().add(new THREE.Vector3(0, 1.35, 0)));
+    return clamp((distance - 0.65) / 1.05, 0, 1);
   }
+  get bodyVisible(): boolean { return this.bodyOpacity > 0.02; }
 
   faceAim(): void {
     this.combatFacingTime = 0.32;
-    this.player.yaw = this.cameraYaw;
-    this.player.group.rotation.y = this.cameraYaw;
+
   }
 
   addShake(amount: number): void {
@@ -87,6 +97,12 @@ export class PlayerController {
   }
 
   resetView(floorData: FloorData | null = null): void {
+    this.touchAim = null;
+    this.touchAimLife = 0;
+    this.cameraAnchorY = null;
+    this.clearanceTime = 0;
+    this.forwardTravelTime = 0;
+    this.manualLookTime = 0;
     this.hitShake = 0;
     this.hitShakeTime = 0;
     this.cameraYaw = this.player.yaw;
@@ -100,17 +116,34 @@ export class PlayerController {
     this.updateCamera(0, floorData);
   }
 
+  setTouchAim(x: number, y: number): void {
+    if (Math.hypot(x, y) < 5) return;
+    const yaw = this.cameraYaw - Math.atan2(x, -y);
+    this.touchAim = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    this.touchAimLife = Infinity;
+  }
+  endTouchAim(cancel = false): void {
+    this.touchAimLife = cancel ? 0 : 0.18;
+    if (cancel) this.touchAim = null;
+  }
   getAimDirection(): THREE.Vector3 {
+    if (this.touchAim) return this.touchAim.clone();
     return new THREE.Vector3(Math.sin(this.cameraYaw), 0, Math.cos(this.cameraYaw));
   }
 
-  getProjectileDirection(): THREE.Vector3 {
-    const direction = this.getAimDirection();
-    if (this.firstPerson) {
-      direction.multiplyScalar(Math.cos(this.cameraPitch));
-      direction.y = Math.sin(this.cameraPitch);
+  getProjectileDirection(targets: ReadonlyArray<{position: THREE.Vector3; dead: boolean}> = []): THREE.Vector3 {
+    if (this.touchAim) return this.touchAim.clone();
+    const direction = this.camera.getWorldDirection(new THREE.Vector3());
+    const ray = new THREE.Ray(this.camera.position, direction);
+    let distance = this.currentFloor ? worldRayDistance(this.currentFloor, ray.origin, direction, 32) : 32;
+    for (const target of targets) {
+      if (target.dead) continue;
+      const center = target.position.clone().add(new THREE.Vector3(0, 0.85, 0));
+      const hit = ray.intersectSphere(new THREE.Sphere(center, 0.6), new THREE.Vector3());
+      if (hit) distance = Math.min(distance, hit.distanceTo(ray.origin));
     }
-    return direction;
+    const point = ray.at(Math.max(0.1, distance), new THREE.Vector3());
+    return point.sub(this.getProjectileOrigin()).normalize();
   }
 
   getProjectileOrigin(): THREE.Vector3 {
@@ -123,6 +156,9 @@ export class PlayerController {
   }
 
   update(dt: number, floorData: FloorData | null, stats: DerivedStats, realDt = dt): void {
+    this.currentFloor = floorData;
+    this.touchAimLife = Math.max(0, this.touchAimLife - realDt);
+    if (this.touchAimLife === 0) this.touchAim = null;
     const p = this.player;
     if (!p.alive) {
       p.moving = false;
@@ -132,6 +168,7 @@ export class PlayerController {
 
     const lookScale = 0.0022 * SettingsManager.getLookSensitivity();
     const looking = Math.abs(this.input.mouseDeltaX) + Math.abs(this.input.mouseDeltaY) > 0;
+    this.manualLookTime = looking ? 0.65 : Math.max(0, this.manualLookTime - realDt);
     if (looking) this.recenterYaw = null;
     this.cameraYaw -= this.input.mouseDeltaX * lookScale;
     // Positive pitch raises the orbit camera, but lowers the first-person gaze.
@@ -147,7 +184,7 @@ export class PlayerController {
     }
 
     const { x: strafeInput, y: forwardInput } = this.input.movement;
-    const forward = this.getAimDirection();
+    const forward = new THREE.Vector3(Math.sin(this.cameraYaw), 0, Math.cos(this.cameraYaw));
     const right = new THREE.Vector3(-forward.z, 0, forward.x);
     const moveDir = new THREE.Vector3().addScaledVector(forward, forwardInput).addScaledVector(right, strafeInput);
     p.moving = moveDir.lengthSq() > 0.001;
@@ -155,15 +192,16 @@ export class PlayerController {
     this.combatFacingTime = Math.max(0, this.combatFacingTime - dt);
     const combatFacing = this.combatFacingTime > 0 || this.input.isMouseDown(0) || this.input.isMouseDown(2);
     if (combatFacing || this.firstPerson) {
-      p.yaw = lerpAngle(p.yaw, this.cameraYaw, 1 - Math.exp(-28 * realDt));
+      p.yaw = lerpAngle(p.yaw, this.touchAim ? Math.atan2(this.touchAim.x, this.touchAim.z) : this.cameraYaw, 1 - Math.exp(-20 * realDt));
     } else if (p.moving) {
       p.yaw = lerpAngle(p.yaw, Math.atan2(moveDir.x, moveDir.z), 1 - Math.exp(-20 * dt));
     }
-    // Recenter once at the start of forward travel. Never chase the heading
-    // derived from strafing: that feedback loop makes the camera orbit forever.
-    if (!this.firstPerson && SettingsManager.getCameraFollow() && !looking && !combatFacing
-      && this.input.wasPressed('KeyW') && Math.abs(strafeInput) < 0.1) {
-      this.recenterYaw = p.yaw;
+    // Analog forward movement and keyboard movement use the same follow rule.
+    const forwardTravel = forwardInput > 0.6 && Math.abs(strafeInput) < 0.2;
+    this.forwardTravelTime = forwardTravel ? this.forwardTravelTime + realDt : 0;
+    if (!this.firstPerson && SettingsManager.getCameraFollow() && this.manualLookTime === 0
+      && !combatFacing && this.forwardTravelTime > 0.45) {
+      this.cameraYaw = lerpAngle(this.cameraYaw, p.yaw, 1 - Math.exp(-2 * realDt));
     }
 
     const speed = stats.moveSpeed * (p.sprinting ? 1.65 : 1) * 5.5;
@@ -174,7 +212,7 @@ export class PlayerController {
       if (this.dashTime <= 0) this.dashVelocity.set(0, 0, 0);
     }
 
-    const groundLambda = p.moving ? 24 : 38;
+    const groundLambda = this.touchDevice ? (p.moving ? 40 : 60) : p.moving ? 24 : 38;
     p.velocity.x = damp(p.velocity.x, targetVelocity.x, groundLambda, dt);
     p.velocity.z = damp(p.velocity.z, targetVelocity.z, groundLambda, dt);
 
@@ -205,8 +243,10 @@ export class PlayerController {
     const p = this.player;
     const wheel = this.input.consumeWheel();
     if (!this.firstPerson) this.cameraDistance = clamp(this.cameraDistance + wheel * 0.6, 3, 9);
-    const origin = p.position.clone().add(new THREE.Vector3(0, 1.35, 0));
-    const forward = this.getAimDirection();
+    const targetY = p.position.y + 1.35;
+    this.cameraAnchorY = this.cameraAnchorY === null ? targetY : damp(this.cameraAnchorY, targetY, p.onGround ? 14 : 7, dt);
+    const origin = new THREE.Vector3(p.position.x, this.cameraAnchorY, p.position.z);
+    const forward = new THREE.Vector3(Math.sin(this.cameraYaw), 0, Math.cos(this.cameraYaw));
     if (this.firstPerson) {
       this.camera.position.copy(p.position).add(new THREE.Vector3(0, 1.62, 0));
       const direction = forward.multiplyScalar(Math.cos(this.cameraPitch));
@@ -220,19 +260,24 @@ export class PlayerController {
         : this.cameraDistance;
       // Obstructions retract immediately. Only outward recovery is damped;
       // orbit yaw and pitch always follow input without positional lag.
-      this.boomDistance = safeDistance < this.boomDistance
-        ? safeDistance : damp(this.boomDistance, safeDistance, 5, dt);
+      if (safeDistance < this.boomDistance) {
+        this.boomDistance = safeDistance;
+        this.clearanceTime = 0;
+      } else {
+        this.clearanceTime += dt;
+        if (this.clearanceTime > 0.12) this.boomDistance = damp(this.boomDistance, safeDistance, 6, dt);
+      }
       this.camera.position.copy(origin).addScaledVector(boom, this.boomDistance);
       this.camera.lookAt(origin.clone().addScaledVector(forward, 1.5));
     }
     if (this.shake > 0 || this.hitShakeTime > 0) {
       this.hitShakeTime = Math.max(0, this.hitShakeTime - dt);
-      const pulse = this.hitShake * (this.hitShakeTime / 0.14) ** 2 * (this.firstPerson ? 0.6 : 1);
+      const pulse = SettingsManager.getShakeStrength() * this.hitShake * (this.hitShakeTime / 0.14) ** 2 * (this.firstPerson ? 0.6 : 1);
       const phase = (0.14 - this.hitShakeTime) * 85;
       this.camera.position.x += Math.sin(phase) * pulse;
       this.camera.position.y += Math.cos(phase * 1.3) * pulse * 0.65;
       if (this.hitShakeTime === 0) this.hitShake = 0;
-      const amount = this.shake * 0.35;
+      const amount = this.shake * 0.35 * SettingsManager.getShakeStrength();
       this.camera.position.x += (Math.random() - 0.5) * amount;
       this.camera.position.y += (Math.random() - 0.5) * amount;
       if (floorData && !this.firstPerson) {

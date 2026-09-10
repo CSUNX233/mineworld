@@ -380,3 +380,12 @@
   #ui-root .sunlit-menu-button:not(:disabled) { transition: filter 100ms ease, transform 100ms ease; }
   #ui-root .sunlit-menu-button:active:not(:disabled) { transform: translateY(2px); }
 }
+#ui-root .controls-guide-panel { width: min(680px, 94vw); height: min(720px, 92dvh); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; overflow: hidden; }
+.controls-guide-panel h2 { margin: 0; }
+.controls-guide { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; min-height: 0; }
+.controls-guide-tabs { display: flex; gap: 8px; }
+.controls-guide-tabs button { flex: 1; min-height: 40px; }
+.controls-guide-tabs button[aria-pressed="true"] { outline: 2px solid #35b9a5; outline-offset: -5px; }
+.controls-guide-body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding-right: 8px; }
+.controls-guide-body h3 { font-size: 15px; margin: 12px 0 4px; }
+.controls-guide-body p { font-size: 13px; line-height: 1.7; margin: 0; }

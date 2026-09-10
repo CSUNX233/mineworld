@@ -1,3 +1,6 @@
+import { AimGuide } from '../ui/AimGuide';
+import { SoftAim } from '../combat/SoftAim';
+import { buildControlsGuide } from '../ui/ControlsGuide';
 import { DAMAGE_COLORS } from '../ui/DamageStyle';
 import { EncounterMechanics } from '../monsters/EncounterMechanics';
 import { roomCenter } from '../world/RoomGeometry';
@@ -93,6 +96,9 @@ const SKILL_UI_ICONS: Record<string, string> = {
 };
 
 export class Game {
+  private readonly softAim = new SoftAim();
+  private readonly aimGuide = new AimGuide();
+  private touchAimSkill: string | null = null;
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
@@ -209,6 +215,7 @@ export class Game {
     this.camera.position.set(0, 8, 12);
     this.camera.lookAt(0, 1, 0);
     this.scene.add(this.camera);
+    this.scene.add(this.aimGuide.mesh);
     this.firstPersonView = new FirstPersonViewModel(this.camera);
 
     const hemi = new THREE.HemisphereLight(0xd8e8ff, 0x2a2f36, 0.9);
@@ -235,6 +242,9 @@ export class Game {
     this.minimap = new Minimap(this.uiRoot);
     if (this.mobile) {
       this.touchControls = new TouchControls(this.uiRoot, this.input, {
+        onAimBegin: (key) => { this.touchAimSkill = key; },
+        onAim: (x, y) => this.controller.setTouchAim(x, y),
+        onAimEnd: (cancel) => this.controller.endTouchAim(cancel),
         onSkillPress: (key) => this.input.press(key),
         onSkillRelease: (key) => this.input.release(key),
         onAttackPress: () => this.input.pressMouse(0),
@@ -319,10 +329,28 @@ export class Game {
     const startButton = this.makeMenuButton('开始游戏');
     startButton.onclick = () => this.showSaveSlotMenu();
     panel.appendChild(startButton);
+    const guideButton = this.makeMenuButton('操作说明');
+    guideButton.onclick = () => this.showControlsGuide();
+    panel.appendChild(guideButton);
 
     overlay.appendChild(panel);
     this.startOverlay = overlay;
     this.uiRoot.appendChild(overlay);
+  }
+
+  private showControlsGuide(): void {
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();
+    panel.classList.add('controls-guide-panel');
+    const title = document.createElement('h2');
+    title.textContent = '操作说明';
+    const back = this.makeMenuButton('返回主菜单');
+    back.onclick = () => this.showStartMenu();
+    panel.append(title, buildControlsGuide(this.mobile), back);
+    overlay.appendChild(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.appendChild(overlay);
+    this.setStartMenuBackHandler(() => this.showStartMenu());
   }
 
   private showSaveSlotMenu(message = '', isError = false): void {
@@ -1315,7 +1343,19 @@ export class Game {
   }
 
   private updatePlayerVisibility(): void {
-    this.player.group.visible = this.controller.bodyVisible;
+    const opacity = this.controller.bodyOpacity;
+    this.player.group.visible = opacity > 0.02;
+    this.player.group.traverse(child => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      for (const material of materials) {
+        if (material.opacity === opacity) continue;
+        const transparent = opacity < 0.99;
+        if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
+        material.opacity = opacity;
+        material.depthWrite = !transparent;
+      }
+    });
     this.firstPersonView.setVisible(this.controller.isFirstPerson);
   }
 
@@ -1415,6 +1455,16 @@ export class Game {
     cameraHelp.className = 'sunlit-menu-help';
     panel.appendChild(cameraHelp);
 
+    const shakeLabel = document.createElement('label');
+    shakeLabel.textContent = '镜头震动强度（0 为关闭）';
+    shakeLabel.className = 'sunlit-setting-label';
+    const shakeSlider = document.createElement('input');
+    shakeSlider.type = 'range'; shakeSlider.min = '0'; shakeSlider.max = '1'; shakeSlider.step = '0.1';
+    shakeSlider.value = String(SettingsManager.getShakeStrength());
+    shakeSlider.setAttribute('aria-label', '镜头震动强度');
+    shakeSlider.className = 'sunlit-range';
+    shakeSlider.oninput = () => SettingsManager.setShakeStrength(Number(shakeSlider.value));
+    shakeLabel.appendChild(shakeSlider); panel.appendChild(shakeLabel);
     const sfxLabel = document.createElement('div');
     sfxLabel.textContent = '音效音量';
     sfxLabel.className = 'sunlit-setting-label';
@@ -1871,9 +1921,15 @@ export class Game {
     if (this.running && !this.paused) this.requestPointerLock();
   }
 
+  private basicAimDirection(): THREE.Vector3 {
+    return this.softAim.resolve(this.player.position, this.controller.getAimDirection(), this.monsters,
+      this.floorData, this.getMeleeProfile(this.equipment.get('weapon')).range,
+      !this.controller.isFirstPerson && !this.controller.isTouchAiming).direction;
+  }
+
   private doBasicAttack(stats: DerivedStats): void {
     this.controller.faceAim();
-    const aim = this.controller.getAimDirection();
+    const aim = this.basicAimDirection();
     const weapon = this.equipment.get('weapon');
     const attackSpeed = Math.max(0.15, Math.min(3.5, stats.baseAttackSpeed * (1 + stats.attackSpeedBonus)));
     this.attackAnimTimer = Math.max(0.12, Math.min(0.28, 0.34 / attackSpeed));
@@ -1959,7 +2015,7 @@ export class Game {
     const element = weapon.element ?? 'physical';
     const statusChance = weapon.statusChance;
     const color = this.weaponElementColor(element);
-    aim = this.controller.getProjectileDirection();
+    aim = this.controller.getProjectileDirection(this.monsters);
     const position = this.controller.getProjectileOrigin();
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.22, 10, 10),
@@ -2136,7 +2192,7 @@ export class Game {
   }
 
   private useFireball(stats: DerivedStats, skill: SkillState): void {
-    const direction = this.controller.getProjectileDirection();
+    const direction = this.controller.getProjectileDirection(this.monsters);
     const position = this.controller.getProjectileOrigin();
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.28, 8, 8),
@@ -2886,6 +2942,7 @@ export class Game {
   }
 
   private updateAimIndicator(): void {
+    this.aimGuide.mesh.visible = false;
     const visible = this.running && this.player.alive && !this.paused && !this.restOpen
       && !this.attributeOpen && !this.skillOpen && !this.inventoryUI.open;
     this.hud.setInteraction(visible && !this.mobile ? this.interactionLabel() : null);
@@ -2894,11 +2951,15 @@ export class Game {
       this.hud.setAimPoint(0, 0, visible, false);
       return;
     }
-    const origin = this.player.position.clone().add(new THREE.Vector3(0, 1.1, 0));
-    const aim = this.controller.getAimDirection();
+    const origin = this.controller.getProjectileOrigin();
     const weapon = this.equipment.get('weapon');
-    const range = this.isStaffWeapon(weapon) ? 10 : this.getMeleeProfile(weapon).range;
+    const aimingSkill = this.controller.isTouchAiming ? this.skills.find(skill => skill.key === this.touchAimSkill) : undefined;
+    const ranged = aimingSkill?.id === 'fireball' || this.isStaffWeapon(weapon);
+    const aim = ranged ? this.controller.getProjectileDirection(this.monsters) : this.basicAimDirection();
+    const skillRanges: Record<string, number> = { fireball: 10, dash: 3.9, whirlwind: 4.4, frost_nova: 5, lightning_chain: 8 };
+    const range = aimingSkill ? skillRanges[aimingSkill.id] ?? 8 : ranged ? 10 : this.getMeleeProfile(weapon).range;
     const distance = this.floorData ? worldRayDistance(this.floorData, origin, aim, range) : range;
+    if (this.controller.isTouchAiming) this.aimGuide.show(this.player.position, aim, distance);
     const point = origin.addScaledVector(aim, Math.max(0, distance - 0.05)).project(this.camera);
     this.hud.setAimPoint(point.x, point.y, point.z > -1 && point.z < 1, true, distance < range);
   }

@@ -187,3 +187,39 @@
 @media (prefers-reduced-motion: reduce) {
   .damage-critical .pixel-number-damage { animation: none; }
 }
+.touch-direction-indicator { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); padding: 5px 8px; background: #14283eee; border: 1px solid #35b9a5; color: #fff0ce; white-space: nowrap; pointer-events: none; font-size: 11px; z-index: 20; }
+.touch-direction-indicator.has-direction { font-size: 28px; transform: translateX(-50%) rotate(var(--aim-angle)); }
+.touch-button.is-aiming { outline: 2px solid #35b9a5; outline-offset: 3px; }
+.touch-button.is-aim-cancelled { outline-color: #ff5935; }
+.is-aim-cancelled .touch-direction-indicator { border-color: #ff5935; color: #ffb89b; }
+
+.touch-controls > .touch-direction-indicator { position: fixed; bottom: auto; z-index: 100; }
+/* Mobile combat controls remain translucent virtual circles, matching the movement stick. */
+#ui-root .touch-button.touch-attack,
+#ui-root .touch-button.touch-skill {
+  border: 2px solid #d7a447b0 !important;
+  border-image: none !important;
+  border-radius: 50% !important;
+  background: #1c304a70 !important;
+  box-shadow: inset 0 0 0 3px #ffffff08 !important;
+}
+#ui-root .touch-button.touch-attack { font-size: 34px; }
+#ui-root .touch-button.touch-skill .sunlit-icon { inset: 12% 12% 18%; width: 76%; height: 70%; border-radius: 50%; opacity: .9; }
+#ui-root .touch-skill .touch-skill-label { background: transparent; font-size: 10px !important; margin-bottom: 5px; text-shadow: 1px 1px #091827; }
+#ui-root .touch-skill .touch-skill-cooldown { border-radius: 0; }
+#ui-root .touch-button.is-aiming { border-color: #70f5dc !important; outline: 2px solid #70f5dc80; }
+#ui-root .touch-button.is-aim-cancelled { border-color: #ff5935 !important; outline-color: #ff593580; }
+.touch-aim-thumb { position: absolute; left: 50%; top: 50%; width: 32%; height: 32%; border-radius: 50%; border: 1px solid #fff0cecc; background: #d7a44799; pointer-events: none; z-index: 8; transform: translate(-50%, -50%); will-change: transform; }
+.touch-aim-thumb[hidden], .touch-direction-indicator[hidden] { display: none !important; }
+.touch-joystick > div { will-change: transform; }
+
+#ui-root .touch-utility { position: relative; }
+.touch-move-zone { position: absolute; left: 0; bottom: 0; width: min(42vw, 300px); height: 52%; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
+@media (orientation: portrait) { .touch-move-zone { width: 45vw; height: 42%; } }
+#ui-root .touch-button.touch-inventory {
+  border: 0 !important; border-image: none !important;
+  background: transparent !important; box-shadow: none !important;
+  outline: none; overflow: visible;
+}
+#ui-root .touch-inventory .sunlit-icon { inset: 4%; width: 92%; height: 92%; }
+#ui-root .touch-inventory:focus-visible { outline: 2px solid #70f5dc; outline-offset: 2px; }
