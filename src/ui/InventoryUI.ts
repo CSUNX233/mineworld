@@ -27,6 +27,7 @@ export class InventoryUI {
   private equipment: EquipmentManager | null = null;
   private inventory: Inventory | null = null;
   private activeTab = 'bag';
+  private bulkRarity: Rarity = 'common';
   private dismissContext: ((event: PointerEvent) => void) | null = null;
   onDetailsOpen: (() => void) | null = null;
   onDetailsClose: (() => void) | null = null;
@@ -36,12 +37,12 @@ export class InventoryUI {
   materialText = '';
   onEquip: ((inventoryIndex: number) => void) | null = null;
   onUnequip: ((slot: Slot) => void) | null = null;
-  onSell: ((inventoryIndex: number) => void) | null = null;
   onSalvage: ((inventoryIndex: number) => void) | null = null;
   onUpgrade: ((inventoryIndex: number) => void) | null = null;
   onReforge: ((inventoryIndex: number) => void) | null = null;
   onAllocateClick: (() => void) | null = null;
-  onSellAll: ((maxRarity: Rarity) => void) | null = null;
+  onSort: (() => void) | null = null;
+  onSalvageAll: ((maxRarity: Rarity) => void) | null = null;
   onClose: (() => void) | null = null;
   private contextMenu: HTMLDivElement | null = null;
   private mobile = isMobileDevice();
@@ -227,10 +228,9 @@ export class InventoryUI {
     right.className = 'inventory-content';
     right.style.display = 'flex';
     right.style.flexDirection = 'column';
-    if (this.mobile) {
-      right.style.minHeight = '0';
-      right.style.overflow = 'hidden';
-    }
+    right.style.minWidth = '0';
+    right.style.minHeight = '0';
+    right.style.overflow = 'hidden';
     const title = document.createElement('div');
     title.textContent = `背包 ${inventory.items.length}/${inventory.capacity}`;
     title.style.marginBottom = '8px';
@@ -245,10 +245,12 @@ export class InventoryUI {
     }
     const grid = document.createElement('div');
     grid.className = this.mobile ? 'inventory-grid mobile-scroll' : 'inventory-grid';
-    grid.style.flex = '1';
+    grid.style.flex = '1 1 0';
+    grid.style.minHeight = '0';
+    grid.style.alignContent = 'start';
     grid.style.overflow = 'auto';
     grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = this.mobile ? 'repeat(auto-fill, minmax(48px, 1fr))' : 'repeat(8, 54px)';
+    grid.style.gridTemplateColumns = this.mobile ? 'repeat(auto-fill, minmax(48px, 1fr))' : 'repeat(auto-fill, 54px)';
     grid.style.gridAutoRows = this.mobile ? '48px' : '54px';
     grid.style.gap = this.mobile ? '8px' : '6px';
     grid.style.touchAction = this.mobile ? 'pan-y' : 'auto';
@@ -273,8 +275,8 @@ export class InventoryUI {
     right.appendChild(grid);
     const hint = document.createElement('div');
     hint.textContent = this.mobile
-      ? '点击物品查看详情与对比，再选择穿戴、出售或打造'
-      : '左键穿戴/替换 · 右键出售/分解/升级/重铸 · 装备栏点击卸下';
+      ? '点击查看详情、穿戴或打造；出售请前往地图商店'
+      : '左键穿戴 · 右键分解/升级/重铸 · 出售请前往地图商店';
     hint.style.marginTop = '8px';
     hint.style.fontSize = '12px';
     hint.style.color = '#7f8ca0';
@@ -287,7 +289,7 @@ export class InventoryUI {
     bulkSell.style.alignItems = 'center';
     bulkSell.style.gap = '6px';
     const bulkLabel = document.createElement('span');
-    bulkLabel.textContent = '一键出售';
+    bulkLabel.textContent = '批量处理';
     bulkLabel.style.fontSize = '12px';
     bulkLabel.style.color = '#ffd76a';
     bulkSell.appendChild(bulkLabel);
@@ -300,6 +302,7 @@ export class InventoryUI {
       { value: 'legendary', label: '传说' },
     ];
     const raritySelect = document.createElement('select');
+    raritySelect.setAttribute('aria-label', '批量处理品质');
     raritySelect.style.background = '#1a2230';
     raritySelect.style.color = '#ffd76a';
     raritySelect.style.border = '1px solid #43516a';
@@ -312,17 +315,25 @@ export class InventoryUI {
       raritySelect.appendChild(item);
     });
     bulkSell.appendChild(raritySelect);
+    raritySelect.value = this.bulkRarity;
+    raritySelect.onchange = () => { this.bulkRarity = raritySelect.value as Rarity; };
 
     const sellAllButton = document.createElement('button');
-    sellAllButton.textContent = '出售';
+    sellAllButton.textContent = '一键整理';
     sellAllButton.style.background = '#7a5a18';
     sellAllButton.style.color = '#fff';
     sellAllButton.style.border = '1px solid #c58c28';
     sellAllButton.style.borderRadius = '3px';
     sellAllButton.style.padding = '4px 8px';
     sellAllButton.style.cursor = 'pointer';
-    sellAllButton.onclick = () => this.onSellAll?.(raritySelect.value as Rarity);
+    sellAllButton.onclick = () => this.onSort?.();
     bulkSell.appendChild(sellAllButton);
+    const salvageAllButton = sellAllButton.cloneNode(false) as HTMLButtonElement;
+    salvageAllButton.textContent = '一键分解';
+    salvageAllButton.style.background = '#24465a';
+    salvageAllButton.style.borderColor = '#70b3d6';
+    salvageAllButton.onclick = () => this.onSalvageAll?.(raritySelect.value as Rarity);
+    bulkSell.appendChild(salvageAllButton);
 
     right.appendChild(bulkSell);
     this.panel.appendChild(right);
@@ -343,7 +354,6 @@ export class InventoryUI {
     menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - 180))}px`;
     menu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - 220))}px`;
     const actions: { label: string; color: string; action: (() => void) | null }[] = [
-      { label: '出售', color: '#ffd76a', action: this.onSell ? () => this.onSell?.(index) : null },
       { label: '分解', color: '#9fd0ff', action: this.onSalvage ? () => this.onSalvage?.(index) : null },
       { label: '升级', color: '#7ee8a2', action: this.onUpgrade ? () => this.onUpgrade?.(index) : null },
       { label: '重铸', color: '#d49bff', action: this.onReforge ? () => this.onReforge?.(index) : null },
@@ -405,7 +415,6 @@ export class InventoryUI {
       add('升级', () => this.onUpgrade?.(index));
       add('重铸', () => this.onReforge?.(index));
       add('分解', () => this.onSalvage?.(index));
-      add('出售', () => this.onSell?.(index));
     } else if (slot) {
       const unequip = add('卸下装备', () => this.onUnequip?.(slot));
       if (!this.inventory?.hasSpace()) { unequip.textContent = '背包已满'; unequip.disabled = true; }

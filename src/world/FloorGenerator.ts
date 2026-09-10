@@ -50,8 +50,13 @@ export function generateFloor(seed: number, floor: number): FloorData {
     room.x = Math.min(...corners.map(p => p.x)); room.z = Math.min(...corners.map(p => p.z));
   }
   rotated[portal.z][portal.x] = BlockKind.Portal;
+  // Separate RNG stream keeps existing terrain and saved coordinates stable.
+  const merchantRng = new RNG((seed ^ 0x5a17cafe) >>> 0);
+  const merchantRoom = merchantRng.pick(rooms.filter(room => room.kind === 'treasure' || room.kind === 'sanctuary'));
+  const merchant = floor % 3 === 0 || merchantRng.chance(0.35)
+    ? { x: merchantRoom.x + merchantRng.pick([2, 7]), z: merchantRoom.z + 2 } : undefined;
   const themes = floors as FloorTheme[];
-  return { size, grid: rotated, rooms, spawn, portal, chests,
+  return { size, grid: rotated, rooms, spawn, portal, chests, merchant,
     connections: edges.map(([a,b]) => [rooms[a].id!,rooms[b].id!]),
     theme: themes[Math.min(themes.length - 1, Math.floor(Math.max(0, floor - 1) / 5))], seed, floor };
 }

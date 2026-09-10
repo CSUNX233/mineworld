@@ -149,7 +149,11 @@ export class InputManager {
   }
 
   requestPointerLock(canvas: HTMLCanvasElement): void {
-    canvas.requestPointerLock();
+    if (document.pointerLockElement === canvas) return;
+    // Browsers may reject rapid reacquisition after closing a menu or Escape.
+    // Leave the canvas clickable so the next user gesture can acquire it.
+    const request = canvas.requestPointerLock() as Promise<void> | undefined;
+    request?.catch(() => {});
   }
 
   get pointerLocked(): boolean {

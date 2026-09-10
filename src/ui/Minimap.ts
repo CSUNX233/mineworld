@@ -75,6 +75,12 @@ export class Minimap {
       ctx.fillText(cleared ? '✓' : room.required ? '!' : room.kind==='treasure' ? '$' : room.kind==='sanctuary' ? '+' : room.kind==='elite' ? '★' : room.kind==='start' ? 'S' : '·',x,z);
     }
 
+    if (floor.merchant) {
+      ctx.fillStyle = '#ffcc66';
+      ctx.font = `bold ${this.size < 100 ? 9 : 12}px sans-serif`;
+      ctx.fillText('商', (floor.merchant.x + .5) * scale, (floor.merchant.z + .5) * scale);
+    }
+
     monsters.forEach((monster) => {
       if (monster.dead) return;
       ctx.fillStyle = monster.def.behavior === 'boss' ? '#ff5b5b' : '#e85757';

@@ -26,6 +26,7 @@ export interface SkillHUDState {
 }
 
 export class HUD {
+  private interaction: HTMLDivElement;
   private objective: HTMLDivElement;
   private container: HTMLDivElement;
   private hpFill: HTMLDivElement;
@@ -56,6 +57,10 @@ export class HUD {
     this.objective = document.createElement('div');
     this.objective.className = 'hud-objective';
     this.container.appendChild(this.objective);
+    this.interaction = document.createElement('div');
+    this.interaction.className = 'hud-interaction';
+    this.interaction.hidden = true;
+    this.container.appendChild(this.interaction);
     this.damageLayer = document.createElement('div');
     this.damageLayer.style.position = 'absolute';
     this.damageLayer.style.inset = '0';
@@ -344,5 +349,11 @@ export class HUD {
 
   setMuted(muted: boolean): void {
     this.muteButton.textContent = muted ? '🔇' : '🔊';
+  }
+
+  setInteraction(label: string | null): void {
+    this.interaction.hidden = !label;
+    const text = label ? `E · ${label}` : '';
+    if (this.interaction.textContent !== text) this.interaction.textContent = text;
   }
 }

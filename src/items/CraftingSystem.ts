@@ -15,6 +15,14 @@ export interface UpgradeCost {
 }
 
 export class CraftingSystem {
+  static bulkSalvageYield(items: Item[]): MaterialCost[] {
+    const totals = new Map<MaterialId, number>();
+    for (const item of items) for (const entry of this.salvageYield(item)) {
+      totals.set(entry.materialId, (totals.get(entry.materialId) ?? 0) + entry.amount);
+    }
+    return [...totals].map(([materialId, amount]) => ({ materialId, amount }));
+  }
+
   static salvageYield(item: Item): MaterialCost[] {
     const materialId = materialForItem(item.rarity, item.slot);
     if (!materialId) return [];

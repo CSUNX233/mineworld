@@ -309,6 +309,7 @@ html.mobile-ui button {
 .mobile-inventory .inventory-grid { min-height: 64px; flex: 1 1 0 !important; align-content: start; }
 .mobile-inventory .inventory-grid > div { width: 100% !important; }
 .inventory-bulk { flex-wrap: wrap; flex-shrink: 0; }
+.inventory-bulk button { min-height: 36px; }
 .inventory-bulk select { min-height: 36px; max-width: 160px; }
 .item-details-overlay { position: fixed; inset: 0; z-index: 250; background: #030711c9; display: flex; align-items: center; justify-content: center; pointer-events: auto; }
 .item-details { width: min(640px, 94vw); max-height: 88dvh; overflow: auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 140px; gap: 16px; }
@@ -342,6 +343,41 @@ html.mobile-ui button {
 .build-choice { width: 100%; min-height: 54px; display: flex; flex-direction: column; gap: 5px; text-align: left; margin: 7px 0; padding: 10px; background: #1e3044; color: #e9f1fa; border: 1px solid; border-radius: 5px; cursor: pointer; }
 .build-choice span { font-size: 12px; line-height: 1.5; }
 .build-choice:disabled { opacity: .4; cursor: default; }
+
+.merchant-overlay { position: absolute; inset: 0; z-index: 230; display: flex; align-items: center; justify-content: center; background: #04060bc9; pointer-events: auto; }
+.hud-interaction { position: absolute; bottom: 115px; left: 50%; transform: translateX(-50%); padding: 10px 18px; background: #172433e8; border: 1px solid #e4b86b; border-radius: 5px; color: #ffda93; }
+.merchant-panel { position: relative; width: min(660px, 94vw); max-height: 90dvh; overflow-y: auto; padding: 22px; background: #101824; touch-action: pan-y; }
+.merchant-panel h2 { margin: 0 48px 12px 0; font-size: 25px; }
+.merchant-wallet { color: #ffd76a; font-size: 13px; }
+.shop-view { text-align: left; }
+.shop-view h3 { font-size: 16px; margin: 20px 0 10px; }
+.shop-view p { font-size: 12px; line-height: 1.6; color: #b8c8de; }
+.shop-message { min-height: 36px; }
+.shop-tabs, .shop-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.shop-tabs { position: sticky; top: -22px; background: #101824; padding: 10px 0; z-index: 1; }
+.shop-tabs button { flex: 1; }
+.shop-view button, .shop-view select { min-height: 40px; border: 1px solid #4f647e; border-radius: 5px; padding: 8px 10px; color: #e9f1fa; background: #213a50; cursor: pointer; }
+.shop-view button:disabled { opacity: .45; cursor: default; }
+.shop-view [aria-selected="true"] { border-color: #e4b86b; color: #ffda93; background: #3d3526; }
+.shop-item { display: flex; align-items: start; gap: 10px; border-bottom: 1px solid #2e3d50; padding: 10px 0; }
+.shop-item details { flex: 1; min-width: 0; }
+.shop-item summary { cursor: pointer; min-height: 40px; padding-top: 8px; line-height: 1.5; overflow-wrap: anywhere; }
+.shop-item button { flex-shrink: 0; }
+.shop-item-details { padding: 10px 0; font-size: 12px; line-height: 1.6; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .merchant-panel h2 { margin-bottom: 4px; }
+  .merchant-wallet { margin: 4px 48px 4px 0; }
+  .shop-message { min-height: 0; margin: 6px 0; }
+  .shop-tabs { padding: 4px 0; }
+  .shop-view h3 { margin: 10px 0 6px; }
+}
+@media (max-width: 600px), (max-height: 500px) {
+  .merchant-panel { padding: 14px; max-height: 90dvh; }
+  .merchant-panel h2 { font-size: 21px; }
+  .shop-tabs { top: -14px; }
+  .shop-item { gap: 6px; }
+  .shop-item button { max-width: 115px; }
+}
 .hud-objective { position: absolute; left: 18px; top: 100px; padding: 6px 9px; font-size: 12px; background: #101b28d9; border-left: 2px solid #91c4ed; color: #d5e9f9; max-width: 320px; }
 .mobile-ui .hud-objective { top: 94px; left: 14px; font-size: 10px; max-width: 46vw; }
 @media (orientation: portrait) { .mobile-ui .hud-objective { top: 170px; max-width: 90vw; } }

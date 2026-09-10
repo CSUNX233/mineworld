@@ -22,7 +22,8 @@ import type { ActorStatus, ElementType, Item, MaterialId, Rarity, SaveData, Save
 import { DEFAULT_SKILL_LOADOUT, SKILLS, keyToLabel, skillById } from '../data/skills';
 import { MATERIALS, MATERIAL_ORDER } from '../data/materials';
 import { elementalDamage, applyElementalHit, type StatusedActor } from '../combat/ElementSystem';
-import { ShopSystem } from '../items/ShopSystem';
+import { ShopSystem, SHOP_SLOTS } from '../items/ShopSystem';
+import { buildShopView } from '../ui/ShopUI';
 import { CraftingSystem } from '../items/CraftingSystem';
 import { AudioManager } from './AudioManager';
 import { Effects } from './Effects';
@@ -112,6 +113,10 @@ export class Game {
   private pendingPortalActive: boolean | null = null;
   private shopStock: ShopStockEntry[] = [];
   private shopFloor = 0;
+  private shopRefreshes = 0;
+  private shopGambles = 0;
+  private shopHeals = 0;
+  private shopOpen = false;
   private saveSlot = 0;
   private kills = 0;
   private bonusAttributes: StatMap = {};
@@ -207,12 +212,16 @@ export class Game {
     this.inventoryUI = new InventoryUI(this.uiRoot);
     this.inventoryUI.onEquip = (index) => this.equipFromInventory(index);
     this.inventoryUI.onUnequip = (slot) => this.unequipSlot(slot);
-    this.inventoryUI.onSell = (index) => this.confirmSell(index);
     this.inventoryUI.onSalvage = (index) => this.confirmSalvage(index);
     this.inventoryUI.onUpgrade = (index) => this.confirmUpgrade(index);
     this.inventoryUI.onReforge = (index) => this.confirmReforge(index);
     this.inventoryUI.onAllocateClick = () => this.showAttributeAllocation();
-    this.inventoryUI.onSellAll = (rarity) => this.confirmSellAll(rarity);
+    this.inventoryUI.onSort = () => {
+      this.inventory.sort();
+      this.showInventory();
+      this.saveGame();
+    };
+    this.inventoryUI.onSalvageAll = (rarity) => this.confirmSalvageAll(rarity);
     this.inventoryUI.onClose = () => this.mobileBack.unregister('inventory');
     this.inventoryUI.onDetailsOpen = () => this.mobileBack.register('itemDetails', () => this.inventoryUI.closeDetails());
     this.inventoryUI.onDetailsClose = () => this.mobileBack.unregister('itemDetails');
@@ -400,6 +409,7 @@ export class Game {
     this.pendingPortalActive = null;
     this.shopStock = [];
     this.shopFloor = 0;
+    this.shopRefreshes = this.shopGambles = this.shopHeals = 0;
     this.skillLoadout = [...DEFAULT_SKILL_LOADOUT];
     this.skills = this.buildSkillStates();
     this.kills = 0;
@@ -433,6 +443,11 @@ export class Game {
     this.skillLoadout = Array.isArray(save.skillLoadout) && save.skillLoadout.length > 0 ? [...save.skillLoadout] : [...DEFAULT_SKILL_LOADOUT];
     this.shopStock = Array.isArray(save.shopStock) ? [...save.shopStock] : [];
     this.shopFloor = save.shopFloor ?? 0;
+    this.shopRefreshes = save.shopRefreshes ?? 0;
+    this.shopGambles = save.shopGambles ?? 0;
+    this.shopHeals = save.shopHeals ?? 0;
+    // Reprice legacy portal stock using the current material recovery floor.
+    this.shopStock.forEach(entry => { entry.price = ShopSystem.itemPrice(entry.item, this.floor); });
     this.kills = save.kills;
     this.inventory.items = [...save.inventory];
     this.equipment.equipment = { ...save.equipment };
@@ -455,6 +470,7 @@ export class Game {
     this.running = true;
     this.paused = false;
     this.restOpen = false;
+    this.shopOpen = false;
     this.attributeOpen = false;
     this.skillOpen = false;
     this.skillOverlay?.remove();
@@ -623,6 +639,11 @@ export class Game {
 
   private updateGame(rawDt: number): void {
     if (this.paused || this.restOpen || this.attributeOpen) {
+      if (this.restOpen && this.input.wasPressed('Escape')) {
+        if (this.sellOverlay) this.closeSellOverlay();
+        else if (this.craftOverlay) this.closeCraftOverlay();
+        else this.closeFloorRest();
+      }
       if (this.paused && this.input.wasPressed('Escape')) this.resumeGame();
       this.audio.stopWalk();
       this.hud.update(rawDt);
@@ -971,249 +992,142 @@ export class Game {
     this.showStartMenu();
   }
 
-  private showFloorRestMenu(): void {
+  private showFloorRestMenu(shop = false, message = ''): void {
     this.removeFloorRestMenu();
     this.restOpen = true;
+    this.shopOpen = shop;
     this.player.moving = false;
     this.player.sprinting = false;
+    this.input.reset();
     if (document.pointerLockElement) document.exitPointerLock();
-
     const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.inset = '0';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.background = 'rgba(4,6,10,0.78)';
-    overlay.style.pointerEvents = 'auto';
-    overlay.style.zIndex = '230';
-
+    overlay.className = 'merchant-overlay';
     const panel = document.createElement('div');
-    panel.style.textAlign = 'center';
-    panel.className = 'panel mobile-scroll';
-    panel.style.maxHeight = '90dvh';
-    panel.style.overflowY = 'auto';
-    panel.style.padding = '20px';
-    panel.style.width = 'min(560px, 94vw)';
-    if (this.mobile) {
-      panel.className = 'panel mobile-scroll';
-      panel.style.minWidth = '92vw';
-      panel.style.maxHeight = '84vh';
-      panel.style.overflow = 'auto';
-      panel.style.padding = '14px';
-    } else {
-      panel.style.minWidth = '300px';
-    }
-    const title = document.createElement('div');
-    title.textContent = `第 ${this.floor} 层主线完成`;
-    title.style.fontSize = '30px';
-    title.style.fontWeight = 'bold';
-    title.style.color = '#fff';
-    panel.appendChild(title);
-
-    const status = document.createElement('div');
-    status.style.margin = '10px 0 16px';
-    status.style.color = '#b8c8de';
-    status.style.fontSize = '14px';
+    panel.className = 'panel merchant-panel mobile-scroll';
+    const title = document.createElement('h2');
+    title.textContent = shop ? '游商驿站' : `第 ${this.floor} 层主线完成`;
+    const status = document.createElement('p');
+    status.className = 'merchant-wallet';
     status.textContent = `金币 ${this.gold} · 生命 ${Math.ceil(this.player.health)}/${this.player.maxHealth} · 法力 ${Math.ceil(this.player.mana)}/${this.player.maxMana}`;
-    panel.appendChild(status);
-
-    if (this.shopFloor !== this.floor || this.shopStock.length === 0) {
-      this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, Math.min(6, 4 + Math.floor(this.floor / 3)));
-      this.shopFloor = this.floor;
-      this.saveGame();
+    panel.append(title, status);
+    if (shop) {
+      panel.appendChild(buildShopView({
+        floor: this.floor, gold: this.gold, stock: this.shopStock, inventory: this.inventory.items,
+        materials: this.materialCounts, full: !this.inventory.hasSpace(), refreshes: this.shopRefreshes,
+        gambles: this.shopGambles, heals: this.shopHeals,
+        needsHealing: this.player.health < this.player.maxHealth || this.player.mana < this.player.maxMana,
+        message, buy: uid => this.buyShopItem(uid), refresh: () => this.refreshShop(),
+        gamble: slot => this.gambleShopItem(slot), heal: () => this.healAtShop(),
+        sell: index => this.confirmSell(index), sellAll: rarity => this.confirmSellAll(rarity),
+        sellMaterial: id => {
+          if (!this.shopOpen || this.materialCount(id) < 1) return;
+          this.materialCounts[id] = this.materialCount(id) - 1;
+          this.gold += ShopSystem.materialPrice(id, this.floor);
+          this.saveGame();
+          this.showShopMenu('材料已出售');
+        },
+      }));
+    } else {
+      panel.appendChild(buildChoices(this.builds, this.floor, () => {
+        this.saveGame();
+        this.showFloorRestMenu();
+      }));
+      const next = this.makeMenuButton(this.builds.canChoose(this.floor) ? '先选择本层专精' : '进入下一层');
+      next.disabled = this.builds.canChoose(this.floor);
+      next.onclick = () => {
+        if (this.builds.canChoose(this.floor)) return;
+        this.closeFloorRest();
+        this.advanceFloor();
+      };
+      panel.appendChild(next);
     }
-    panel.appendChild(buildChoices(this.builds, this.floor, () => {
-      this.saveGame();
-      this.showFloorRestMenu();
-    }));
-    panel.appendChild(this.buildShopSection(status));
-
-    const nextBtn = this.makeMenuButton('进入下一层');
-    nextBtn.disabled = this.builds.canChoose(this.floor);
-    if (nextBtn.disabled) nextBtn.textContent = '先选择本层专精';
-    nextBtn.onclick = () => {
-      if (this.builds.canChoose(this.floor)) return;
-      this.closeFloorRest();
-      this.advanceFloor();
-    };
-    panel.appendChild(nextBtn);
-
-    const healCost = 20 + this.floor * 2;
-    const healBtn = this.makeMenuButton(`休息恢复（${healCost} 金币）`);
-    healBtn.onclick = () => {
-      if (this.gold >= healCost) {
-        this.gold -= healCost;
-        this.player.health = this.player.maxHealth;
-        this.player.mana = this.player.maxMana;
-        status.textContent = `已恢复 · 金币 ${this.gold} · 生命 ${this.player.maxHealth}/${this.player.maxHealth} · 法力 ${this.player.maxMana}/${this.player.maxMana}`;
-        this.audio.levelUp();
-      } else {
-        status.textContent = '金币不足';
-      }
-    };
-    panel.appendChild(healBtn);
-
-    const buyItemCost = 60 + this.floor * 12;
-    const buyItemBtn = this.makeMenuButton(`购买随机装备（${buyItemCost} 金币）`);
-    buyItemBtn.onclick = () => {
-      if (this.gold >= buyItemCost) {
-        this.gold -= buyItemCost;
-        const item = ItemGenerator.generate(this.floor, undefined, this.player.level);
-        if (this.inventory.add(item)) {
-          status.textContent = `已购买：${item.name} · 金币 ${this.gold}`;
-        } else {
-          this.spawnDrop(this.player.position, { kind: 'item', item });
-          status.textContent = `背包已满，装备已掉落 · 金币 ${this.gold}`;
-        }
-      } else {
-        status.textContent = '金币不足';
-      }
-    };
-    panel.appendChild(buyItemBtn);
-
-    const buyPotionCost = 15 + this.floor * 2;
-    const buyPotionBtn = this.makeMenuButton(`购买生命药水（${buyPotionCost} 金币）`);
-    buyPotionBtn.onclick = () => {
-      if (this.gold >= buyPotionCost) {
-        this.gold -= buyPotionCost;
-        this.player.heal(this.player.maxHealth * 0.4);
-        status.textContent = `已使用生命药水 · 生命 ${Math.ceil(this.player.health)}/${this.player.maxHealth} · 金币 ${this.gold}`;
-      } else {
-        status.textContent = '金币不足';
-      }
-    };
-    panel.appendChild(buyPotionBtn);
-
-    const closeBtn = this.makeMenuButton('返回');
-    closeBtn.onclick = () => {
-      this.closeFloorRest();
-      this.requestPointerLock();
-    };
-    panel.appendChild(closeBtn);
-
+    const close = this.makeMenuButton('返回探索');
+    close.onclick = () => this.closeFloorRest();
+    panel.appendChild(close);
     overlay.appendChild(panel);
     this.floorRestOverlay = overlay;
     this.uiRoot.appendChild(overlay);
     this.addPanelCloseButton(panel, () => this.closeFloorRest());
+    if (this.mobile) panel.style.paddingTop = '14px';
     this.bindOverlayMaskClose(overlay, () => this.closeFloorRest());
     this.mobileBack.register('floorRest', () => this.closeFloorRest());
   }
 
-  private buildShopSection(status: HTMLDivElement): HTMLDivElement {
-    const section = document.createElement('div');
-    if (this.mobile) section.className = 'mobile-scroll';
-    section.style.marginTop = '16px';
-    section.style.paddingTop = '10px';
-    section.style.borderTop = '1px solid #354156';
-    section.style.textAlign = 'left';
-    section.style.maxHeight = '280px';
-    section.style.overflow = 'auto';
-    section.style.touchAction = this.mobile ? 'pan-y' : 'auto';
+  private showShopMenu(message = ''): void {
+    if (!this.floorData?.merchant) return;
+    const selling = this.floorRestOverlay?.querySelectorAll('[role="tab"]')[1]?.getAttribute('aria-selected') === 'true';
+    const scrollTop = this.floorRestOverlay?.querySelector('.merchant-panel')?.scrollTop ?? 0;
+    if (this.shopFloor !== this.floor) {
+      this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, 4,
+        new RNG((this.seed ^ (this.floor * 4099)) >>> 0));
+      this.shopFloor = this.floor;
+      this.shopRefreshes = this.shopGambles = this.shopHeals = 0;
+      this.saveGame();
+    }
+    this.showFloorRestMenu(true, message);
+    if (selling) (this.floorRestOverlay?.querySelectorAll('[role="tab"]')[1] as HTMLButtonElement)?.click();
+    const panel = this.floorRestOverlay?.querySelector('.merchant-panel');
+    if (panel) panel.scrollTop = scrollTop;
+  }
 
-    const title = document.createElement('div');
-    title.textContent = '深渊商店';
-    title.style.fontWeight = 'bold';
-    title.style.color = '#ffd76a';
-    title.style.marginBottom = '6px';
-    section.appendChild(title);
+  private buyShopItem(uid: string): void {
+    if (!this.shopOpen) return;
+    const index = this.shopStock.findIndex(entry => entry.uid === uid);
+    const entry = this.shopStock[index];
+    if (!entry || this.gold < entry.price || !this.inventory.hasSpace()) return;
+    this.inventory.add(entry.item);
+    this.gold -= entry.price;
+    this.shopStock.splice(index, 1);
+    this.audio.coin();
+    this.saveGame();
+    this.showShopMenu(`已购买 ${entry.item.name}`);
+  }
 
-    this.shopStock.forEach((entry, stockIndex) => {
-      const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.alignItems = 'center';
-      row.style.gap = '8px';
-      row.style.padding = '5px 0';
-      row.style.borderBottom = '1px solid #222a38';
-      const name = document.createElement('span');
-      name.style.flex = '1';
-      name.style.color = RARITY_COLORS[entry.item.rarity];
-      name.textContent = `${entry.item.name} Lv.${entry.item.itemLevel}`;
-      name.style.cursor = 'default';
-      const tooltip = itemTooltipHTML(entry.item);
-      name.onmouseenter = (event) => {
-        const tip = document.createElement('div');
-        tip.className = 'panel tooltip';
-        tip.style.zIndex = '1300';
-        tip.innerHTML = tooltip;
-        tip.style.left = `${Math.min(event.clientX + 12, window.innerWidth - 300)}px`;
-        tip.style.top = `${Math.min(event.clientY + 12, window.innerHeight - 240)}px`;
-        document.body.appendChild(tip);
-        name.onmouseleave = () => tip.remove();
-      };
-      row.appendChild(name);
-      const buy = document.createElement('button');
-      buy.textContent = `${entry.price} 金币`;
-      buy.style.padding = '4px 8px';
-      buy.style.background = this.gold >= entry.price ? '#2c5f8a' : '#28303d';
-      buy.style.color = '#fff';
-      buy.style.border = '1px solid #6fa9d8';
-      buy.style.borderRadius = '3px';
-      buy.style.cursor = this.gold >= entry.price ? 'pointer' : 'default';
-      buy.onclick = () => {
-        if (this.gold < entry.price || this.inventory.items.length >= this.inventory.capacity) {
-          status.textContent = this.inventory.items.length >= this.inventory.capacity ? '背包已满' : '金币不足';
-          return;
-        }
-        this.gold -= entry.price;
-        this.inventory.add(entry.item);
-        this.shopStock.splice(stockIndex, 1);
-        this.audio.coin();
-        this.saveGame();
-        this.showFloorRestMenu();
-      };
-      row.appendChild(buy);
-      section.appendChild(row);
-    });
+  private refreshShop(): void {
+    const price = ShopSystem.refreshPrice(this.floor, this.shopRefreshes);
+    if (!this.shopOpen || this.shopRefreshes >= 3 || this.gold < price) return;
+    this.gold -= price;
+    this.shopRefreshes++;
+    this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, 4,
+      new RNG((this.seed ^ (this.floor * 4099) ^ (this.shopRefreshes * 65537)) >>> 0));
+    this.saveGame();
+    this.showShopMenu('货架已换新；委托与补给次数保持不变');
+  }
 
-    const sellTitle = document.createElement('div');
-    sellTitle.textContent = '出售材料';
-    sellTitle.style.marginTop = '10px';
-    sellTitle.style.fontWeight = 'bold';
-    sellTitle.style.color = '#9fd0ff';
-    section.appendChild(sellTitle);
+  private gambleShopItem(slot: Slot): void {
+    const price = ShopSystem.gamblePrice(this.floor, slot);
+    if (!this.shopOpen || this.shopGambles >= 3 || this.gold < price || !this.inventory.hasSpace()
+      || !SHOP_SLOTS.some(option => option.slot === slot)) return;
+    const item = ShopSystem.gamble(this.floor, this.player.level, slot,
+      new RNG((this.seed ^ (this.floor * 8191) ^ ((this.shopGambles + 1) * 104729)) >>> 0));
+    this.inventory.add(item);
+    this.gold -= price;
+    this.shopGambles++;
+    this.audio.pickup();
+    this.saveGame();
+    this.showShopMenu(`委托完成：${item.name}（${this.rarityLabel(item.rarity)}）已收入背包`);
+  }
 
-    MATERIAL_ORDER.forEach((materialId) => {
-      const count = this.materialCount(materialId);
-      if (count <= 0) return;
-      const price = ShopSystem.materialPrice(materialId, this.floor);
-      const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.alignItems = 'center';
-      row.style.gap = '8px';
-      row.style.padding = '4px 0';
-      const label = document.createElement('span');
-      label.style.flex = '1';
-      label.style.color = MATERIALS[materialId].color;
-      label.textContent = `${MATERIALS[materialId].name} x${count}`;
-      row.appendChild(label);
-      const sell = document.createElement('button');
-      sell.textContent = `+${price} 金币`;
-      sell.style.padding = '4px 8px';
-      sell.style.background = '#5a4a1f';
-      sell.style.color = '#ffd76a';
-      sell.style.border = '1px solid #8b7a3f';
-      sell.style.borderRadius = '3px';
-      sell.style.cursor = 'pointer';
-      sell.onclick = () => {
-        this.materialCounts[materialId] = Math.max(0, count - 1);
-        this.gold += price;
-        this.audio.coin();
-        this.saveGame();
-        this.showFloorRestMenu();
-      };
-      row.appendChild(sell);
-      section.appendChild(row);
-    });
-
-    return section;
+  private healAtShop(): void {
+    const price = ShopSystem.healPrice(this.floor);
+    if (!this.shopOpen || this.shopHeals >= 2 || this.gold < price
+      || (this.player.health >= this.player.maxHealth && this.player.mana >= this.player.maxMana)) return;
+    this.gold -= price;
+    this.shopHeals++;
+    this.player.heal(this.player.maxHealth * .4);
+    this.player.addMana(this.player.maxMana * .4);
+    this.saveGame();
+    this.showShopMenu('已恢复生命与法力');
   }
 
   private closeFloorRest(): void {
     this.mobileBack.unregister('floorRest');
     this.restOpen = false;
+    this.shopOpen = false;
     this.floorRestOverlay?.remove();
     this.floorRestOverlay = null;
+    this.input.reset();
+    this.requestPointerLock();
   }
 
   private removeFloorRestMenu(): void {
@@ -2364,6 +2278,8 @@ export class Game {
   private interactionLabel(): string | null {
     if (!this.floorData) return null;
     const p = this.player.position;
+    const merchant = this.floorData.merchant;
+    if (merchant && Math.hypot(p.x - merchant.x - .5, p.z - merchant.z - .5) <= 2) return '进入商店';
     const room = this.encounters?.roomAt(p.x,p.z);
     if (room?.kind === 'sanctuary' && !this.encounters!.state.usedSanctuaries.includes(room.id!)
       && Math.hypot(p.x-room.x-5,p.z-room.z-5)<2) return '圣所恢复';
@@ -2375,6 +2291,10 @@ export class Game {
 
   private tryInteract(): boolean {
     if (!this.floorData) return false;
+    if (this.interactionLabel() === '进入商店') {
+      this.showShopMenu();
+      return true;
+    }
     if (this.interactionLabel() === '圣所恢复') {
       const room = this.encounters!.roomAt(this.player.position.x,this.player.position.z)!;
       this.encounters!.state.usedSanctuaries.push(room.id!);
@@ -2476,6 +2396,7 @@ export class Game {
   private updateAimIndicator(): void {
     const visible = this.running && this.player.alive && !this.paused && !this.restOpen
       && !this.attributeOpen && !this.skillOpen && !this.inventoryUI.open;
+    this.hud.setInteraction(visible && !this.mobile ? this.interactionLabel() : null);
     this.touchControls?.setGameplayState(visible, this.controller.isFirstPerson, visible ? this.interactionLabel() : null);
     if (!visible || this.controller.isFirstPerson) {
       this.hud.setAimPoint(0, 0, visible, false);
@@ -2609,6 +2530,7 @@ export class Game {
   }
 
   private confirmSell(index: number): void {
+    if (!this.shopOpen) return;
     const item = this.inventory.items[index];
     if (!item) return;
     this.closeSellOverlay();
@@ -2760,14 +2682,17 @@ export class Game {
   }
 
   private sellFromInventory(index: number): void {
+    if (!this.shopOpen) return;
     const item = this.inventory.remove(index);
     if (!item) return;
     this.gold += item.sellPrice;
     this.audio.coin();
-    this.showInventory();
+    this.saveGame();
+    this.showShopMenu(`已出售 ${item.name}`);
   }
 
   private confirmSellAll(maxRarity: Rarity): void {
+    if (!this.shopOpen) return;
     const maxIndex = RARITY_ORDER.indexOf(maxRarity);
     const eligible = this.inventory.items.filter((item) => RARITY_ORDER.indexOf(item.rarity) <= maxIndex);
     if (eligible.length === 0) {
@@ -2782,7 +2707,31 @@ export class Game {
     );
   }
 
+  private confirmSalvageAll(maxRarity: Rarity): void {
+    const maxIndex = RARITY_ORDER.indexOf(maxRarity);
+    const eligible = this.inventory.items.filter(item => RARITY_ORDER.indexOf(item.rarity) <= maxIndex);
+    if (!eligible.length) {
+      this.hud.showCenterMessage('没有可分解的装备', `${this.rarityLabel(maxRarity)}及以下没有装备`, 1.5);
+      return;
+    }
+    const yields = CraftingSystem.bulkSalvageYield(eligible);
+    const rewards = yields.map(entry => `${this.materialLabel(entry.materialId)} ×${entry.amount}`).join(' · ') || '无材料';
+    this.showCraftOverlay('确认一键分解',
+      `分解背包中 ${eligible.length} 件 ${this.rarityLabel(maxRarity)}及以下装备<br>获得：${rewards}<br>已穿戴装备不受影响`, () => {
+        // Act on the previewed objects only; newly acquired items are not included.
+        const selected = new Set(eligible);
+        const removed = this.inventory.items.filter(item => selected.has(item));
+        this.inventory.items = this.inventory.items.filter(item => !selected.has(item));
+        this.addMaterials(CraftingSystem.bulkSalvageYield(removed));
+        this.audio.pickup();
+        this.showInventory();
+        this.saveGame();
+        this.hud.showCenterMessage(`已分解 ${removed.length} 件装备`, '材料已收入背包', 1.8);
+      });
+  }
+
   private sellAllBelow(maxRarity: Rarity): void {
+    if (!this.shopOpen) return;
     const maxIndex = RARITY_ORDER.indexOf(maxRarity);
     let total = 0;
     let count = 0;
@@ -2797,7 +2746,7 @@ export class Game {
     if (count === 0) return;
     this.gold += total;
     this.audio.coin();
-    this.showInventory();
+    this.showShopMenu(`已出售 ${count} 件装备，获得 ${total} 金币`);
     this.hud.showCenterMessage(`已出售 ${count} 件装备`, `获得 ${total} 金币`, 1.8);
     this.saveGame();
   }
@@ -2940,6 +2889,9 @@ export class Game {
       skillLoadout: [...this.skillLoadout],
       shopStock: [...this.shopStock],
       shopFloor: this.shopFloor,
+      shopRefreshes: this.shopRefreshes,
+      shopGambles: this.shopGambles,
+      shopHeals: this.shopHeals,
       playerStatuses: this.player.statuses,
     };
     SaveManager.save(data, this.saveSlot);

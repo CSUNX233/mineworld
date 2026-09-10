@@ -1,4 +1,7 @@
 import type { Item } from '../types';
+import { RARITY_ORDER } from '../data/recipes';
+
+const SLOT_ORDER = ['weapon', 'helmet', 'chest', 'legs', 'boots', 'ring', 'ring2', 'necklace', 'offhand'];
 
 export class Inventory {
   readonly capacity: number;
@@ -27,5 +30,11 @@ export class Inventory {
 
   hasSpace(): boolean {
     return this.items.length < this.capacity;
+  }
+
+  sort(): void {
+    this.items.sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)
+      || SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot)
+      || b.itemLevel - a.itemLevel || a.name.localeCompare(b.name, 'zh-CN'));
   }
 }

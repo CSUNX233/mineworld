@@ -90,6 +90,26 @@ export class World {
       this.group.add(marker);
     }
 
+    if (data.merchant) {
+      const stall = new THREE.Group();
+      stall.name = 'merchant';
+      stall.position.set(data.merchant.x + .5, 0, data.merchant.z + .5);
+      const addBox = (w: number, h: number, d: number, y: number, color: number) => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
+        mesh.position.y = y;
+        stall.add(mesh);
+      };
+      addBox(1.2, .65, .6, .325, 0x805938);
+      addBox(1.65, .15, 1.1, 1.9, 0xe2ad4d);
+      addBox(.35, .6, .3, 1.05, 0x386f7d);
+      addBox(.32, .32, .32, 1.5, 0xd5aa7e);
+      const marker = new THREE.Mesh(new THREE.RingGeometry(.95, 1.1, 24), new THREE.MeshBasicMaterial({ color: 0xffcc66, side: THREE.DoubleSide }));
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.y = .035;
+      stall.add(marker);
+      this.group.add(stall);
+    }
+
     const chestMaterial = new THREE.MeshLambertMaterial({ color: 0xd7a93b });
     const chestGeometry = new THREE.BoxGeometry(0.6, 0.45, 0.4);
     data.chests.forEach((chest) => {

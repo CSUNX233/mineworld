@@ -12,10 +12,14 @@ const result = buildSync({ stdin: {
     export {BuildSystem} from './src/items/BuildSystem';
     export {EquipmentManager} from './src/items/EquipmentManager';
     export {migrateSave} from './src/core/SaveMigrations';
-    export {directionToPlayer} from './src/world/Navigation';`,
+    export {directionToPlayer} from './src/world/Navigation';
+    export {ShopSystem,SHOP_SLOTS} from './src/items/ShopSystem';
+    export {CraftingSystem} from './src/items/CraftingSystem';
+    export {Inventory} from './src/items/Inventory';
+    export {RNG} from './src/utils/RNG';`,
   resolveDir: fileURLToPath(new URL('..', import.meta.url)), loader: 'ts',
 }, bundle: true, write: false, format: 'esm', platform: 'node' });
-const { generateFloor,isWalkable,EncounterDirector,BuildSystem,EquipmentManager,migrateSave,directionToPlayer } =
+const { generateFloor,isWalkable,EncounterDirector,BuildSystem,EquipmentManager,migrateSave,directionToPlayer,ShopSystem,SHOP_SLOTS,CraftingSystem,Inventory,RNG } =
   await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
 
 test('800 maps remain bounded, connected and have a short route with optional loops', () => {
@@ -42,6 +46,59 @@ test('800 maps remain bounded, connected and have a short route with optional lo
 test('seeded rooms reproduce the same map, themes do not enlarge it', () => {
   assert.deepEqual(generateFloor(42,12),generateFloor(42,12));
   assert.notDeepEqual(generateFloor(42,12).grid,generateFloor(43,12).grid);
+});
+
+test('merchant tiles are walkable, optional, deterministic and guaranteed every three floors', () => {
+  let optional = 0, absent = 0;
+  for (let seed = 0; seed < 100; seed++) for (let floor = 1; floor <= 12; floor++) {
+    const map = generateFloor(seed, floor);
+    if (floor % 3 === 0) assert.ok(map.merchant);
+    else if (map.merchant) optional++; else absent++;
+    if (!map.merchant) continue;
+    const {x,z} = map.merchant;
+    assert.equal(isWalkable(map,x,z),true);
+    assert.deepEqual(map.merchant,generateFloor(seed,floor).merchant);
+    assert.ok(Math.hypot(x-map.portal.x,z-map.portal.z)>4);
+    assert.ok(map.chests.every(chest=>Math.hypot(x-chest.x,z-chest.z)>2));
+  }
+  assert.ok(optional>0 && absent>0);
+});
+
+test('merchant stock cannot be immediately recycled for profit and commissions obey slot and rarity limits', () => {
+  for (const floor of [1,3,5,10,25,100]) {
+    const stock = ShopSystem.generateStock(floor,1,4,new RNG(41));
+    assert.equal(stock.length,4);
+    assert.ok(stock.every(entry=>entry.price>ShopSystem.recoveryValue(entry.item,floor)));
+    assert.ok(stock.every(entry=>entry.item.rarity!=='legendary'));
+    assert.ok(ShopSystem.refreshPrice(floor,1)>ShopSystem.refreshPrice(floor,0));
+    for (const {slot} of SHOP_SLOTS) for (let seed=0;seed<40;seed++) {
+      const item=ShopSystem.gamble(floor,1,slot,new RNG(seed));
+      assert.equal(item.slot,slot);
+      assert.ok((floor<5 ? ['magic','rare'] : ['magic','rare','epic']).includes(item.rarity));
+      assert.equal(item.requiredLevel,1);
+      assert.ok(ShopSystem.gamblePrice(floor,slot)>0);
+    }
+  }
+  assert.equal(ShopSystem.floorIncome(1),66);
+  assert.equal(ShopSystem.floorIncome(3),122);
+});
+
+test('bulk salvage sums the same materials as individual salvage without mutating gear', () => {
+  const items=[{slot:'weapon',rarity:'common',itemLevel:3},{slot:'helmet',rarity:'magic',itemLevel:6},{slot:'ring',rarity:'rare',itemLevel:8}];
+  const before=JSON.stringify(items), expected=new Map();
+  for (const item of items) for (const entry of CraftingSystem.salvageYield(item)) expected.set(entry.materialId,(expected.get(entry.materialId)||0)+entry.amount);
+  assert.deepEqual(CraftingSystem.bulkSalvageYield(items),[...expected].map(([materialId,amount])=>({materialId,amount})));
+  assert.equal(JSON.stringify(items),before);
+  assert.deepEqual(CraftingSystem.bulkSalvageYield([]),[]);
+});
+
+test('organizing inventory preserves item identity and orders quality, slot then level', () => {
+  const inventory=new Inventory();
+  const items=[{name:'A',rarity:'common',slot:'weapon',itemLevel:8},{name:'B',rarity:'rare',slot:'helmet',itemLevel:4},{name:'C',rarity:'rare',slot:'weapon',itemLevel:1},{name:'D',rarity:'rare',slot:'weapon',itemLevel:5}];
+  inventory.items=[...items]; inventory.sort();
+  assert.deepEqual(inventory.items.map(item=>item.name),['D','C','B','A']);
+  assert.ok(items.every(item=>inventory.items.includes(item)));
+  const sorted=[...inventory.items];inventory.sort();assert.deepEqual(inventory.items,sorted);
 });
 
 test('unvisited and optional rooms cannot block the two main objectives', () => {

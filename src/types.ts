@@ -98,6 +98,7 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
+  merchant?: { x: number; z: number };
   connections?: [string, string][];
   size: number;
   grid: number[][];
@@ -188,5 +189,8 @@ export interface SaveData {
   skillLoadout?: string[];
   shopStock?: ShopStockEntry[];
   shopFloor?: number;
+  shopRefreshes?: number;
+  shopGambles?: number;
+  shopHeals?: number;
   playerStatuses?: ActorStatus[];
 }
