@@ -91,9 +91,21 @@ export class Minimap {
       ctx.fill();
     });
 
-    ctx.fillStyle = '#ffffff';
+    ctx.save();
+    ctx.translate(player.position.x * scale, player.position.z * scale);
+    ctx.rotate(-player.yaw);
+    const arrow = Math.max(4, scale * .85);
+    ctx.fillStyle = '#fff4c9';
+    ctx.strokeStyle = '#163247';
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
-    ctx.arc(player.position.x * scale, player.position.z * scale, Math.max(1.6, scale * 0.6), 0, Math.PI * 2);
+    ctx.moveTo(0, arrow);
+    ctx.lineTo(-arrow * .65, -arrow * .7);
+    ctx.lineTo(0, -arrow * .3);
+    ctx.lineTo(arrow * .65, -arrow * .7);
+    ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    ctx.restore();
   }
 }

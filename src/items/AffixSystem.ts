@@ -142,7 +142,7 @@ export class AffixSystem {
   static describe(affix: Affix): string {
     if (affix.special === 'chainLightning') return '攻击有 15% 概率释放连锁闪电';
     if (affix.special === 'explosiveKill') return '击杀敌人时产生爆炸';
-    if (affix.special === 'aegisWalk') return '移动时缓慢积累护盾';
+    if (affix.special === 'aegisWalk') return '移动时每秒获得最大生命 1% 的护盾，容量 20%；多件叠加';
     if (affix.special === 'meteorOnAttack') return '攻击有概率召唤陨石轰击目标';
     if (affix.special === 'summonSkeletonOnKill') return '击杀敌人时召唤骷髅为你作战';
     if (affix.special === 'executeFullHealth') return '满血时造成的伤害提高';

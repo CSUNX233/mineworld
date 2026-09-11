@@ -54,10 +54,10 @@ export class EquipmentManager {
   private items: Partial<Record<Slot, Item>> = {};
   private cachedStats: DerivedStats | null = null;
   private cachedExtra: StatMap | null = null;
-  private cachedSpecials: Set<string> | null = null;
+  private cachedSpecialCounts: Map<string, number> | null = null;
   get equipment(): Partial<Record<Slot, Item>> { return this.items; }
   set equipment(value: Partial<Record<Slot, Item>>) { this.items = value; this.invalidate(); }
-  private invalidate(): void { this.cachedStats = null; this.cachedSpecials = null; }
+  private invalidate(): void { this.cachedStats = null; this.cachedSpecialCounts = null; }
 
   equip(item: Item): Item | null {
     this.invalidate();
@@ -88,11 +88,12 @@ export class EquipmentManager {
   }
 
   hasSpecial(special: string): boolean {
-    if (!this.cachedSpecials) this.cachedSpecials = new Set([
-      ...this.getEquippedItems().flatMap(item => item.affixes.map(affix => affix.special).filter((value): value is string => !!value)),
-      ...this.getActiveSetSpecials(),
-    ]);
-    return this.cachedSpecials.has(special);
+    return this.getSpecialCount(special) > 0;
+  }
+
+  getSpecialCount(special: string): number {
+    if (!this.cachedSpecialCounts) this.cachedSpecialCounts = this.buildSpecialCounts();
+    return this.cachedSpecialCounts.get(special) ?? 0;
   }
 
   getTotalStats(): StatMap {
@@ -135,20 +136,44 @@ export class EquipmentManager {
   }
 
   getActiveSetSpecials(): string[] {
+    return [...this.getActiveSetSpecialCounts().keys()];
+  }
+
+  private buildSpecialCounts(): Map<string, number> {
+    const counts = new Map<string, number>();
+    const add = (special: string): void => {
+      counts.set(special, (counts.get(special) ?? 0) + 1);
+    };
+    this.getEquippedItems().forEach((item) => {
+      item.affixes.forEach((affix) => {
+        if (affix.special) add(affix.special);
+      });
+    });
+    this.getActiveSetSpecialCounts().forEach((count, special) => {
+      counts.set(special, (counts.get(special) ?? 0) + count);
+    });
+    return counts;
+  }
+
+  private getActiveSetSpecialCounts(): Map<string, number> {
     const counts = new Map<string, number>();
     this.getEquippedItems().forEach((item) => {
       if (!item.setId) return;
       counts.set(item.setId, (counts.get(item.setId) ?? 0) + 1);
     });
-    const specials = new Set<string>();
+    const specialCounts = new Map<string, number>();
     counts.forEach((count, setId) => {
       const setDef = SETS[setId];
       if (!setDef) return;
+      const activeSpecials = new Set<string>();
       for (const [threshold, bonus] of Object.entries(setDef.bonuses)) {
-        if (bonus.special && count >= Number(threshold)) specials.add(bonus.special);
+        if (bonus.special && count >= Number(threshold)) activeSpecials.add(bonus.special);
       }
+      activeSpecials.forEach((special) => {
+        specialCounts.set(special, (specialCounts.get(special) ?? 0) + 1);
+      });
     });
-    return [...specials];
+    return specialCounts;
   }
 
   getDerivedStats(extra: StatMap = EMPTY_STATS): DerivedStats {

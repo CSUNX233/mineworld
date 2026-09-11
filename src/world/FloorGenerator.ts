@@ -185,6 +185,12 @@ function generateP3Floor(seed: number, floor: number): FloorData {
   const startRoom = byId.get('room-7')!;
   const exitRoom = byId.get('room-1')!;
   const spawn = roomCenterCell(startRoom);
+  // The tactical template may have placed a pillar at the nominal center.
+  // Reserve a small entry area before building/rendering the floor.
+  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+    if (startRoom.cells.some(cell => cell.x === spawn.x + dx && cell.z === spawn.z + dz))
+      grid[spawn.z + dz][spawn.x + dx] = BlockKind.Floor;
+  }
   const portal = roomCenterCell(exitRoom);
   grid[portal.z][portal.x] = BlockKind.Portal;
 

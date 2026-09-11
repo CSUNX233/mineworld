@@ -22,6 +22,11 @@ export function createUiIcon(id: string, className = ''): HTMLSpanElement {
   const index = indexOf(id);
   icon.className = `sunlit-icon ${className}`.trim();
   icon.style.backgroundPosition = `${index % 6 * 20}% ${Math.floor(index / 6) * 100 / 3}%`;
+  if (id === 'bag') {
+    icon.style.backgroundImage = `url(${import.meta.env.BASE_URL}assets/ui/sunlit/bag-transparent.webp)`;
+    icon.style.backgroundSize = 'contain';
+    icon.style.backgroundPosition = 'center';
+  }
   icon.setAttribute('aria-hidden', 'true');
   return icon;
 }

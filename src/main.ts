@@ -11,5 +11,6 @@ MobileGestureGuard.install();
 
 const game = new Game(document.getElementById('ui-root') as HTMLElement);
 game.start();
+requestAnimationFrame(() => document.getElementById('boot-loading')?.remove());
 
 (window as unknown as { game: Game }).game = game;

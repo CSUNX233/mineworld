@@ -604,7 +604,7 @@ export class InventoryUI {
     const labels: Record<string, string> = {
       chainLightning: '攻击有概率触发连锁闪电',
       explosiveKill: '击杀时产生爆炸',
-      aegisWalk: '移动时缓慢获得护盾',
+      aegisWalk: '移动时每秒获得最大生命 1% 的护盾，容量 20%；不同来源叠加',
       meteorOnAttack: '攻击有概率召唤陨石',
       summonSkeletonOnKill: '击杀时召唤骷髅',
       executeFullHealth: '满血时额外伤害',

@@ -10,6 +10,13 @@
   --hud-font: 'Microsoft YaHei', 'PingFang SC', monospace;
 }
 
+.game-loading { position: fixed; inset: 0; z-index: 19000; display: grid; align-items: end; justify-items: center; background-color: #122537; background-size: cover; background-position: center; image-rendering: pixelated; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+.game-loading-panel { width: min(560px, 100%); box-sizing: border-box; border: 1px solid #d7a44788; padding: 18px 24px; color: #ffe9bc; text-align: center; background: #122537e8; font-size: 14px; }
+.game-loading-title { display: block; color: #ffd985; font-size: 24px; margin-bottom: 10px; letter-spacing: 2px; }
+.game-loading-tip { min-height: 3em; line-height: 1.5; margin-top: 12px; font-size: 12px; color: #dfd4b7; overflow-wrap: anywhere; }
+@media (max-height: 420px) { .game-loading-panel { padding: 10px 18px; } .game-loading-title { font-size: 19px; margin-bottom: 5px; } .game-loading-tip { margin-top: 8px; min-height: 1.5em; } }
+@media (orientation: portrait) { .game-loading { background-position: 60% 30%; } }
+.game-loading progress { display: block; width: 100%; height: 18px; margin-top: 18px; accent-color: #d7a447; }
 /* Decorative raster borders stretch independently from text and content. */
 #ui-root .panel, #ui-root .merchant-panel, #ui-root .item-details {
   color: var(--sunlit-ink);
@@ -157,8 +164,8 @@
   #ui-root .panel, #ui-root .merchant-panel, #ui-root .item-details { border-width: 9px !important; border-image-width: 9px !important; }
 }
 .mobile-ui #ui-root .hud-bars { width: min(42vw, 250px) !important; padding: 0; border-width: 0; gap: 4px !important; }
-.mobile-ui #ui-root .bar { height: 22px; }
-.mobile-ui #ui-root .hud-bars > .bar:nth-child(2) { height: 18px !important; }
+.mobile-ui #ui-root .bar { height: 28px; }
+.mobile-ui #ui-root .hud-bars > .bar:nth-child(2) { height: 26px !important; }
 .mobile-ui #ui-root .hud-bars > .bar:nth-child(3) { height: 12px !important; }
 .mobile-ui #ui-root .hud-bars > div:nth-child(4) { font-size: 12px !important; }
 .mobile-ui #ui-root .hud-bars > div:nth-child(4) span { font-size: 9px !important; }
@@ -168,13 +175,15 @@
 .mobile-ui #ui-root .hud-statuses { gap: 3px !important; }
 .mobile-ui #ui-root .hud-statuses > span { padding: 2px 3px !important; font-size: 9px !important; }
 .mobile-ui #ui-root .hud-statuses img { width: 18px; height: 18px; }
+.mobile-ui #ui-root .bar > div:not(.bar-track) { z-index: 4; font-size: 11px !important; line-height: 1; padding: 0 9px; }
+.mobile-ui #ui-root .bar .pixel-number { white-space: nowrap; }
 .mobile-ui #ui-root .hud-bars { max-width: calc(100vw - max(14px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)) - 152px); }
 .mobile-ui #ui-root .hud-statuses > span { flex-shrink: 0; }
 @media (max-height: 420px) {
   .mobile-ui #ui-root .hud-bars { gap: 2px !important; }
-  .mobile-ui #ui-root .bar { height: 18px; }
-  .mobile-ui #ui-root .hud-bars > .bar:nth-child(2) { height: 14px !important; }
-  .mobile-ui #ui-root .hud-bars > .bar:nth-child(3) { height: 8px !important; }
+  .mobile-ui #ui-root .bar { height: 28px; }
+  .mobile-ui #ui-root .hud-bars > .bar:nth-child(2) { height: 26px !important; }
+  .mobile-ui #ui-root .hud-bars > .bar:nth-child(3) { height: 12px !important; }
 }
 @media (orientation: landscape) {
   .mobile-ui #ui-root .hud-bars { width: min(32vw, 250px) !important; }

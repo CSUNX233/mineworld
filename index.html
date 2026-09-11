@@ -6,6 +6,24 @@
     <title>MineWorld / 方块割草：深渊</title>
   </head>
   <body>
+    <div id="boot-loading" role="status" style="position:fixed;inset:0;z-index:20000;display:grid;place-content:end center;gap:16px;background:#142638 linear-gradient(0deg,#081625,transparent 90%);background-image:linear-gradient(0deg,#081625,transparent 90%),url('/assets/ui/sunlit/loading-camp.webp');background-size:cover;background-position:center;color:#ffe9bc;font:16px system-ui;text-align:center;padding:24px max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))">
+      <strong>MineWorld</strong><span id="boot-label">正在载入游戏资源…</span>
+      <progress aria-label="正在载入游戏资源" style="width:min(70vw,320px);height:16px;accent-color:#d7a447"></progress>
+      <small id="boot-tip" style="max-width:320px;line-height:1.6">小提示 · 小地图箭头表示角色当前朝向。</small>
+    </div>
+    <script>
+      var bootTips = ['小地图箭头表示角色当前朝向。', '角色卡住时，可在暂停菜单选择脱离卡死。', '出售装备需要前往商店。'];
+      var bootTipIndex = 0;
+      var bootTipTimer = setInterval(function () {
+        var tip = document.getElementById('boot-tip');
+        if (!tip) { clearInterval(bootTipTimer); return; }
+        tip.textContent = '小提示 · ' + bootTips[++bootTipIndex % bootTips.length];
+      }, 3500);
+      window.addEventListener('error', function () {
+        var label = document.getElementById('boot-label');
+        if (label) label.textContent = '载入遇到问题，请刷新页面重试。';
+      });
+    </script>
     <div id="app"></div>
     <div id="ui-root"></div>
     <script type="module" src="/src/main.ts"></script>

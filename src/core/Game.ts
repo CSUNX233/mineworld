@@ -10,6 +10,7 @@ import { createRunTalents, talentBudget, spentTalentPoints, canUnlockTalent, unl
 import { buildRunTalentPanel } from '../ui/RunTalentPanel';
 import { findEncounterRoomPosition } from '../world/EncounterBarriers';
 import * as THREE from 'three';
+import { LoadingScreen } from '../ui/LoadingScreen';
 import { preloadCombatArt } from '../ui/CombatArt';
 import type { DerivedStats } from '../items/EquipmentManager';
 import { EquipmentManager } from '../items/EquipmentManager';
@@ -837,7 +838,31 @@ export class Game {
     this.beginRun();
   }
 
-  private beginRun(): void {
+  private loadingFloor = false;
+
+  private unstuckPlayer(): void {
+    if (!this.floorData || !this.player.alive || this.loadingFloor) return;
+    const data = this.floorData;
+    const current = this.encounters?.roomAt(this.player.position.x, this.player.position.z);
+    const locked = data.rooms.filter(room => this.encounters?.lockedRoomIds.includes(room.id!));
+    const room = locked.find(candidate => candidate === current) ?? locked.sort((a, b) =>
+      Math.hypot(a.x - this.player.position.x, a.z - this.player.position.z)
+      - Math.hypot(b.x - this.player.position.x, b.z - this.player.position.z))[0] ?? current;
+    const spot = room ? findEncounterRoomPosition(data, room, this.player.position.x, this.player.position.z) : null;
+    const fallback = !room ? MonsterSpawner.findNearestWalkable(data, this.player.position.x, this.player.position.z) : null;
+    if (!spot && !fallback) { this.hud.showCenterMessage('暂无安全落点', '当前房间没有可用位置', 2); return; }
+    this.player.position.set(spot?.x ?? fallback!.x + .5, 0, spot?.z ?? fallback!.z + .5);
+    this.player.velocity.set(0, 0, 0);
+    this.player.moving = this.player.sprinting = false;
+    this.input.reset();
+    this.controller.resetView(data);
+    this.player.group.position.copy(this.player.position);
+    this.resumeGame();
+    this.hud.showCenterMessage('已脱离卡死', locked.length ? '已移动到当前战斗房间内的安全位置' : '已移动到附近安全位置', 2);
+    this.saveGame();
+  }
+
+  private async beginRun(): Promise<void> {
     this.running = true;
     this.paused = false;
     this.restOpen = false;
@@ -852,7 +877,7 @@ export class Game {
     this.removeFloorRestMenu();
     this.closeAttributeAllocation();
     this.lastTime = performance.now();
-    this.generateCurrentFloor(this.pendingSavedMonsters, this.pendingPortalActive, this.pendingResume);
+    if (!await this.generateCurrentFloor(this.pendingSavedMonsters, this.pendingPortalActive, this.pendingResume)) return;
     this.pendingResume = null;
     this.pendingSavedMonsters = null;
     this.pendingPortalActive = null;
@@ -866,7 +891,13 @@ export class Game {
     this.requestPointerLock();
   }
 
-  private generateCurrentFloor(savedMonsters: SavedMonster[] | null = null, savedPortalActive: boolean | null = null, resume: SaveData | null = null): void {
+  private async generateCurrentFloor(savedMonsters: SavedMonster[] | null = null, savedPortalActive: boolean | null = null, resume: SaveData | null = null): Promise<boolean> {
+    this.loadingFloor = true;
+    this.input.reset();
+    this.touchControls?.setGameplayState(false, this.controller.isFirstPerson, null);
+    const loading = new LoadingScreen(this.uiRoot);
+    try {
+    await loading.step(5, '准备关卡');
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
     const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 2;
     const data = generateFloor(this.currentFloorSeed, this.floor, generationVersion);
@@ -883,10 +914,15 @@ export class Game {
     });
     this.encounters = new EncounterDirector(data, resume?.floorProgress);
     this.hudTimer = 0;
+    await loading.step(30, '构建场景');
     this.world.generate(data);
+    await loading.step(65, '安置角色与遭遇');
     this.audio.startAmbient(data.theme.id);
     this.audio.startBGM(data.theme.id);
     this.player.position.set(data.spawn.x + 0.5, 0, data.spawn.z + 0.5);
+    const spawnRoom = data.rooms.find(room => room.kind === 'start');
+    const safeSpawn = spawnRoom ? findEncounterRoomPosition(data, spawnRoom, this.player.position.x, this.player.position.z) : null;
+    if (safeSpawn) this.player.position.set(safeSpawn.x, 0, safeSpawn.z);
     this.player.velocity.set(0, 0, 0);
     this.player.yaw = Math.atan2(data.portal.x-data.spawn.x, data.portal.z-data.spawn.z);
     this.player.pitch = 0;
@@ -931,6 +967,19 @@ export class Game {
     if (resume?.runtime?.finalBoss && this.monsters.some(monster => monster.def.id === 'ruins_warden')) this.finalBossController.restore(resume.runtime.finalBoss);
     this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     this.world.setPortalActive(this.portalActive);
+    await loading.step(85, '准备画面');
+    await this.renderer.compileAsync(this.scene, this.camera);
+    this.renderer.render(this.scene, this.camera);
+    await loading.step(100, '准备完成');
+    loading.close();
+    this.lastTime = performance.now();
+    return true;
+    } catch (error) {
+      console.error('Floor preparation failed', error);
+      this.running = false;
+      loading.fail(() => this.showStartMenu());
+      return false;
+    } finally { this.loadingFloor = false; }
   }
 
   private restoreEncounterBoundary(): void {
@@ -1143,6 +1192,7 @@ export class Game {
   };
 
   private updateGame(rawDt: number): void {
+    if (this.loadingFloor) return;
     if (this.isGameplayPaused()) {
       if (!this.failedSaveCandidate) {
         if (this.input.wasPressed('Escape')) {
@@ -1179,11 +1229,10 @@ export class Game {
         this.player.health = Math.min(this.player.maxHealth, this.player.health + stats.lifeRegen * rawDt);
       }
       this.lowHealthShieldCooldown = Math.max(0, this.lowHealthShieldCooldown - rawDt);
-      if (this.equipment.hasSpecial('aegisWalk') && this.player.moving) {
-        this.player.shield = Math.min(
-          this.player.maxHealth * 0.2,
-          this.player.shield + this.player.maxHealth * 0.01 * rawDt,
-        );
+      const aegisWalkCount = this.equipment.getSpecialCount('aegisWalk');
+      if (aegisWalkCount > 0 && this.player.moving) {
+        const cap = this.player.maxHealth * .2 * aegisWalkCount;
+        if (this.player.shield < cap) this.player.shield = Math.min(cap, this.player.shield + this.player.maxHealth * .01 * aegisWalkCount * rawDt);
       }
       if (
         this.equipment.hasSpecial('lowHealthShield') &&
@@ -1266,7 +1315,7 @@ export class Game {
   }
 
   private isGameplayPaused(): boolean {
-    return this.paused || this.restOpen || this.attributeOpen || this.skillOpen || this.inventoryUI.open
+    return this.loadingFloor || this.paused || this.restOpen || this.attributeOpen || this.skillOpen || this.inventoryUI.open
       || this.sellOverlay !== null || this.craftOverlay !== null || this.failedSaveCandidate !== null || !this.running;
   }
 
@@ -1412,6 +1461,9 @@ export class Game {
     const continueBtn = this.makeMenuButton('继续游戏');
     continueBtn.onclick = () => this.resumeGame();
     panel.appendChild(continueBtn);
+    const unstuckBtn = this.makeMenuButton('脱离卡死');
+    unstuckBtn.onclick = () => this.unstuckPlayer();
+    panel.appendChild(unstuckBtn);
     const exportBtn = this.makeMenuButton('导出试玩记录');
     exportBtn.onclick = () => {
       this.recordResourceSnapshot('export');
@@ -2854,7 +2906,8 @@ export class Game {
     return false;
   }
 
-  private advanceFloor(): void {
+  private async advanceFloor(): Promise<void> {
+    if (this.loadingFloor) return;
     if (this.floor >= BASIC_RUN_DEFINITION.floorCount) {
       this.finishRun('victory');
       return;
@@ -2862,7 +2915,7 @@ export class Game {
     this.floor++;
     this.player.heal(this.player.maxHealth * 0.25);
     this.player.addMana(this.player.maxMana * 0.5);
-    this.generateCurrentFloor();
+    if (!await this.generateCurrentFloor()) return;
     this.hud.showCenterMessage(`第 ${this.floor} 层`, this.floorData?.theme.name ?? '', 3);
     this.audio.portal();
     this.saveGame();
@@ -2946,7 +2999,7 @@ export class Game {
 
   private updateAimIndicator(): void {
     this.aimGuide.mesh.visible = false;
-    const visible = this.running && this.player.alive && !this.paused && !this.restOpen
+    const visible = this.running && !this.loadingFloor && this.player.alive && !this.paused && !this.restOpen
       && !this.attributeOpen && !this.skillOpen && !this.inventoryUI.open;
     this.hud.setInteraction(visible && !this.mobile ? this.interactionLabel() : null);
     this.touchControls?.setGameplayState(visible, this.controller.isFirstPerson, visible ? this.interactionLabel() : null);
