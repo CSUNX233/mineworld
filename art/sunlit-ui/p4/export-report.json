@@ -1,0 +1,272 @@
+[
+  {
+    "id": "guard_counter",
+    "sheet": 1,
+    "cell": 0,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "seismic_slam",
+    "sheet": 1,
+    "cell": 1,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "raise_company",
+    "sheet": 1,
+    "cell": 2,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "soul_burst",
+    "sheet": 1,
+    "cell": 3,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "flame_rift",
+    "sheet": 1,
+    "cell": 4,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "ember_blade",
+    "sheet": 2,
+    "cell": 0,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_seed",
+    "sheet": 2,
+    "cell": 1,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_cleave",
+    "sheet": 2,
+    "cell": 2,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_cleave_edge",
+    "sheet": 2,
+    "cell": 3,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_cleave_aftershock",
+    "sheet": 2,
+    "cell": 4,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_guard",
+    "sheet": 3,
+    "cell": 0,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_guard_reserve",
+    "sheet": 3,
+    "cell": 1,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_guard_bastion",
+    "sheet": 3,
+    "cell": 2,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_seed",
+    "sheet": 3,
+    "cell": 3,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_legion",
+    "sheet": 3,
+    "cell": 4,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_legion_drill",
+    "sheet": 4,
+    "cell": 0,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_legion_vanguard",
+    "sheet": 4,
+    "cell": 1,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_elite",
+    "sheet": 4,
+    "cell": 2,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_elite_training",
+    "sheet": 4,
+    "cell": 3,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_elite_guardian",
+    "sheet": 4,
+    "cell": 4,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_warrior",
+    "sheet": 5,
+    "cell": 0,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_guardian",
+    "sheet": 5,
+    "cell": 1,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_archer",
+    "sheet": 5,
+    "cell": 2,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_focus",
+    "sheet": 5,
+    "cell": 3,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summon_recall",
+    "sheet": 5,
+    "cell": 4,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "vanguard_mastery",
+    "sheet": 6,
+    "cell": 0,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "arcanist_mastery",
+    "sheet": 6,
+    "cell": 1,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "summoner_mastery",
+    "sheet": 6,
+    "cell": 2,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "melee_momentum",
+    "sheet": 6,
+    "cell": 3,
+    "alpha": [
+      0,
+      255
+    ]
+  },
+  {
+    "id": "guard_stance",
+    "sheet": 6,
+    "cell": 4,
+    "alpha": [
+      0,
+      255
+    ]
+  }
+]

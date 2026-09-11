@@ -8,13 +8,32 @@ import {
   type RunTalentState,
 } from '../progression/RunTalents';
 import { createUiIcon } from './UiAssets';
+import { P4_ICON_IDS } from './P4Icons';
 
 const LANE_NAMES: Record<RunTalentLane, string> = {
   core: '核心',
   spreading: '蔓延之火',
   consuming: '吞噬之火',
+  'melee-core': '近战核心',
+  cleave: '断岳连斩',
+  guard: '盾反守势',
+  'summon-core': '召唤核心',
+  legion: '混编军团',
+  elite: '精锐魂契',
+  hybrid: '跨系联动',
   utility: '生存与资源',
 };
+
+type RunTalentGroup = 'fire' | 'melee' | 'summon' | 'hybrid';
+
+const TALENT_GROUP_NAMES: Readonly<Record<RunTalentGroup, string>> = {
+  fire: '火焰',
+  melee: '近战',
+  summon: '召唤',
+  hybrid: '混合',
+};
+
+let activeTalentGroup: RunTalentGroup = 'fire';
 
 const TALENT_ICONS: Record<string, string> = {
   fire_seed: 'fireball',
@@ -28,6 +47,21 @@ const TALENT_ICONS: Record<string, string> = {
   mana_from_ashes: 'detonate',
   ash_guard: 'shield',
   cremation: 'detonate',
+  melee_seed: 'sword',
+  melee_cleave: 'axe',
+  melee_cleave_edge: 'axe',
+  melee_cleave_aftershock: 'hammer',
+  melee_guard: 'shield',
+  melee_guard_reserve: 'shield',
+  melee_guard_bastion: 'shield',
+  summon_seed: 'summon',
+  summon_legion: 'summon',
+  summon_legion_drill: 'summon',
+  summon_legion_vanguard: 'shield',
+  summon_elite: 'summon',
+  summon_elite_training: 'summon',
+  summon_elite_guardian: 'shield',
+  ember_blade: 'ember_blade',
   tempered_skin: 'shield',
   deep_reservoir: 'staff',
   vital_spark: 'heal',
@@ -65,7 +99,7 @@ function buildTalentNode(
 
   const heading = document.createElement('div');
   heading.className = 'run-talent-node-heading';
-  heading.appendChild(createUiIcon(TALENT_ICONS[talent.id] ?? 'fireball', 'run-talent-icon'));
+  heading.appendChild(createUiIcon(P4_ICON_IDS.has(talent.id) ? talent.id : TALENT_ICONS[talent.id] ?? 'fireball', 'run-talent-icon'));
   const name = document.createElement('strong');
   name.textContent = talent.name;
   const cost = document.createElement('span');
@@ -74,7 +108,7 @@ function buildTalentNode(
   heading.append(name, cost);
 
   const description = document.createElement('p');
-  description.textContent = `收益：${talent.description}`;
+  description.textContent = `${talent.excludes?.length ? '取舍' : '收益'}：${talent.description}`;
 
   const relations = document.createElement('dl');
   relations.className = 'run-talent-relations';
@@ -126,6 +160,73 @@ function buildLane(
   return section;
 }
 
+function buildBranches(
+  lanes: readonly [RunTalentLane, RunTalentLane],
+  state: RunTalentState,
+  budget: number,
+  editable: boolean,
+  onUnlock: (id: string) => void,
+): HTMLElement {
+  const branches = document.createElement('div');
+  branches.className = 'run-talent-branches';
+  branches.append(
+    buildLane(lanes[0], state, budget, editable, onUnlock),
+    buildLane(lanes[1], state, budget, editable, onUnlock),
+  );
+  return branches;
+}
+
+function buildCenteredLane(
+  lane: RunTalentLane,
+  state: RunTalentState,
+  budget: number,
+  editable: boolean,
+  onUnlock: (id: string) => void,
+): HTMLElement {
+  const section = buildLane(lane, state, budget, editable, onUnlock);
+  section.style.maxWidth = '490px';
+  section.style.margin = '0 auto 12px';
+  return section;
+}
+
+function buildTalentGroup(
+  group: RunTalentGroup,
+  state: RunTalentState,
+  budget: number,
+  editable: boolean,
+  onUnlock: (id: string) => void,
+): HTMLElement {
+  const page = document.createElement('div');
+  page.id = `run-talent-group-${group}`;
+  page.dataset.talentGroup = group;
+  page.setAttribute('role', 'tabpanel');
+  page.setAttribute('aria-label', `${TALENT_GROUP_NAMES[group]}天赋`);
+
+  if (group === 'fire') {
+    page.append(
+      buildCenteredLane('core', state, budget, editable, onUnlock),
+      buildBranches(['spreading', 'consuming'], state, budget, editable, onUnlock),
+    );
+  } else if (group === 'melee') {
+    page.append(
+      buildCenteredLane('melee-core', state, budget, editable, onUnlock),
+      buildBranches(['cleave', 'guard'], state, budget, editable, onUnlock),
+    );
+  } else if (group === 'summon') {
+    page.append(
+      buildCenteredLane('summon-core', state, budget, editable, onUnlock),
+      buildBranches(['legion', 'elite'], state, budget, editable, onUnlock),
+    );
+  } else {
+    page.append(
+      buildCenteredLane('hybrid', state, budget, editable, onUnlock),
+      buildLane('utility', state, budget, editable, onUnlock),
+    );
+  }
+
+  return page;
+}
+
 export function buildRunTalentPanel(
   state: RunTalentState,
   budget: number,
@@ -175,14 +276,45 @@ export function buildRunTalentPanel(
   cadence.className = 'run-talent-cadence';
   cadence.textContent = '获取节奏：开局 1 点；等级 2 / 4 / 6 / 8 / 10 各 1 点；完整完成第 5 / 10 / 15 / 20 层的两条 Boss 主线各 1 点。25 层预计共 10 点。';
 
-  panel.append(header, cadence);
-  panel.appendChild(buildLane('core', state, safeBudget, editable && valid, onUnlock));
-  const branches = document.createElement('div');
-  branches.className = 'run-talent-branches';
-  branches.append(
-    buildLane('spreading', state, safeBudget, editable && valid, onUnlock),
-    buildLane('consuming', state, safeBudget, editable && valid, onUnlock),
-  );
-  panel.append(branches, buildLane('utility', state, safeBudget, editable && valid, onUnlock));
+  const tabs = document.createElement('div');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', '天赋流派');
+  tabs.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(68px,1fr));gap:8px;margin:0 0 12px;overflow-x:auto;position:sticky;top:0;z-index:2;padding:4px;background:rgba(34,59,86,.94)';
+
+  const content = document.createElement('div');
+  content.style.cssText = 'max-height:min(62dvh,680px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px';
+  const pages = new Map<RunTalentGroup, HTMLElement>();
+  const buttons = new Map<RunTalentGroup, HTMLButtonElement>();
+  const selectGroup = (selected: RunTalentGroup): void => {
+    activeTalentGroup = selected;
+    for (const [group, page] of pages) page.hidden = group !== selected;
+    for (const [group, button] of buttons) {
+      const active = group === selected;
+      button.setAttribute('aria-selected', String(active));
+      button.tabIndex = active ? 0 : -1;
+      button.style.background = active ? '#287f80' : '#223b56';
+      button.style.color = active ? '#fff1ca' : '#d5c9ad';
+      button.style.boxShadow = active ? 'inset 0 0 0 2px #d8aa4e' : 'none';
+    }
+  };
+
+  for (const group of Object.keys(TALENT_GROUP_NAMES) as RunTalentGroup[]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', `run-talent-group-${group}`);
+    button.textContent = TALENT_GROUP_NAMES[group];
+    button.style.cssText = 'min-height:44px;padding:8px 10px;border:1px solid rgba(255,225,163,.45);font:inherit;font-weight:800;cursor:pointer;white-space:nowrap';
+    button.addEventListener('click', () => selectGroup(group));
+    buttons.set(group, button);
+    tabs.appendChild(button);
+
+    const page = buildTalentGroup(group, state, safeBudget, editable && valid, onUnlock);
+    pages.set(group, page);
+    content.appendChild(page);
+  }
+  selectGroup(activeTalentGroup);
+
+  panel.append(header, cadence, tabs, content);
   return panel;
 }

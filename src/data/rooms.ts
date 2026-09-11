@@ -14,7 +14,18 @@ export const ROOM_TEMPLATES = {
   flanks: [[1, 3], [2, 3], [7, 6], [8, 6]],
 } satisfies Record<string, number[][]>;
 
-export type TacticalRoomTemplateId = 'pillar-court' | 'broken-bulwark' | 'split-gallery' | 'flanking-ring';
+export type TacticalRoomTemplateId =
+  | 'pressure-ring'
+  | 'impact-yard'
+  | 'resonance-workshop'
+  | 'prism-gallery'
+  | 'foundry-combination'
+  | 'overload-trial'
+  | 'furnace-arena'
+  | 'pillar-court'
+  | 'broken-bulwark'
+  | 'split-gallery'
+  | 'flanking-ring';
 
 export interface TacticalRoomTemplate {
   id: TacticalRoomTemplateId;
@@ -42,10 +53,122 @@ function lineZ(x: number, from: number, to: number): [number, number][] {
 }
 
 /**
- * Four greybox layouts with different movement decisions. Coordinates are derived
+ * Greybox layouts with different movement decisions. Coordinates are derived
  * from each room's dimensions, so these are reusable modules rather than 10x10 skins.
  */
 export const TACTICAL_ROOM_TEMPLATES: Record<TacticalRoomTemplateId, TacticalRoomTemplate> = {
+  'pressure-ring': {
+    id: 'pressure-ring', gameplay: 'Switch between two broad pressure lanes or interrupt the overseer.',
+    sightlines: 'Open crossings at both ends.', landmark: 'Offset boiler island.',
+    objective: 'Clear the overseer.', reward: 'Normal encounter rewards.',
+    enemyFit: 'One valve overseer.', forbidden: 'No other controller or blocked safe lane.',
+    obstacles: (w, d) => Array.from({length: 9}, (_, i) => [Math.floor(w / 2) - 1 + i % 3, Math.floor(d / 2) - 2 + Math.floor(i / 3)] as [number, number]),
+  },
+  'impact-yard': {
+    id: 'impact-yard',
+    gameplay: 'Bait the rammer across an open lane or circle through either broad side route.',
+    sightlines: 'Two unobstructed widthwise lanes cross staggered cover groups.',
+    landmark: 'A broad impact-testing apron with cracked divider mounts.',
+    objective: 'Exploit a wall impact without making it mandatory for traversal.',
+    reward: 'At the rear edge, visible from both outer routes.',
+    enemyFit: 'One rammer with a small, low-pressure escort.',
+    forbidden: 'No static divider across either route; breakable panels are runtime facilities.',
+    obstacles: (w, d) => [
+      [3, 3], [4, 3], [3, 4],
+      [w - 5, 3], [w - 4, 3], [w - 4, 4],
+      [4, d - 4], [5, d - 4],
+      [w - 6, d - 5], [w - 5, d - 5],
+    ],
+  },
+  'resonance-workshop': {
+    id: 'resonance-workshop',
+    gameplay: 'Move between two open work bays to break support links or focus a powered target.',
+    sightlines: 'Both bays see the shared center through a wide connection and a side bypass.',
+    landmark: 'Paired coil foundations flanking the central supply point.',
+    objective: 'Choose between disrupting the chain caster and bursting its beneficiaries.',
+    reward: 'Beyond the second bay with both approaches open.',
+    enemyFit: 'One chain caster and at most two ordinary frontliners.',
+    forbidden: 'No healer or narrow single-file connection between bays.',
+    obstacles: (w, d) => {
+      const midX = Math.floor(w / 2), midZ = Math.floor(d / 2);
+      return [
+        [midX - 3, midZ - 2], [midX - 3, midZ - 1], [midX - 2, midZ - 2],
+        [midX + 2, midZ + 1], [midX + 3, midZ + 1], [midX + 3, midZ + 2],
+      ];
+    },
+  },
+  'prism-gallery': {
+    id: 'prism-gallery',
+    gameplay: 'Advance between three staggered cover groups during committed beam shots.',
+    sightlines: 'Long diagonal shots remain possible, with two separate covered approaches.',
+    landmark: 'Three offset prism-proof column clusters.',
+    objective: 'Break line of sight, then close distance during the sentinel recovery.',
+    reward: 'In the far-side cover pocket.',
+    enemyFit: 'One prism sentinel, or two with staggered firing windows.',
+    forbidden: 'No cover arrangement that lets both sentinels seal every exit.',
+    obstacles: (w, d) => {
+      const midZ = Math.floor(d / 2);
+      return [
+        [3, 3], [3, 4], [4, 3],
+        [w - 5, midZ - 1], [w - 4, midZ - 1], [w - 4, midZ],
+        [4, d - 4], [5, d - 4], [5, d - 5],
+      ];
+    },
+  },
+  'foundry-combination': {
+    id: 'foundry-combination',
+    gameplay: 'Change lanes around offset machinery while deciding which learned threat to disable first.',
+    sightlines: 'A broken center line preserves cross-room views and two flanking routes.',
+    landmark: 'Alternating furnace and coil foundations.',
+    objective: 'Resolve two familiar mechanics without losing the safe cross-route.',
+    reward: 'At the far crossing after the required encounter.',
+    enemyFit: 'Two previously taught foundry roles with limited ordinary support.',
+    forbidden: 'No third controller or overlapping full-lane attacks.',
+    obstacles: (w, d) => {
+      const midX = Math.floor(w / 2), midZ = Math.floor(d / 2);
+      return [
+        [midX - 3, midZ - 3], [midX - 2, midZ - 3], [midX - 3, midZ - 2],
+        [midX + 2, midZ + 2], [midX + 3, midZ + 2], [midX + 3, midZ + 3],
+        [3, midZ + 2], [w - 4, midZ - 2],
+      ];
+    },
+  },
+  'overload-trial': {
+    id: 'overload-trial',
+    gameplay: 'Loop through three broad combat zones or take the open central cross-route.',
+    sightlines: 'Zone edges interrupt long shots without hiding the optional activation point.',
+    landmark: 'Three overload pads surrounding an inactive central pulse mount.',
+    objective: 'Voluntarily clear at most two waves for a resource choice.',
+    reward: 'At the entry-side controller after completion.',
+    enemyFit: 'Two learned mechanics across separate waves.',
+    forbidden: 'Never auto-start, block the exit, or combine a beam with the pulse landing area.',
+    obstacles: (w, d) => {
+      const midX = Math.floor(w / 2), midZ = Math.floor(d / 2);
+      return [
+        [3, 3], [4, 3], [3, 4],
+        [w - 5, 3], [w - 4, 3], [w - 4, 4],
+        [3, d - 4], [4, d - 4], [3, d - 5],
+        [w - 5, d - 4], [w - 4, d - 4], [w - 4, d - 5],
+        [midX - 3, midZ], [midX + 3, midZ],
+      ];
+    },
+  },
+  'furnace-arena': {
+    id: 'furnace-arena',
+    gameplay: 'Circle a wide perimeter, cross the open center, and steer the boss toward valve columns.',
+    sightlines: 'The center and all three runtime valve positions remain mutually readable.',
+    landmark: 'Cut-corner grand furnace floor with an uninterrupted outer ring.',
+    objective: 'Create core exposure windows while preserving a ground route through every attack.',
+    reward: 'Chapter completion portal at arena center after the boss falls.',
+    enemyFit: 'The Furnace Regent and its single late-phase reinforcement pair.',
+    forbidden: 'No static valve collision or obstacle sealing the perimeter; valves are runtime facilities.',
+    obstacles: (w, d) => [
+      [3, 3], [4, 3], [3, 4],
+      [w - 5, 3], [w - 4, 3], [w - 4, 4],
+      [3, d - 4], [4, d - 4], [3, d - 5],
+      [w - 5, d - 4], [w - 4, d - 4], [w - 4, d - 5],
+    ],
+  },
   'pillar-court': {
     id: 'pillar-court',
     gameplay: 'Four chunky supports create alternating cover while leaving a broad central crossing.',

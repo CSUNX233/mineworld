@@ -1,3 +1,4 @@
+import type { FoundryBossState } from './monsters/FoundryBossController';
 import type { FinalBossState } from './monsters/FinalBossController';
 import type { RunTalentState } from './progression/RunTalents';
 export type Rarity = 'common' | 'magic' | 'rare' | 'epic' | 'legendary';
@@ -110,7 +111,7 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
-  generationVersion?: 1 | 2;
+  generationVersion?: 1 | 2 | 3 | 4;
   layoutKind?: string;
   merchant?: { x: number; z: number };
   connections?: [string, string][];
@@ -173,11 +174,15 @@ export interface FloorProgress {
 }
 
 export interface SaveData {
-  mapGenerationVersion?: 1 | 2;
+  mapGenerationVersion?: 1 | 2 | 3 | 4;
   mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {
+    summonSquad?: import('./summons/types').SummonSnapshot;
+    brokenFoundryPanels?: string[];
+    foundryTrialClaimed?: boolean;
     finalBoss?: FinalBossState;
+    foundryBoss?: FoundryBossState;
     elapsed: number;
     shield: number;
     shieldRechargeElapsed?: number;

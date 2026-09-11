@@ -4,7 +4,12 @@ import {
   RUN_REWARDS,
 } from '../data/runProgression';
 import { XP_PER_POINT } from './MetaProgression';
-import type { EncounterInvestment, RunOutcome, RunState, SettlementRecord } from './types';
+import {
+  BUILD_BRANCH_IDS,
+  MASTERY_ENCOUNTER_REQUIREMENT,
+  MASTERY_USE_REQUIREMENT,
+} from './MetaProgression';
+import type { BuildBranchId, EncounterInvestment, RunOutcome, RunState, SettlementRecord } from './types';
 
 function requiredObjectiveCount(run: RunState): number {
   const completed = new Set(run.completedObjectives);
@@ -58,6 +63,16 @@ export interface SettlementCalculation {
   record: SettlementRecord;
   researchXp: number;
   pointsEarned: number;
+}
+
+export function masteredBranchesForRun(run: RunState, outcome: RunOutcome): BuildBranchId[] {
+  if (outcome !== 'victory') return [];
+  return BUILD_BRANCH_IDS.filter((branchId) => {
+    const usage = run.buildUsage?.[branchId];
+    return !!usage
+      && usage.uses >= MASTERY_USE_REQUIREMENT
+      && new Set(usage.encounterKeys).size >= MASTERY_ENCOUNTER_REQUIREMENT;
+  });
 }
 
 export function settleRun(
@@ -114,6 +129,7 @@ export function settleRun(
       investments,
       maxLevel: run.maxLevel,
       upgradeCount: run.upgradeCount,
+      masteredBranches: masteredBranchesForRun(run, outcome),
     },
   };
 }

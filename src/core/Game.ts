@@ -1,3 +1,7 @@
+import { preloadChapterTextures } from '../world/ChapterTextures';
+import { FoundryBossController } from '../monsters/FoundryBossController';
+import { prepareFoundryPanels, foundryPanels } from '../world/FoundryPanels';
+import { FoundryPractice } from '../world/FoundryPractice';
 import { AimGuide } from '../ui/AimGuide';
 import { SoftAim } from '../combat/SoftAim';
 import { buildControlsGuide } from '../ui/ControlsGuide';
@@ -7,6 +11,7 @@ import { roomCenter } from '../world/RoomGeometry';
 import { FinalBossController } from '../monsters/FinalBossController';
 import { deriveFireModifiers, createBurn, consumeBurn, type FireModifiers } from '../combat/FireBuild';
 import { createRunTalents, talentBudget, spentTalentPoints, canUnlockTalent, unlockRunTalent, resetRunTalents, resetTalentCost, talentStats, type RunTalentState } from '../progression/RunTalents';
+import { RUN_TALENT_BY_ID } from '../data/runTalents';
 import { buildRunTalentPanel } from '../ui/RunTalentPanel';
 import { findEncounterRoomPosition } from '../world/EncounterBarriers';
 import * as THREE from 'three';
@@ -25,7 +30,11 @@ import { Monster } from '../monsters/Monster';
 import { MonsterAI } from '../monsters/MonsterAI';
 import { encounterById } from '../data/encounters';
 import { MonsterSpawner } from '../monsters/MonsterSpawner';
-import { SummonedSkeleton } from '../monsters/SummonedSkeleton';
+import { SummonSystem } from '../summons/SummonSystem';
+import type { SummonConfig } from '../summons/types';
+import { deriveP4Modifiers } from '../combat/P4Build';
+import { P4SkillRuntime, type P4SkillEvent } from '../combat/P4SkillRuntime';
+import { SummonCommandBar } from '../ui/SummonCommandBar';
 import { BossController, type BossHost } from '../monsters/BossController';
 import { generateFloor } from '../world/FloorGenerator';
 import { World } from '../world/World';
@@ -59,7 +68,7 @@ import { EncounterDirector } from './EncounterDirector';
 import { ROOM_LABELS } from '../data/rooms';
 import { stepProjectile, type Projectile } from '../combat/ProjectileSystem';
 import { RunManager } from './RunManager';
-import { archetypeAllowed, unlockNode } from '../progression/MetaProgression';
+import { archetypeAllowed, unlockNode, setRewardPreference } from '../progression/MetaProgression';
 import { canExtract, extractionResearchXp, hasVictoryObjectives } from '../progression/Settlement';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import type { ArchetypeId, RunOutcome, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
@@ -112,14 +121,19 @@ export class Game {
   private audio = new AudioManager();
   private effects: Effects;
   private bossController: BossController;
+  private foundryBossController = new FoundryBossController(this.scene);
   private finalBossController = new FinalBossController(this.scene);
   private encounterMechanics = new EncounterMechanics();
   private readonly mechanicHost = {
+    breakPanel: (x: number, z: number) => { const broken = this.world.breakPanel(x, z); if (broken) this.minimap.invalidate(); return broken; },
     addWorldObject: (object: THREE.Object3D) => { this.scene.add(object); },
     removeWorldObject: (object: THREE.Object3D) => { this.scene.remove(object); },
-    damagePlayer: (amount: number, cause: 'controller_zone') => this.damagePlayerWithElement(amount, 'shadow', 0, cause),
+    damagePlayer: (amount: number, cause: 'controller_zone' | 'foundry_steam' | 'foundry_beam' | 'foundry_charge' | 'foundry_low_wave') => this.damagePlayerWithElement(amount, cause === 'foundry_steam' ? 'fire' : cause === 'foundry_charge' || cause === 'foundry_low_wave' ? 'physical' : 'shadow', 0, cause),
   };
   private world: World;
+  private foundryTrialClaimed = false;
+  private trialActivationRequested = false;
+  private foundryPractice = new FoundryPractice();
   private player = new Player();
   private firstPersonView: FirstPersonViewModel;
   private controller: PlayerController;
@@ -145,7 +159,51 @@ export class Game {
   private currentFloorSeed = this.seed;
   private floorData: ReturnType<typeof generateFloor> | null = null;
   private monsters: Monster[] = [];
-  private summons: SummonedSkeleton[] = [];
+  private summonSystem = new SummonSystem(this.scene);
+  private p4Skills = new P4SkillRuntime({
+    modifiers: () => deriveP4Modifiers(this.runTalents),
+    floor: () => this.floorData,
+    playerPosition: () => this.player.position,
+    aimDirection: () => this.controller.getAimDirection(),
+    attack: () => this.effectiveStats().attack,
+    maxHealth: () => this.player.maxHealth,
+    monsters: () => this.monsters,
+    damage: (target, amount, element, id) => {
+      if (!this.running || !this.player.alive || target.dead) return;
+      const stats = this.effectiveStats();
+      const direct = id === 'guard_counter' || id === 'seismic_slam' || id === 'ember_blade';
+      const result = CombatSystem.rollDamage(amount, stats.critChance, stats.critDamage,
+        target.def.armor, this.floor, element, target.def.resistances, target.statuses);
+      this.applyMonsterDamage(target, result.damage, result.crit, direct ? .8 : .25,
+        direct ? this.player.position : undefined, element, direct);
+    },
+    ignite: (target, amount) => {
+      if (target.dead || target.def.immunities?.includes('burning')) return;
+      if (this.fireModifiers.enabled) this.igniteMonster(target, amount, this.fireModifiers);
+      else applyStatus(target, makeActorStatus('burning', amount, 'fire'));
+    },
+    hasBurn: target => target.statuses.some(status => status.type === 'burning' && status.duration > 0),
+    consumeBurn: target => {
+      const index = target.statuses.findIndex(status => status.type === 'burning' && status.duration > 0);
+      if (index < 0) return 0;
+      const [burn] = target.statuses.splice(index, 1);
+      return burn.damagePerTick * burn.duration;
+    },
+    shield: amount => this.addP4Shield(amount),
+    mana: amount => { this.player.mana = Math.min(this.player.maxMana, this.player.mana + amount); },
+    raiseCompany: () => {
+      if (!this.floorData) return false;
+      const result = this.summonSystem.raise(this.floorData, this.player, this.summonConfig());
+      if (!result.ok) this.hud.showCenterMessage('无法补编', result.message, 1.5);
+      return result.ok;
+    },
+    sacrificeSummon: () => {
+      const unit = this.summonSystem.sacrifice()[0];
+      return unit ? { position: unit.position, role: unit.role as 'warrior' | 'guardian' | 'archer' } : null;
+    },
+    emit: event => this.showP4Effect(event),
+  });
+  private summonCommands: SummonCommandBar | null = null;
   private projectiles: Projectile[] = [];
   private drops: DropEntity[] = [];
   private openedChests = new Set<string>();
@@ -518,6 +576,11 @@ export class Game {
       start: (archetype) => this.startArchetype(archetype),
       resume: () => this.resumeActiveRun(),
       unlock: (id) => this.unlockArchetype(id),
+      setPreference: (id) => {
+        try {
+          this.commitEnvelope(setRewardPreference(envelope, id), () => this.showCamp('奖励偏好已更新，下次出发时生效。'));
+        } catch (error) { this.showCamp(error instanceof Error ? error.message : '无法更改偏好。'); }
+      },
       back: () => this.showSaveSlotMenu(),
       exportLegacy: () => this.exportLegacyArchive(),
       abandon: () => this.finishRun('abandoned'),
@@ -732,6 +795,8 @@ export class Game {
 
   private startNewGame(archetype: ArchetypeId): void {
     this.runTalents = createRunTalents();
+    this.runTalents = unlockRunTalent(this.runTalents,
+      archetype === 'vanguard' ? 'melee_seed' : archetype === 'summoner' ? 'summon_seed' : 'fire_seed', 1);
     this.fireModifiers = deriveFireModifiers(this.runTalents);
     this.skillCooldowns = {};
     this.skills = [];
@@ -750,7 +815,10 @@ export class Game {
     this.shopStock = [];
     this.shopFloor = 0;
     this.shopRefreshes = this.shopGambles = this.shopHeals = 0;
-    this.skillLoadout = [...DEFAULT_SKILL_LOADOUT];
+    this.equipment.equipment = { weapon: starterWeapon(archetype) };
+    this.skillLoadout = archetype === 'vanguard' ? ['whirlwind', 'dash', 'guard_counter', 'seismic_slam']
+      : archetype === 'summoner' ? ['raise_company', 'soul_burst', 'dash', 'fireball']
+      : ['fireball', 'flame_rift', 'dash'];
     this.skills = this.buildSkillStates();
     this.kills = 0;
     this.bonusAttributes = talentStats(this.runTalents);
@@ -905,10 +973,12 @@ export class Game {
     try {
     await loading.step(5, '准备关卡');
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
-    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 2;
+    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 4;
     const data = generateFloor(this.currentFloorSeed, this.floor, generationVersion);
     data.generationVersion = generationVersion;
     this.floorData = data;
+    this.foundryTrialClaimed = resume?.runtime?.foundryTrialClaimed ?? false;
+    this.trialActivationRequested = false;
     this.playtestRecorder.record('floor_entered', {
       floor: this.floor,
       floorSeed: data.seed,
@@ -920,7 +990,10 @@ export class Game {
     });
     this.encounters = new EncounterDirector(data, resume?.floorProgress);
     this.hudTimer = 0;
+    await loading.step(25, '加载章节材质');
+    await preloadChapterTextures(this.floor);
     await loading.step(30, '构建场景');
+    prepareFoundryPanels(data, resume?.runtime?.brokenFoundryPanels);
     this.world.generate(data);
     await loading.step(65, '安置角色与遭遇');
     this.audio.startAmbient(data.theme.id);
@@ -939,6 +1012,7 @@ export class Game {
     this.openedChests.clear();
     this.portalActive = false;
     this.clearEntities();
+    this.foundryPractice.setup(data, this.scene);
     if (resume?.floorProgress && savedMonsters) {
       this.restoreMonsters(savedMonsters);
       const resumedRooms = new Map<string, number>();
@@ -970,9 +1044,11 @@ export class Game {
       this.controller.resetView(data);
     }
     if (resume?.floorProgress) this.restoreEncounterBoundary();
+    if (resume?.runtime?.foundryBoss && this.monsters.some(monster => monster.def.id === 'furnace_regent')) this.foundryBossController.restore(resume.runtime.foundryBoss);
     if (resume?.runtime?.finalBoss && this.monsters.some(monster => monster.def.id === 'ruins_warden')) this.finalBossController.restore(resume.runtime.finalBoss);
     this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     this.world.setPortalActive(this.portalActive);
+    if (resume?.runtime?.summonSquad) this.summonSystem.restore(resume.runtime.summonSquad, data, this.player, this.summonConfig());
     await loading.step(85, '准备画面');
     await this.renderer.compileAsync(this.scene, this.camera);
     this.renderer.render(this.scene, this.camera);
@@ -1022,7 +1098,8 @@ export class Game {
       this.finishRun('victory');
       return true;
     }
-    const room = this.encounters.enter(this.player.position.x, this.player.position.z);
+    const room = this.encounters.enter(this.player.position.x, this.player.position.z, this.trialActivationRequested);
+    this.trialActivationRequested = false;
     if (room) {
       const wave = MonsterSpawner.spawnEncounter(this.floorData, room, this.player.position,
         new RNG(this.currentFloorSeed ^ Number(room.id!.split('-')[1]) * 7919));
@@ -1044,11 +1121,11 @@ export class Game {
     const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
     if (room || completedRooms.length) this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     for (const cleared of completedRooms) {
-      const rewardGold = cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
+      const rewardGold = cleared.template === 'overload-trial' ? 0 : cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
       this.changeGold(rewardGold, 'encounter_reward', { encounterId: cleared.id ?? 'unknown', kind: cleared.kind ?? 'unknown' });
       this.player.heal(this.player.maxHealth * 0.08);
       if (cleared.kind === 'elite') {
-        const item = ItemGenerator.generate(this.floor, new RNG(this.currentFloorSeed ^ Number(cleared.id!.split('-')[1]) * 31337), this.player.level, 'rare');
+        const item = ItemGenerator.generate(this.floor, new RNG(this.currentFloorSeed ^ Number(cleared.id!.split('-')[1]) * 31337), this.player.level, 'rare', undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference, this.floor === 1);
         if (this.inventory.add(item)) this.recordItemAcquired(item, 'elite_encounter_reward');
         else this.spawnDrop(this.player.position, { kind: 'item', item });
       }
@@ -1063,7 +1140,7 @@ export class Game {
       if (cleared.required && cleared.id && this.envelope?.activeRun) {
         RunManager.completeObjective(this.envelope.activeRun, `${this.floor}-${cleared.id}`, this.investmentSample());
       }
-      this.hud.showCenterMessage('房间已清理', cleared.required ? '屏障已解除 · 主线推进' : '屏障已解除 · 获得额外金币与奖励', 1.4);
+      this.hud.showCenterMessage('房间已清理', cleared.template === 'overload-trial' ? '屏障已解除 · 到金色装置选择奖励' : cleared.required ? '屏障已解除 · 主线推进' : '屏障已解除 · 获得额外金币与奖励', 1.4);
     }
     if (this.floor === BASIC_RUN_DEFINITION.floorCount && this.envelope?.activeRun && hasVictoryObjectives(this.envelope.activeRun)) {
       this.finishRun('victory');
@@ -1133,11 +1210,14 @@ export class Game {
   }
 
   private clearEntities(): void {
+    this.foundryPractice.clear();
     this.bossController.clearWarnings();
+    this.foundryBossController.clear();
     this.finalBossController.clear();
     this.encounterMechanics.clear(this.mechanicHost);
-    this.summons.forEach((summon) => summon.dispose(this.scene));
-    this.summons = [];
+    this.summonSystem.clear();
+    this.p4Skills.clear();
+    this.summonCommands?.hide();
     this.monsters.forEach((monster) => this.disposeObject(monster.group));
     this.monsters = [];
     this.projectiles.forEach((projectile) => {
@@ -1191,6 +1271,8 @@ export class Game {
     }
     const dt = Math.min(0.05, (now - this.lastTime) / 1000);
     this.lastTime = now;
+    if (!this.running || this.isGameplayPaused() || !this.player.alive) this.summonCommands?.hide();
+    if (!this.player.alive && this.summonSystem.count) this.summonSystem.clear('owner-death');
     if (this.running) this.updateGame(dt);
     this.updateAimIndicator();
     this.renderer.render(this.scene, this.camera);
@@ -1286,12 +1368,15 @@ export class Game {
       if (this.isGameplayPaused()) return;
       this.updateDrops(dt, stats);
       this.updateSkills(rawDt);
+      this.p4Skills.update(dt);
+      if (this.isGameplayPaused()) return;
       this.updateSummons(dt);
     } else if (this.player.alive) {
       this.updateSkills(rawDt);
     }
 
     this.world.update(rawDt, this.elapsed);
+    this.foundryPractice.update(dt, this.player.position, (title, text) => this.hud.showCenterMessage(title, text, 3));
     this.effects.update(rawDt);
     this.hud.update(rawDt);
     this.updateCombo(rawDt);
@@ -1299,6 +1384,7 @@ export class Game {
     if (this.hudTimer <= 0) {
       this.hudTimer = 0.1;
       this.hud.setState(this.hudState());
+      this.hud.setBuildState(this.p4Skills.status, this.runTalents.unlocked.includes('melee_seed'));
       const skillStates = this.skillHudStates();
       this.hud.updateSkills(skillStates, this.player.mana);
       this.touchControls?.updateSkillStates(skillStates, this.player.mana);
@@ -1364,6 +1450,8 @@ export class Game {
       }
     });
 
+    if (this.input.wasPressed('KeyG')) this.commandSummons(true);
+    if (this.input.wasPressed('KeyH')) this.commandSummons(false);
     if (this.input.wasPressed('KeyE')) {
       this.tryInteract();
     }
@@ -1652,13 +1740,37 @@ export class Game {
     this.mobileBack.register('floorRest', () => this.closeFloorRest());
   }
 
+  private showFoundryReward(): void {
+    const room=this.encounters?.roomAt(this.player.position.x,this.player.position.z);
+    if(room?.template!=='overload-trial'||!this.encounters?.state.cleared.includes(room.id!)||this.foundryTrialClaimed) return;
+    this.removeFloorRestMenu();this.restOpen=true;this.shopOpen=false;this.input.reset();
+    this.player.moving=false;this.player.sprinting=false;
+    if(document.pointerLockElement) document.exitPointerLock();
+    const overlay=document.createElement('div');overlay.className='merchant-overlay';
+    const panel=document.createElement('div');panel.className='panel merchant-panel mobile-scroll sunlit-rest-panel';
+    const title=document.createElement('h2');title.textContent='过载试炼完成 · 选择一项奖励';panel.appendChild(title);
+    const claim=(materials:boolean)=>{
+      if(this.foundryTrialClaimed) return;
+      this.foundryTrialClaimed=true;
+      if(materials) this.addMaterials([{materialId:'iron',amount:4},{materialId:'silver',amount:1}]);
+      else this.changeGold(10+this.floor*2,'foundry_trial_reward');
+      this.closeFloorRest();this.saveGame();
+    };
+    for(const [label,action] of [[`领取 ${10+this.floor*2} 金币`,()=>claim(false)],['领取铁块 ×4、银锭 ×1',()=>claim(true)],['稍后再选',()=>this.closeFloorRest()]] as const) {
+      const button=this.makeMenuButton(label);button.onclick=action;panel.appendChild(button);
+    }
+    overlay.appendChild(panel);this.uiRoot.appendChild(overlay);this.floorRestOverlay=overlay;
+    this.addPanelCloseButton(panel,()=>this.closeFloorRest());this.bindOverlayMaskClose(overlay,()=>this.closeFloorRest());
+    this.mobileBack.register('floorRest',()=>this.closeFloorRest());
+  }
+
   private showShopMenu(message = ''): void {
     if (!this.floorData?.merchant) return;
     const selling = this.floorRestOverlay?.querySelectorAll('[role="tab"]')[1]?.getAttribute('aria-selected') === 'true';
     const scrollTop = this.floorRestOverlay?.querySelector('.merchant-panel')?.scrollTop ?? 0;
     if (this.shopFloor !== this.floor) {
       this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, 4,
-        new RNG((this.seed ^ (this.floor * 4099)) >>> 0));
+        new RNG((this.seed ^ (this.floor * 4099)) >>> 0), this.envelope?.activeRun?.rewardPreference);
       this.shopFloor = this.floor;
       this.shopRefreshes = this.shopGambles = this.shopHeals = 0;
       this.saveGame();
@@ -1701,7 +1813,7 @@ export class Game {
     this.playtestRecorder.record('shop_transaction', { action: 'refresh', goldAmount: -price, floor: this.floor });
     this.shopRefreshes++;
     this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, 4,
-      new RNG((this.seed ^ (this.floor * 4099) ^ (this.shopRefreshes * 65537)) >>> 0));
+      new RNG((this.seed ^ (this.floor * 4099) ^ (this.shopRefreshes * 65537)) >>> 0), this.envelope?.activeRun?.rewardPreference);
     this.saveGame();
     this.showShopMenu('货架已换新；委托与补给次数保持不变');
   }
@@ -1711,7 +1823,7 @@ export class Game {
     if (!this.shopOpen || this.shopGambles >= 3 || this.gold < price || !this.inventory.hasSpace()
       || !SHOP_SLOTS.some(option => option.slot === slot)) return;
     const item = ShopSystem.gamble(this.floor, this.player.level, slot,
-      new RNG((this.seed ^ (this.floor * 8191) ^ ((this.shopGambles + 1) * 104729)) >>> 0));
+      new RNG((this.seed ^ (this.floor * 8191) ^ ((this.shopGambles + 1) * 104729)) >>> 0), this.envelope?.activeRun?.rewardPreference);
     this.inventory.add(item);
     this.recordItemAcquired(item, 'shop_gamble');
     this.changeGold(-price, 'shop_gamble', { itemId: item.id, itemName: item.name, slot });
@@ -1918,7 +2030,7 @@ export class Game {
       skillName.appendChild(key);
       const description = document.createElement('div');
       description.className = 'sunlit-skill-description';
-      description.textContent = `${skill.description} · ${cooldown.toFixed(1)}s · 法力 ${manaCost}`;
+      description.textContent = `${skill.description} · ${cooldown.toFixed(1)}s · 法力 ${manaCost}${!unlocked && skill.talentId ? ' · 解锁：' + (RUN_TALENT_BY_ID.get(skill.talentId)?.name ?? '对应装备套装') : ''}`;
       info.append(skillName, description);
       row.appendChild(info);
 
@@ -2033,7 +2145,7 @@ export class Game {
       this.applyPlayerElementalHit(target, element, stats.attack * falloff, statusChance);
     });
 
-    if (targets.length > 0) this.triggerBasicAttackEffects(targets[0], stats);
+    if (targets.length > 0) { this.p4Skills.basicHit(); this.triggerBasicAttackEffects(targets[0], stats); }
   }
 
   private triggerBasicAttackEffects(target: Monster, stats: DerivedStats): void {
@@ -2191,12 +2303,38 @@ export class Game {
     skill.cooldownRemaining = skill.cooldown;
     this.skillCooldowns[skill.id] = skill.cooldown;
     this.player.mana -= skill.manaCost;
+    if (this.p4Skills.handles(skill.id)) {
+      const cast = this.p4Skills.cast(skill.id);
+      if (!cast.success) {
+        this.player.mana = Math.min(this.player.maxMana, this.player.mana + skill.manaCost);
+        skill.cooldownRemaining = 0;
+        this.skillCooldowns[skill.id] = 0;
+        if (cast.reason !== 'summon-rejected') this.hud.showCenterMessage('无法施放',
+          cast.reason === 'no-summon' ? '先召唤编队，再选择献祭时机' : '朝向近处可见的敌人', 1.5);
+        return;
+      }
+    }
+    this.recordBuildSkillUse(skill.id);
     if (skill.id === 'whirlwind') this.useWhirlwind(stats, skill);
     if (skill.id === 'dash') this.useDash(stats, skill);
     if (skill.id === 'fireball') this.useFireball(stats, skill);
     if (skill.id === 'frost_nova') this.useFrostNova(stats, skill);
     if (skill.id === 'lightning_chain') this.useLightningChain(stats, skill);
     if (skill.id === 'detonate') this.useDetonate();
+  }
+
+  private recordBuildSkillUse(id: string): void {
+    const run = this.envelope?.activeRun;
+    const room = this.encounters?.roomAt(this.player.position.x, this.player.position.z);
+    if (!run || !room?.id || !this.encounters?.lockedRoomIds.includes(room.id)) return;
+    const branches: string[] = [];
+    if (['whirlwind', 'guard_counter', 'seismic_slam', 'ember_blade'].includes(id))
+      branches.push('melee_cleave', 'melee_guard');
+    if (['raise_company', 'soul_burst'].includes(id)) branches.push('summon_legion', 'summon_elite');
+    if (['fireball', 'detonate', 'flame_rift', 'ember_blade'].includes(id))
+      branches.push('spreading_flame', 'consuming_flame');
+    for (const branch of branches) if (this.runTalents.unlocked.includes(branch))
+      RunManager.recordBuildUse(run, branch, `${this.floor}:${room.id}`);
   }
 
   private useWhirlwind(stats: DerivedStats, skill: SkillState): void {
@@ -2421,11 +2559,12 @@ export class Game {
       const wasAliveBeforeUpdate = !monster.dead;
       if (monster.def.behavior === 'boss') {
         const host: BossHost = {
-          damagePlayer: (amount, element, statusChance) => this.damagePlayerWithElement(amount, element, statusChance, 'boss_skill'),
+          damagePlayer: (amount, element, statusChance) => this.damagePlayerWithElement(amount, element, statusChance, 'boss_skill', monster),
           summonMinion: (position) => this.spawnBossMinion(position),
           showMessage: (title, subtitle) => this.hud.showCenterMessage(title, subtitle, 1.8),
         };
-        if (monster.def.id === 'ruins_warden') this.finalBossController.update(dt, monster, this.player, this.floorData, {
+        if (monster.def.id === 'furnace_regent') this.foundryBossController.update(dt, monster, this.player, this.floorData, host, MonsterSpawner.baseAttack(monster, this.floor));
+        else if (monster.def.id === 'ruins_warden') this.finalBossController.update(dt, monster, this.player, this.floorData, {
           ...host,
           livingMinions: () => this.monsters.filter(other => !other.dead && other.roomId === monster.roomId && other !== monster).length,
         }, MonsterSpawner.baseAttack(monster, this.floor));
@@ -2455,7 +2594,7 @@ export class Game {
       if (monster.dead || this.encounterMechanics.handles(monster)) continue;
       if (MonsterAI.shouldDealMelee(monster) && distance <= monster.def.attackRange + 0.5) {
         const damage = Math.max(1, MonsterSpawner.baseAttack(monster, this.floor));
-        this.damagePlayerWithElement(damage, monster.def.element ?? 'physical', monster.def.statusChance, 'monster_melee');
+        this.damagePlayerWithElement(damage, monster.def.element ?? 'physical', monster.def.statusChance, 'monster_melee', monster);
         if (this.isGameplayPaused()) return;
         monster.attackCooldown = monster.def.attackCooldown;
         monster.state = 'chase';
@@ -2514,13 +2653,14 @@ export class Game {
     this.audio.shoot();
   }
 
-  private damagePlayerWithElement(amount: number, element: ElementType, statusChance?: number, cause = 'unknown'): void {
+  private damagePlayerWithElement(amount: number, element: ElementType, statusChance?: number, cause = 'unknown', source?: Monster): void {
     if (!this.running || !this.player.alive) return;
     if (this.player.invulnerable > 0) {
       this.player.interruptShieldRecovery();
       return;
     }
-    const damage = Math.max(1, Math.round(amount));
+    const damage = Math.max(1, Math.round(this.p4Skills.interceptDamage(amount, source)));
+    if (!this.running || !this.player.alive) return;
     const wasAlive = this.player.alive;
     this.player.takeDamage(damage);
     if (this.player.lastHitDodged) {
@@ -2542,7 +2682,7 @@ export class Game {
     const room = this.floorData.rooms.find(candidate => candidate.id === boss?.roomId);
     const spawnPosition = room ? findEncounterRoomPosition(this.floorData, room, position.x, position.z) : position;
     if (!spawnPosition) return;
-    const minion = MonsterSpawner.spawnMinionAt(this.floorData, spawnPosition, rng);
+    const minion = MonsterSpawner.spawnMinionAt(this.floorData, spawnPosition, rng, boss?.def.id === 'furnace_regent');
     if (!minion) return;
     minion.maxHealth = Math.round(minion.maxHealth * 0.7);
     minion.health = minion.maxHealth;
@@ -2636,6 +2776,7 @@ export class Game {
     if (monster.dead) return;
     if (this.equipment.hasSpecial('executeFullHealth') && this.player.health >= this.player.maxHealth) damage *= 1.25;
     if (directSource) damage = this.encounterMechanics.onDirectHit(monster, directSource, damage);
+    if (monster.def.id === 'furnace_regent') damage *= this.foundryBossController.damageMultiplier;
     if (monster.def.id === 'ruins_warden') damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
     damage = Math.max(1, Math.round(damage));
     const actualDamage = Math.min(monster.health, damage);
@@ -2657,6 +2798,13 @@ export class Game {
   }
 
   private onMonsterKilled(monster: Monster, crit: boolean): void {
+    if (monster.def.id === 'furnace_regent') {
+      this.foundryBossController.clear();
+      // End the encounter immediately; cleanup is not an extra rewarded kill.
+      for (const other of this.monsters) if(other!==monster&&other.roomId===monster.roomId&&!other.dead) {
+        other.dead=true;other.health=0;other.state='death';other.velocity.set(0,0,0);
+      }
+    }
     if (monster.def.id === 'ruins_warden') this.finalBossController.clear();
     else if (monster.def.behavior === 'boss') this.bossController.clearWarnings();
     this.kills++;
@@ -2678,7 +2826,7 @@ export class Game {
     }
 
     const summonCap = this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0;
-    if (this.summons.length < summonCap) {
+    if (summonCap > 0 && this.summonSystem.capacityUsed < this.summonConfig().capacity!) {
       this.spawnSummonedSkeleton(monster.position.clone());
     }
 
@@ -2697,7 +2845,7 @@ export class Game {
       if (Math.random() < 0.4) {
         this.spawnDrop(monster.position, {
           kind: 'item',
-          item: ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck),
+          item: ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference),
         });
       }
     }
@@ -2714,43 +2862,74 @@ export class Game {
       this.effectiveStats().luck,
       monster.def.behavior === 'boss',
       this.player.level,
+      this.envelope?.activeRun?.rewardPreference,
     );
     drops.forEach((drop) => this.spawnDrop(monster.position, drop));
   }
 
-  private spawnSummonedSkeleton(position: THREE.Vector3): void {
-    const summon = new SummonedSkeleton(
-      this.scene,
-      position.x + (Math.random() - 0.5) * 0.5,
-      position.z + (Math.random() - 0.5) * 0.5,
-    );
-    this.summons.push(summon);
-    this.effects.burst(position.clone().add(new THREE.Vector3(0, 0.8, 0)), 0xe8e4d6, 12, 2.4);
+  private addP4Shield(amount: number): void {
+    this.player.grantShield(amount, this.player.maxHealth * .25);
+  }
+
+  private showP4Effect(event: P4SkillEvent): void {
+    const position = new THREE.Vector3(event.position.x, event.position.y + .15, event.position.z);
+    if (event.kind === 'flame-rift-start' || event.kind === 'flame-rift-tick' || event.kind === 'seismic-slam') {
+      const direction = new THREE.Vector3(event.direction.x, 0, event.direction.z);
+      const length = this.floorData ? Math.min(6, worldRayDistance(this.floorData,
+        position.clone().setY(1), direction, 6)) : 6;
+      for (let step = .5; step < length; step += 1.1)
+        this.effects.burst(position.clone().addScaledVector(direction, step),
+          event.kind === 'seismic-slam' ? 0xd5bb83 : 0xff6629, 3, .5);
+      if (event.kind === 'seismic-slam') this.controller.addShake(.11);
+    } else if (event.kind === 'ember-blade') {
+      this.effects.meleeSlash(position, new THREE.Vector3(event.direction.x, 0, event.direction.z), 0xff743c, 1.25);
+      this.controller.addShake(.08);
+    } else {
+      this.effects.burst(position, event.kind === 'soul-burst' ? 0x9dcc9f : 0xc2dbde, 10, 1.4);
+      if (event.kind === 'guard-counter') this.controller.addShake(.09);
+    }
+  }
+
+  private summonConfig(): SummonConfig {
+    const stats = this.effectiveStats();
+    const mods = deriveP4Modifiers(this.runTalents);
+    return { attack: stats.attack * mods.damageMultiplier, maxHealth: stats.maxHealth,
+      capacity: Math.max(mods.capacity, this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0),
+      direction: mods.summonDirection === 'elite' ? 'elite' : 'legion',
+      guardianShield: stats.maxHealth * .04 * mods.summonGuardMultiplier };
+  }
+
+  private spawnSummonedSkeleton(_position: THREE.Vector3): void {
+    if (this.floorData) this.summonSystem.raiseTemporary(this.floorData, this.player, this.summonConfig(),
+      { source: 'equipment-kill', life: 8 });
+  }
+
+  private commandSummons(focus: boolean): void {
+    if (this.isGameplayPaused() || !this.player.alive) return;
+    if (!focus) { this.summonSystem.recall(); return; }
+    const target = this.getTargetsInFront(this.controller.getAimDirection(), 16, 1.4)[0];
+    if (!target) { this.hud.showCenterMessage('没有集火目标', '朝向视线内的敌人后再次下令', 1.5); return; }
+    this.summonSystem.focus(target);
   }
 
   private updateSummons(dt: number): void {
-    for (let i = this.summons.length - 1; i >= 0; i--) {
-      const summon = this.summons[i];
-      const target = summon.update(dt, this.monsters, this.player, this.elapsed);
-      if (target && !target.dead) {
+    if (!this.floorData) return;
+    this.summonSystem.update(dt, this.floorData, this.player, this.monsters, this.summonConfig(), {
+      damage: (target, amount) => {
         const stats = this.effectiveStats();
-        const result = CombatSystem.rollDamage(
-          stats.attack * 0.55,
-          stats.critChance,
-          stats.critDamage,
-          target.def.armor,
-          this.floor,
-          'physical',
-          target.def.resistances,
-          target.statuses,
-        );
-        this.applyMonsterDamage(target, result.damage, result.crit, 0.6, undefined, 'physical', false);
-      }
-      if (summon.life <= 0) {
-        summon.dispose(this.scene);
-        this.summons.splice(i, 1);
-      }
-    }
+        const hit = CombatSystem.rollDamage(amount, stats.critChance, stats.critDamage,
+          target.def.armor, this.floor, 'physical', target.def.resistances, target.statuses);
+        this.applyMonsterDamage(target, hit.damage, hit.crit, .4, undefined, 'physical', false);
+      },
+      shield: amount => this.addP4Shield(amount),
+      effect: effect => {
+        if (effect.kind === 'coordinated-shot' || effect.kind === 'guardian-shield')
+          this.effects.burst(effect.position, effect.kind === 'guardian-shield' ? 0xbadfe0 : 0xd9b576, 6, 1);
+      },
+    });
+    if (!this.summonCommands) this.summonCommands = new SummonCommandBar(this.uiRoot,
+      () => this.commandSummons(true), () => this.commandSummons(false));
+    this.summonCommands.update(this.summonSystem.status, this.runTalents.unlocked.includes('summon_seed'));
   }
 
   private addXp(amount: number): void {
@@ -2880,6 +3059,11 @@ export class Game {
       if (distance <= 2) candidates.push({ label: '进入商店', distance });
     }
     const room = this.encounters?.roomAt(p.x,p.z);
+    if (room?.template === 'overload-trial' && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
+      const cleared=this.encounters!.state.cleared.includes(room.id!);
+      const started=this.encounters!.state.started.includes(room.id!);
+      if (!started || (cleared && !this.foundryTrialClaimed)) candidates.push({label:cleared?'选择试炼奖励':'启动过载试炼',distance:Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)});
+    }
     if (room?.kind === 'sanctuary' && !this.encounters!.state.usedSanctuaries.includes(room.id!)
       && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
       candidates.push({ label: '圣所恢复', distance: Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z) });
@@ -2901,6 +3085,13 @@ export class Game {
   private tryInteract(): boolean {
     if (!this.floorData || this.isGameplayPaused() || !this.player.alive) return false;
     const label = this.interactionLabel();
+    if (label === '启动过载试炼') {
+      this.trialActivationRequested=true;
+      this.updateEncounters();
+      this.saveGame();
+      return true;
+    }
+    if (label === '选择试炼奖励') { this.showFoundryReward(); return true; }
     if (label === '进入商店') {
       this.showShopMenu();
       return true;
@@ -2939,7 +3130,7 @@ export class Game {
         this.openedChests.add(key);
         this.reforgeTickets++;
         this.world.removeChest(chest.x, chest.z);
-        const item = ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck);
+        const item = ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference);
         const gold = 10 + this.floor * 3;
         this.changeGold(gold, 'chest', { chest: key });
         if (this.inventory.add(item)) {
@@ -2987,6 +3178,9 @@ export class Game {
     const record = candidate.pendingSettlement;
     if (!record) return;
     this.running = false;
+    this.summonSystem.clear();
+    this.p4Skills.clear();
+    this.summonCommands?.hide();
     this.paused = true;
     this.input.reset();
     this.attackBuffer = 0;
@@ -3061,9 +3255,9 @@ export class Game {
     const origin = this.controller.getProjectileOrigin();
     const weapon = this.equipment.get('weapon');
     const aimingSkill = this.controller.isTouchAiming ? this.skills.find(skill => skill.key === this.touchAimSkill) : undefined;
-    const ranged = aimingSkill?.id === 'fireball' || this.isStaffWeapon(weapon);
-    const aim = ranged ? this.controller.getProjectileDirection(this.monsters) : this.basicAimDirection();
-    const skillRanges: Record<string, number> = { fireball: 10, dash: 3.9, whirlwind: 4.4, frost_nova: 5, lightning_chain: 8 };
+    const ranged = aimingSkill ? aimingSkill.id === 'fireball' : this.isStaffWeapon(weapon);
+    const aim = ranged ? this.controller.getProjectileDirection(this.monsters) : aimingSkill ? this.controller.getAimDirection() : this.basicAimDirection();
+    const skillRanges: Record<string, number> = { fireball: 10, dash: 3.9, whirlwind: 4.4, frost_nova: 5, lightning_chain: 8, detonate: 8, guard_counter: 4, seismic_slam: 6, flame_rift: 6, ember_blade: 3.1, raise_company: 1.5, soul_burst: 1.5 };
     const range = aimingSkill ? skillRanges[aimingSkill.id] ?? 8 : ranged ? 10 : this.getMeleeProfile(weapon).range;
     const distance = this.floorData ? worldRayDistance(this.floorData, origin, aim, range) : range;
     if (this.controller.isTouchAiming) this.aimGuide.show(this.player.position, aim, distance);
@@ -3252,7 +3446,7 @@ export class Game {
       states.push({
         id: def.id,
         name: def.name,
-        key: def.key,
+        key: `Digit${states.length + 1}`,
         baseCooldown: def.cooldown * (def.id === 'fireball' ? this.fireModifiers.fireballCooldownMultiplier : 1),
         cooldown: def.cooldown * (def.id === 'fireball' ? this.fireModifiers.fireballCooldownMultiplier : 1),
         cooldownRemaining: this.skillCooldowns[def.id] ?? 0,
@@ -3271,7 +3465,7 @@ export class Game {
     if (!def.talentId) return true;
     if (id === 'frost_nova') return this.equipment.hasSpecial('glacialNova');
     if (id === 'lightning_chain') return this.equipment.hasSpecial('shockMastery');
-    return def.id === 'detonate' && this.runTalents.unlocked.includes('consuming_flame');
+    return this.runTalents.unlocked.includes(def.talentId);
   }
 
   private equipFromInventory(index: number): void {
@@ -3678,6 +3872,10 @@ export class Game {
       shopHeals: this.shopHeals,
       playerStatuses: this.player.statuses,
       runtime: {
+        summonSquad: this.summonSystem.snapshot(),
+        brokenFoundryPanels: this.floorData ? foundryPanels(this.floorData).filter(p => p.broken).map(p => p.id) : [],
+        foundryTrialClaimed: this.foundryTrialClaimed,
+        foundryBoss: this.monsters.some(monster => monster.def.id === 'furnace_regent' && !monster.dead) ? this.foundryBossController.snapshot() : undefined,
         finalBoss: this.monsters.some(monster => monster.def.id === 'ruins_warden' && !monster.dead) ? this.finalBossController.snapshot() : undefined,
         elapsed: Math.max(0, this.elapsed),
         shield: Math.max(0, this.player.shield),

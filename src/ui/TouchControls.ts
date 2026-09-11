@@ -177,7 +177,8 @@ export class TouchControls {
     this.enabled = enabled;
     this.root.style.display = this.mobile && enabled ? 'block' : 'none';
     if (this.viewButton) {
-      this.viewButton.textContent = firstPerson ? '一人称' : '三人称';
+      this.viewButton.title = firstPerson ? '当前第一人称 · 切换第三人称' : '当前第三人称 · 切换第一人称';
+      this.viewButton.dataset.view = firstPerson ? 'first' : 'third';
       this.viewButton.setAttribute('aria-label', firstPerson ? '切换第三人称' : '切换第一人称');
     }
     this.interactButton.style.display = interaction ? 'flex' : 'none';
@@ -428,7 +429,8 @@ export class TouchControls {
     row.appendChild(inventory);
     this.utilityButtons.push(inventory);
 
-    const view = this.makeButton('视角', 'touch-button touch-utility');
+    const view = this.makeButton('视角', 'touch-button touch-utility touch-view-art');
+    view.replaceChildren(createUiIcon('view_toggle'));
     this.viewButton = view;
     view.title = '切换人称';
     this.bindTap(view, () => this.callbacks.onViewPress());
@@ -447,6 +449,7 @@ export class TouchControls {
 
   private createPauseButton(): HTMLDivElement {
     const button = this.makeButton('暂停', 'touch-button touch-pause');
+    button.replaceChildren(createUiIcon('pause'));
     button.style.position = 'absolute';
     button.title = '暂停';
     this.bindTap(button, () => this.callbacks.onPausePress());
@@ -544,6 +547,10 @@ export class TouchControls {
     this.pauseButton.style.top = 'max(12px, env(safe-area-inset-top))';
     this.pauseButton.style.width = `${layout.pauseSize}px`;
     this.pauseButton.style.height = `${layout.pauseSize}px`;
+    if (this.viewButton) {
+      this.viewButton.style.width = `${layout.pauseSize}px`;
+      this.viewButton.style.height = `${layout.pauseSize}px`;
+    }
     this.pauseButton.style.fontSize = `${Math.max(18, Math.round(layout.pauseSize * 0.38))}px`;
     this.interactButton.style.left = '50%';
     this.interactButton.style.transform = 'translateX(-50%)';

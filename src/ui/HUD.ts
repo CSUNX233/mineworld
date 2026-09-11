@@ -53,6 +53,7 @@ export class HUD {
   private skillContainer: HTMLDivElement;
   private statusContainer: HTMLDivElement;
   private statusSignature = '';
+  private buildIndicator = document.createElement('div');
   private damageLayer: HTMLDivElement;
   private muteButton: HTMLDivElement;
   private messageTimer = 0;
@@ -91,6 +92,8 @@ export class HUD {
     bars.style.flexDirection = 'column';
     bars.style.gap = '6px';
     this.container.appendChild(bars);
+    this.buildIndicator.style.cssText = 'font-size:11px;color:#f4daa2;text-shadow:1px 1px #14283e;order:20';
+    this.buildIndicator.hidden = true;
 
     const hp = document.createElement('div');
     hp.className = 'bar health-bar';
@@ -161,6 +164,7 @@ export class HUD {
     this.statusContainer.style.flexWrap = 'wrap';
     bars.appendChild(this.statusContainer);
     bars.appendChild(this.objective);
+    bars.appendChild(this.buildIndicator);
 
     this.infoText = document.createElement('div');
     this.infoText.className = 'hud-info';
@@ -289,6 +293,13 @@ export class HUD {
       box.querySelector<HTMLElement>('.sunlit-skill-overlay')!.style.height = `${Math.max(0, Math.min(100, skill.cooldownRemaining / Math.max(.01, skill.cooldown) * 100))}%`;
       box.querySelector<HTMLElement>('.sunlit-skill-timer')!.textContent = cooling ? skill.cooldownRemaining.toFixed(1) : mana < skill.manaCost ? '法力不足' : '';
     });
+  }
+
+  setBuildState(state: { meleeCharges: number; guardRemaining: number }, enabled: boolean): void {
+    this.buildIndicator.hidden = !enabled;
+    this.buildIndicator.textContent = `蓄势 ${state.meleeCharges}/3${state.guardRemaining > 0 ? ' · 反击架势' : ''}`;
+    this.buildIndicator.prepend(createUiIcon('melee_momentum', 'build-state-icon'));
+    if (state.guardRemaining > 0) this.buildIndicator.append(createUiIcon('guard_stance', 'build-state-icon'));
   }
 
   setStatuses(statuses: ActorStatus[]): void {

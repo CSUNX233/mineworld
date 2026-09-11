@@ -1,5 +1,6 @@
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import { archetypeAllowed } from '../progression/MetaProgression';
+import { BUILD_BRANCH_IDS } from '../progression/MetaProgression';
 import { settleRun } from '../progression/Settlement';
 import type {
   ArchetypeId,
@@ -79,6 +80,7 @@ export class RunManager {
       rulesVersion: BASIC_RUN_DEFINITION.rulesVersion,
       seed,
       archetype,
+      rewardPreference: next.profile.rewardPreference ?? archetype,
       unlockedNodesAtStart: [...next.profile.unlockedNodes],
       startedAt: now,
       snapshot: null,
@@ -86,8 +88,34 @@ export class RunManager {
       investments: [],
       maxLevel: 1,
       upgradeCount: 0,
+      buildUsage: {},
     };
     return next;
+  }
+
+  static recordBuildUse(run: RunState, branchId: string, encounterKey: string): void {
+    if (!(BUILD_BRANCH_IDS as readonly string[]).includes(branchId)) {
+      throw new Error(`Unknown build branch: ${branchId}`);
+    }
+    if (typeof encounterKey !== 'string') {
+      throw new Error('Encounter key must be a string.');
+    }
+    const normalizedEncounterKey = encounterKey.trim();
+    if (!normalizedEncounterKey || normalizedEncounterKey.length > 128) {
+      throw new Error('Encounter key must be a non-empty string of at most 128 characters.');
+    }
+
+    const typedBranchId = branchId as typeof BUILD_BRANCH_IDS[number];
+    run.buildUsage ??= {};
+    const usage = run.buildUsage[typedBranchId] ?? { uses: 0, encounterKeys: [] };
+    if (!Number.isSafeInteger(usage.uses) || usage.uses < 0 || !Array.isArray(usage.encounterKeys)) {
+      throw new Error(`Invalid build usage state: ${branchId}`);
+    }
+    usage.uses += 1;
+    if (!usage.encounterKeys.includes(normalizedEncounterKey)) {
+      usage.encounterKeys.push(normalizedEncounterKey);
+    }
+    run.buildUsage[typedBranchId] = usage;
   }
 
   static observe(run: RunState, sample: InvestmentSample, encounterIds: string[]): void {
@@ -128,6 +156,9 @@ export class RunManager {
     next.revision += 1;
     next.profile.researchXp = settlement.researchXp;
     next.profile.availableMetaPoints += settlement.pointsEarned;
+    for (const branchId of record.masteredBranches ?? []) {
+      if (!(next.profile.mastery[branchId] > 0)) next.profile.mastery[branchId] = 1;
+    }
     next.activeRun = null;
     next.pendingSettlement = record;
     next.claimedRunIds = [...new Set([...next.claimedRunIds, run.runId])];

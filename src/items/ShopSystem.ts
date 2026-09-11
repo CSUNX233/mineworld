@@ -4,6 +4,7 @@ import { RARITY_ORDER } from '../data/recipes';
 import { ItemGenerator } from './ItemGenerator';
 import { RNG } from '../utils/RNG';
 import { CraftingSystem } from './CraftingSystem';
+import type { ArchetypeId } from '../progression/types';
 
 export const SHOP_SLOTS: { slot: Slot; label: string }[] = [
   { slot: 'weapon', label: '武器' }, { slot: 'helmet', label: '头盔' },
@@ -13,11 +14,17 @@ export const SHOP_SLOTS: { slot: Slot; label: string }[] = [
 ];
 
 export class ShopSystem {
-  static generateStock(floor: number, playerLevel: number, count: number, rng: RNG = new RNG((Math.random() * 0xffffffff) >>> 0)): ShopStockEntry[] {
+  static generateStock(
+    floor: number,
+    playerLevel: number,
+    count: number,
+    rng: RNG = new RNG((Math.random() * 0xffffffff) >>> 0),
+    rewardPreference?: ArchetypeId,
+  ): ShopStockEntry[] {
     const stock: ShopStockEntry[] = [];
     for (let i = 0; i < count; i++) {
       const rarity = i === 0 ? 'magic' : i === 1 ? 'rare' : rng.weighted(this.gambleWeights(floor)).rarity;
-      const item = ItemGenerator.generate(floor, rng, playerLevel, rarity);
+      const item = ItemGenerator.generate(floor, rng, playerLevel, rarity, undefined, 0, rewardPreference);
       stock.push({ uid: `${item.id}_${i}_${rng.int(0, 99999)}`, item, price: this.itemPrice(item, floor) });
     }
     return stock;
@@ -60,8 +67,22 @@ export class ShopSystem {
     return Math.ceil(Math.max(this.floorIncome(floor) * .65, expectedRecovery * 1.35));
   }
 
-  static gamble(floor: number, playerLevel: number, slot: Slot, rng: RNG): Item {
-    return ItemGenerator.generate(floor, rng, playerLevel, rng.weighted(this.gambleWeights(floor)).rarity, slot);
+  static gamble(
+    floor: number,
+    playerLevel: number,
+    slot: Slot,
+    rng: RNG,
+    rewardPreference?: ArchetypeId,
+  ): Item {
+    return ItemGenerator.generate(
+      floor,
+      rng,
+      playerLevel,
+      rng.weighted(this.gambleWeights(floor)).rarity,
+      slot,
+      0,
+      rewardPreference,
+    );
   }
 
   static materialPrice(material: MaterialId, floor: number): number {

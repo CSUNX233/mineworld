@@ -1,6 +1,13 @@
 import type { SaveData } from '../types';
-import type { ArchetypeId, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
-import { META_NODES, XP_PER_POINT } from '../progression/MetaProgression';
+import type { ArchetypeId, RewardPreference, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
+import {
+  ARCHETYPE_NODES,
+  BUILD_BRANCH_NAMES,
+  MASTERY_ENCOUNTER_REQUIREMENT,
+  MASTERY_NODES,
+  MASTERY_USE_REQUIREMENT,
+  XP_PER_POINT,
+} from '../progression/MetaProgression';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import { createUiIcon } from './UiAssets';
 
@@ -11,6 +18,7 @@ interface CampActions {
   back: () => void;
   exportLegacy: () => void;
   abandon: () => void;
+  setPreference?: (id: RewardPreference) => void;
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, text = ''): HTMLElementTagNameMap[K] {
@@ -72,11 +80,11 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
   points.prepend(createUiIcon('gem', 'sunlit-inline-icon'));
   root.append(points, paragraph(`再获得 ${Math.max(0, XP_PER_POINT - profile.researchXp)} 研究经验可得到 1 个天赋点。`));
   notice(root, message);
-  root.append(paragraph('当前先开放火系局内树原型，任一起始武器均可使用火球并选择蔓延或引爆；近战与召唤新树将在后续阶段接入。旧层间专精已移除。'));
+  root.append(paragraph('三类入门各自提供能独立运作的起始配置。完整通关并在至少 3 个战斗房实际使用同一分支 20 次，才会记录该分支掌握。'));
 
   if (envelope.activeRun) {
     const run = envelope.activeRun;
-    const name = META_NODES.find(node => node.id === run.archetype)?.name ?? run.archetype;
+    const name = ARCHETYPE_NODES.find(node => node.id === run.archetype)?.name ?? run.archetype;
     root.append(paragraph(`进行中的对局：${name} · 第 ${run.snapshot?.floor ?? 1} / ${BASIC_RUN_DEFINITION.floorCount} 层 · Lv.${run.snapshot?.player.level ?? 1}`));
     root.append(row(button('继续本局', actions.resume)));
     const abandonArea = element('div');
@@ -91,7 +99,8 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
     root.append(abandonArea, paragraph('进行中的对局保留出发时配置；结束后可解锁其他起始流派。'));
   } else {
     root.append(paragraph('一大局 25 层，每 5 层一场 Boss 战。完成第 5、10、15、20 层主线后可低收益提前结算，也可保留本局构筑继续深入；第 25 层完成才是完整通关。死亡结束本局，按进度获得少量研究经验。'));
-    for (const node of META_NODES) {
+    root.append(element('h3', '流派入门'));
+    for (const node of ARCHETYPE_NODES) {
       const unlocked = profile.unlockedNodes.includes(node.id);
       const card = element('div');
       card.className = `sunlit-choice-card${unlocked ? ' is-unlocked' : ' is-locked'}`;
@@ -107,6 +116,55 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
       card.append(icon, copy, action);
       root.append(card);
     }
+  }
+
+  root.append(element('h3', '流派掌握'));
+  for (const node of MASTERY_NODES) {
+    const unlocked = profile.unlockedNodes.includes(node.id);
+    const archetypeUnlocked = profile.unlockedNodes.includes(node.requiresNode);
+    const completedBranch = node.requiresAnyMastery.find((id) => (profile.mastery[id] ?? 0) > 0);
+    const card = element('div');
+    card.className = `sunlit-choice-card${unlocked ? ' is-unlocked' : ' is-locked'}`;
+    const icon = createUiIcon(node.id, 'sunlit-card-icon');
+    const title = element('strong', node.name);
+    const copy = element('div');
+    copy.className = 'sunlit-card-copy';
+    copy.append(title, paragraph(node.description));
+    copy.append(paragraph(`前置：${ARCHETYPE_NODES.find((entry) => entry.id === node.requiresNode)?.name ?? node.requiresNode}入门`));
+    for (const branchId of node.requiresAnyMastery) {
+      const usage = envelope.activeRun?.buildUsage?.[branchId];
+      const mastered = (profile.mastery[branchId] ?? 0) > 0;
+      const progress = mastered
+        ? '已掌握'
+        : `${Math.min(usage?.uses ?? 0, MASTERY_USE_REQUIREMENT)} / ${MASTERY_USE_REQUIREMENT} 次 · ${Math.min(new Set(usage?.encounterKeys ?? []).size, MASTERY_ENCOUNTER_REQUIREMENT)} / ${MASTERY_ENCOUNTER_REQUIREMENT} 房`;
+      copy.append(paragraph(`${BUILD_BRANCH_NAMES[branchId]}：${progress}`));
+    }
+    const action = unlocked
+      ? button('已解锁', () => undefined, true)
+      : button(
+        completedBranch ? `解锁 · ${node.cost} 天赋点` : '需先完成任一分支掌握',
+        () => actions.unlock(node.id),
+        !!envelope.activeRun || !archetypeUnlocked || !completedBranch || profile.availableMetaPoints < node.cost,
+      );
+    action.classList.add('sunlit-card-action');
+    card.append(icon, copy, action);
+    root.append(card);
+  }
+
+  root.append(element('h3', '奖励偏好'));
+  root.append(paragraph('普通掉落和商店按 40% 定向池、60% 通用池生成。第一层精英房的稀有装备奖励保证来自本局偏好池；不提高装备品质。'));
+  const availablePreferences = MASTERY_NODES.filter((node) => profile.unlockedNodes.includes(node.id));
+  if (availablePreferences.length === 0) {
+    root.append(paragraph('解锁一个流派掌握节点后，可让奖励生成更常提供该系核心机会。未选择时，每局默认跟随出发流派。'));
+  } else {
+    root.append(paragraph(`当前偏好：${profile.rewardPreference
+      ? ARCHETYPE_NODES.find((node) => node.id === profile.rewardPreference)?.name ?? profile.rewardPreference
+      : '跟随出发流派'}。偏好只影响奖励选项，不增加永久战力。`));
+    root.append(row(...availablePreferences.map((node) => button(
+      profile.rewardPreference === node.archetype ? `${node.name} · 已选择` : `选择${node.name}`,
+      () => actions.setPreference?.(node.archetype),
+      !!envelope.activeRun || !actions.setPreference || profile.rewardPreference === node.archetype,
+    ))));
   }
 
   if (envelope.legacyArchive) {
@@ -146,6 +204,9 @@ export function buildSettlementView(
   if (record.challengeXp) totals.append(element('div', `挑战奖励：${record.challengeXp} 研究经验`));
   if (record.growthXp) totals.append(element('div', `成长补偿：${record.growthXp} 研究经验`));
   if (record.masteryXp) totals.append(element('div', `首次掌握：${record.masteryXp} 研究经验`));
+  if (record.masteredBranches?.length) {
+    totals.append(element('div', `本局达成掌握：${record.masteredBranches.map((id) => BUILD_BRANCH_NAMES[id]).join('、')}（记录成就，不额外发放研究经验）`));
+  }
   totals.append(element('strong', `总计 ${record.totalXp} 研究经验 · ${saved ? '获得' : '保存后获得'} ${record.pointsEarned} 天赋点`));
   root.append(totals);
   notice(root, message);

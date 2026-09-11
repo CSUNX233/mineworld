@@ -1,3 +1,6 @@
+import { getChapterTexture } from './ChapterTextures';
+import { foundryPanels, breakFoundryPanel } from './FoundryPanels';
+import { createFoundryPipes } from './FoundryGeometry';
 import { roomCenter } from './RoomGeometry';
 import * as THREE from 'three';
 import type { FloorData } from '../types';
@@ -12,6 +15,7 @@ import {
 
 export class World {
   readonly group = new THREE.Group();
+  private panelMeshes = new Map<string, THREE.InstancedMesh>();
   private floorData: FloorData | null = null;
   private portalMesh: THREE.Mesh | null = null;
   private encounterBarrierMesh: THREE.InstancedMesh | null = null;
@@ -38,10 +42,11 @@ export class World {
     const size = data.size;
 
     const floorDef = getBlock(theme.floorType);
-    const floorTexture = floorDef.texture.clone();
-    floorTexture.repeat.set(size, size);
-    floorTexture.wrapS = THREE.RepeatWrapping;
-    floorTexture.wrapT = THREE.RepeatWrapping;
+    const chapterFloor = getChapterTexture(data.floor, 'floor');
+    const floorTexture = (chapterFloor ?? floorDef.texture).clone();
+    floorTexture.repeat.set(size / (chapterFloor ? 4 : 1), size / (chapterFloor ? 4 : 1));
+    floorTexture.wrapS = chapterFloor ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
+    floorTexture.wrapT = floorTexture.wrapS;
     floorTexture.needsUpdate = true;
     const floorMaterial = new THREE.MeshLambertMaterial({ map: floorTexture });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(size, size), floorMaterial);
@@ -49,20 +54,37 @@ export class World {
     floor.position.set(size / 2, 0, size / 2);
     floor.name = 'floor';
     this.group.add(floor);
+    const pipes = createFoundryPipes(data);
+    if (pipes) this.group.add(pipes);
 
+    const panelCells = new Set(foundryPanels(data).flatMap(p => p.cells.map(c => `${c.x},${c.z}`)));
+    for (const panel of foundryPanels(data).filter(p => !p.broken)) {
+      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(.95,2,.95), new THREE.MeshLambertMaterial({color:0xc78f56}),panel.cells.length);
+      const matrix = new THREE.Matrix4();
+      panel.cells.forEach((c,i)=>mesh.setMatrixAt(i,matrix.makeTranslation(c.x+.5,1,c.z+.5)));
+      mesh.instanceMatrix.needsUpdate=true; mesh.name='cracked-panel';
+      const cracks: THREE.Vector3[]=[];
+      for(const c of panel.cells) for(const side of [-1,1]) {
+        const x=c.x+.5+side*.481;
+        const points=[new THREE.Vector3(x,.2,c.z+.2),new THREE.Vector3(x,.8,c.z+.6),new THREE.Vector3(x,1.2,c.z+.35),new THREE.Vector3(x,1.8,c.z+.8)];
+        for(let i=0;i<points.length-1;i++) cracks.push(points[i],points[i+1]);
+      }
+      mesh.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(cracks),new THREE.LineBasicMaterial({color:0x392219})));
+      this.panelMeshes.set(panel.id,mesh); this.group.add(mesh);
+    }
     const wallCells: { x: number; z: number }[] = [];
     for (let z = 0; z < size; z++) {
       for (let x = 0; x < size; x++) {
         const kind = data.grid[z][x];
         if (kind === BlockKind.Wall || kind === BlockKind.Obstacle) {
-          wallCells.push({ x, z });
+          if (!panelCells.has(`${x},${z}`)) wallCells.push({ x, z });
         }
       }
     }
 
     if (wallCells.length > 0) {
       const wallDef = getBlock(theme.wallType);
-      const wallTexture = wallDef.texture.clone();
+      const wallTexture = (getChapterTexture(data.floor, 'wall') ?? wallDef.texture).clone();
       wallTexture.repeat.set(1, 1);
       wallTexture.needsUpdate = true;
       const wallMaterial = new THREE.MeshLambertMaterial({ map: wallTexture });
@@ -96,6 +118,10 @@ export class World {
       const center = roomCenter(room);
       marker.position.set(center.x,.03,center.z);
       this.group.add(marker);
+      if(room.template==='overload-trial') {
+        const device=new THREE.Mesh(new THREE.OctahedronGeometry(.55),new THREE.MeshLambertMaterial({color:0xffba58,emissive:0x6b3d11}));
+        device.position.set(center.x,.8,center.z);device.name='optional-overload-device';this.group.add(device);
+      }
     }
 
     if (data.merchant) {
@@ -206,12 +232,23 @@ export class World {
     });
   }
 
+  breakPanel(x: number, z: number): boolean {
+    if (!this.floorData) return false;
+    const panel=breakFoundryPanel(this.floorData,x,z);
+    if (!panel) return false;
+    const mesh=this.panelMeshes.get(panel.id);
+    if(mesh) { mesh.removeFromParent(); mesh.children.forEach(child=>{if(child instanceof THREE.LineSegments){child.geometry.dispose();(child.material as THREE.Material).dispose();}}); mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); this.panelMeshes.delete(panel.id); }
+    return true;
+  }
+
   private clear(): void {
+    this.panelMeshes.clear();
     if (this.floorData) clearEncounterBarriers(this.floorData);
     this.encounterBarrierMesh = null;
     while (this.group.children.length > 0) {
       const child = this.group.children[0];
       this.group.remove(child);
+      if(child.name === 'cracked-panel') child.children.forEach(line=>{if(line instanceof THREE.LineSegments){line.geometry.dispose();(line.material as THREE.Material).dispose();}});
       if (child instanceof THREE.Mesh || child instanceof THREE.InstancedMesh) {
         child.geometry.dispose();
         const materials = Array.isArray(child.material) ? child.material : [child.material];

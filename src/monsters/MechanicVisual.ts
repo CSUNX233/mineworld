@@ -24,7 +24,32 @@ export function attachMechanicVisual(monster: Monster): void {
   let signal: THREE.Object3D;
   let material: THREE.Material;
 
-  if (monster.def.role === 'guardian') {
+  if (['ram_beast','chain_smith','prism_sentry'].includes(monster.def.id)) {
+    const accent = basicMaterial(monster.def.id === 'prism_sentry' ? 0xbde5ff : monster.def.id === 'chain_smith' ? 0x77e5bc : 0xf0bd7c);
+    if(monster.def.id === 'ram_beast') {
+      const head = new THREE.Mesh(new THREE.BoxGeometry(1.4,.65,.7),new THREE.MeshLambertMaterial({color:0x8a6141}));
+      head.position.set(0,.7,.55);root.add(head);
+      for(const x of [-.65,.65]) {const horn=new THREE.Mesh(new THREE.ConeGeometry(.16,.65,5),accent);horn.rotation.x=Math.PI/2;horn.position.set(x,.85,1);root.add(horn);}
+      signal=head;
+    } else if(monster.def.id === 'chain_smith') {
+      for(const x of [-.65,.65]) {const spool=new THREE.Mesh(new THREE.TorusGeometry(.3,.11,5,12),accent);spool.position.set(x,1.4,0);root.add(spool);}
+      const crown=new THREE.Mesh(new THREE.BoxGeometry(.7,.15,.7),accent);crown.position.y=2.15;root.add(crown);signal=crown;
+    } else {
+      const lens=new THREE.Mesh(new THREE.OctahedronGeometry(.4),accent);lens.scale.set(1.6,.6,.8);lens.position.set(0,1.75,.45);root.add(lens);signal=lens;
+      for(let i=0;i<3;i++) {const leg=new THREE.Mesh(new THREE.BoxGeometry(.13,.9,.13),accent);leg.position.set(Math.sin(i*Math.PI*2/3)*.6,.45,Math.cos(i*Math.PI*2/3)*.6);root.add(leg);}
+    }
+    material=accent;
+  } else if (monster.def.id === 'valve_overseer') {
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, 1.3, 8), new THREE.MeshLambertMaterial({color: 0x896844}));
+    tank.position.set(0, 1.1, -.4);
+    const rod = new THREE.Mesh(new THREE.BoxGeometry(.12, 1.8, .12), basicMaterial(0xd6bb86));
+    rod.position.set(.65, 1.25, 0);
+    const wheelMaterial = basicMaterial(0xffb84c);
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(.3, .075, 5, 8), wheelMaterial);
+    wheel.position.set(.65, 2.1, 0);
+    root.add(tank, rod, wheel);
+    signal = wheel; material = wheelMaterial;
+  } else if (monster.def.role === 'guardian') {
     const shieldMaterial = new THREE.MeshLambertMaterial({ color: 0x77c9e8, emissive: 0x153b55, emissiveIntensity: 0.35, transparent: true });
     const shield = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.35, 0.14), shieldMaterial);
     shield.position.set(0, 1.05, 0.62);
@@ -69,7 +94,7 @@ export function setMechanicVisualPhase(monster: Monster, phase: MechanicVisualPh
   if (visual.role === 'guardian') {
     visual.root.rotation.y = 0;
     visual.root.position.y = exposed ? -0.52 : 0;
-  } else {
+  } else if (!['valve_overseer','ram_beast','chain_smith','prism_sentry'].includes(monster.def.id)) {
     visual.root.rotation.y += casting ? 0.035 : 0.008;
   }
 }

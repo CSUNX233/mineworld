@@ -1,7 +1,7 @@
 import type { RoomKind } from '../types';
 import type { RNG } from '../utils/RNG';
 
-export type MapLayoutKind = 'branch-rejoin' | 'loop-shortcut' | 'asymmetric-cluster';
+export type MapLayoutKind = 'foundry-double-loop' | 'foundry-hub' | 'foundry-parallel' | 'branch-rejoin' | 'loop-shortcut' | 'asymmetric-cluster';
 export type RoomShape = 'rect' | 'cut-corners' | 'l-shape';
 
 export interface LayoutNode {

@@ -8,6 +8,8 @@ import type {
 } from '../progression/types';
 import type { SaveData } from '../types';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
+import { BUILD_BRANCH_IDS } from '../progression/MetaProgression';
+import { validateSnapshot as validSummonSnapshot } from '../summons/validation';
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -35,6 +37,17 @@ const hasUniqueEntries = (values: string[]): boolean => new Set(values).size ===
 
 const isNumericRecord = (value: unknown): value is Record<string, number> =>
   isRecord(value) && Object.values(value).every(isNonNegativeNumber);
+
+const validPreference = (value: unknown): boolean => value === undefined
+  || ['vanguard', 'arcanist', 'summoner'].includes(value as string);
+const validBranches = (value: unknown): boolean => value === undefined
+  || (isStringArray(value) && hasUniqueEntries(value)
+    && value.every(id => (BUILD_BRANCH_IDS as readonly string[]).includes(id)));
+const validBuildUsage = (value: unknown): boolean => value === undefined || (isRecord(value)
+  && Object.entries(value).every(([id, entry]) => (BUILD_BRANCH_IDS as readonly string[]).includes(id)
+    && isRecord(entry) && Number.isSafeInteger(entry.uses) && (entry.uses as number) >= 0
+    && isStringArray(entry.encounterKeys) && entry.encounterKeys.length <= 500
+    && hasUniqueEntries(entry.encounterKeys) && entry.encounterKeys.every(key => key.length > 0 && key.length <= 128)));
 
 export function validateLegacySaveData(value: unknown): ValidationResult<SaveData> {
   if (!isRecord(value)) return { ok: false, error: 'Save payload must be an object' };
@@ -64,6 +77,8 @@ function validateProfile(value: unknown): value is ProfileData {
     && isStringArray(value.unlockedMapPools)
     && hasUniqueEntries(value.unlockedMapPools)
     && isNumericRecord(value.mastery)
+    && validPreference(value.rewardPreference)
+    && (value.rewardPreference === undefined || value.unlockedNodes.includes(`${value.rewardPreference}_mastery`))
     && isRecord(value.codex)
     && isStringArray(value.claimedChallengeIds)
     && hasUniqueEntries(value.claimedChallengeIds);
@@ -93,6 +108,7 @@ function validateSettlement(value: unknown): value is SettlementRecord {
     && (value.rulesVersion === 1 || value.rulesVersion === 2)
     && (value.archetype === 'vanguard' || value.archetype === 'arcanist' || value.archetype === 'summoner')
     && numericFields.every((field) => isNonNegativeNumber(value[field]))
+    && validBranches(value.masteredBranches)
     && Array.isArray(value.investments)
     && value.investments.every(validateInvestment);
 }
@@ -103,12 +119,16 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
   const snapshot = legacy.value;
   const player = snapshot.player;
   const runtime: unknown = snapshot.runtime;
+  if (snapshot.runtime?.summonSquad !== undefined && !validSummonSnapshot(snapshot.runtime.summonSquad)) return false;
   if (runtime !== undefined && (!isRecord(runtime)
     || !['elapsed', 'shield', 'invulnerable', 'attackTimer', 'comboCount', 'comboTimer', 'lowHealthShieldCooldown']
       .every(field => isNonNegativeNumber(runtime[field]))
     || !isNumericRecord(runtime.skillCooldowns))) return false;
-  if (snapshot.mapGenerationVersion !== undefined && snapshot.mapGenerationVersion !== 1 && snapshot.mapGenerationVersion !== 2) return false;
+  if (snapshot.mapGenerationVersion !== undefined && snapshot.mapGenerationVersion !== 1 && snapshot.mapGenerationVersion !== 2 && snapshot.mapGenerationVersion !== 3 && snapshot.mapGenerationVersion !== 4) return false;
+  if (snapshot.runtime?.brokenFoundryPanels !== undefined && (!Array.isArray(snapshot.runtime.brokenFoundryPanels) || snapshot.runtime.brokenFoundryPanels.length > 8 || snapshot.runtime.brokenFoundryPanels.some(id => typeof id !== 'string'))) return false;
+  if (snapshot.runtime?.foundryTrialClaimed !== undefined && typeof snapshot.runtime.foundryTrialClaimed !== 'boolean') return false;
   if (snapshot.mapLayoutKind !== undefined && typeof snapshot.mapLayoutKind !== 'string') return false;
+  if (snapshot.runtime?.foundryBoss !== undefined && !validFoundryBoss(snapshot.runtime.foundryBoss)) return false;
   if (snapshot.runtime?.finalBoss !== undefined && !validFinalBoss(snapshot.runtime.finalBoss)) return false;
   if (snapshot.runtime?.shieldRechargeElapsed !== undefined && !isNonNegativeNumber(snapshot.runtime.shieldRechargeElapsed)) return false;
   if (snapshot.runTalents !== undefined && !isValidRunTalentState(snapshot.runTalents)) return false;
@@ -154,6 +174,8 @@ function validateRun(value: unknown): value is RunState {
     && value.runDefinitionId === BASIC_RUN_DEFINITION.id
     && value.mapPoolId === 'basic'
     && value.rulesVersion === BASIC_RUN_DEFINITION.rulesVersion
+    && validPreference(value.rewardPreference)
+    && validBuildUsage(value.buildUsage)
     && isFiniteNumber(value.seed)
     && (value.archetype === 'vanguard' || value.archetype === 'arcanist' || value.archetype === 'summoner')
     && isStringArray(value.unlockedNodesAtStart)
@@ -223,4 +245,13 @@ function validFinalBoss(value: unknown): boolean {
     && ['x', 'z', 'dx', 'dz'].every(field => isFiniteNumber(warning[field]))
     && ['remaining', 'duration', 'radius', 'damage'].every(field => isNonNegativeNumber(warning[field]))
     && (warning.duration as number) > 0);
+}
+
+function validFoundryBoss(value: unknown): boolean {
+  if (!isRecord(value) || !Object.values(value).every(isFiniteNumber)) return false;
+  return [1,2,3].includes(value.phase as number)
+    && ['cooldown','stagger','exposed','attackTimer','attackDuration','attackDamage','pillar1Cooldown','pillar2Cooldown','pillar3Cooldown'].every(key=>isNonNegativeNumber(value[key]))
+    && isNonNegativeInteger(value.cycle)
+    && Number.isInteger(value.attackKind) && (value.attackKind as number)>=0 && (value.attackKind as number)<=8
+    && [0,1].includes(value.reinforcementUsed as number);
 }

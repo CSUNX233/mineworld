@@ -1,3 +1,5 @@
+import { FoundryEnemies } from './FoundryEnemies';
+import { ValveOverseer } from './ValveOverseer';
 import type * as THREE from 'three';
 import type { FloorData, Room } from '../types';
 import { BlockKind } from '../world/Block';
@@ -23,13 +25,14 @@ const ZONE_TICK = 0.65;
 const GUARDIAN_TURN_SPEED = 1.9;
 
 export interface MechanicPlayer {
-  position: { x: number; z: number };
+  position: { x: number; y?: number; z: number };
 }
 
 export interface EncounterMechanicsHost {
   addWorldObject(object: THREE.Object3D): void;
   removeWorldObject(object: THREE.Object3D): void;
-  damagePlayer(amount: number, cause: 'controller_zone'): void;
+  breakPanel?(x: number, z: number): boolean;
+  damagePlayer(amount: number, cause: 'controller_zone' | 'foundry_steam' | 'foundry_beam' | 'foundry_charge' | 'foundry_low_wave'): void;
 }
 
 export type SerializedMechanicState =
@@ -78,12 +81,15 @@ interface ActiveZone {
 
 export class EncounterMechanics {
   private states = new WeakMap<Monster, MechanicState>();
+  private foundry = new FoundryEnemies();
+  private valves = new ValveOverseer();
   private zones: ActiveZone[] = [];
   private worldVisuals = new Set<THREE.Object3D>();
   private clock = 0;
 
   /** True while a support/controller is committed to a readable cast. Skip MonsterAI for it that frame. */
   handles(monster: Monster): boolean {
+    if (this.valves.handles(monster) || this.foundry.handles(monster)) return true;
     const state = this.states.get(monster);
     return state?.role === 'support' && state.castRemaining > 0
       || state?.role === 'controller' && state.castRemaining > 0;
@@ -104,10 +110,12 @@ export class EncounterMechanics {
     host: EncounterMechanicsHost,
   ): void {
     this.clock += dt;
+    this.valves.update(dt, monsters, player, floor, host);
+    this.foundry.update(dt, monsters, player, floor, host);
     this.updateZones(dt, player, host);
 
     for (const monster of monsters) {
-      if (!monster.def.role) continue;
+      if (!monster.def.role || this.valves.handles(monster) || this.foundry.handles(monster)) continue;
       const state = this.ensureState(monster);
       if (!state) continue;
       if (monster.dead) {
@@ -122,6 +130,13 @@ export class EncounterMechanics {
 
   /** Use only for direct player hits. Status ticks, detonations and splash intentionally bypass this. */
   onDirectHit(monster: Monster, sourcePosition: { x: number; z: number }, rawDamage: number): number {
+    const supplied = this.foundry.directHit(monster, rawDamage);
+    if (this.foundry.handles(monster)) return supplied;
+    return Math.min(supplied, this.baseDirectHit(monster, sourcePosition, rawDamage));
+  }
+
+  private baseDirectHit(monster: Monster, sourcePosition: { x: number; z: number }, rawDamage: number): number {
+    if (this.valves.handles(monster)) { this.valves.interrupt(monster); return rawDamage; }
     const state = this.ensureState(monster);
     if (!state) return rawDamage;
     if (state.role === 'support' || state.role === 'controller') {
@@ -140,6 +155,8 @@ export class EncounterMechanics {
   }
 
   serialize(monster: Monster): SerializedMechanicState | undefined {
+    if (this.foundry.handles(monster)) return this.foundry.serialize(monster);
+    if (this.valves.handles(monster)) return this.valves.serialize(monster);
     const state = this.ensureState(monster);
     if (!state) return undefined;
     if (state.role === 'support') return {
@@ -158,6 +175,8 @@ export class EncounterMechanics {
 
   /** In-progress warnings are safely cancelled on load and converted to a short cooldown. */
   restore(monster: Monster, saved: SerializedMechanicState | undefined): void {
+    if (this.foundry.handles(monster)) { this.foundry.restore(monster, saved); return; }
+    if (this.valves.handles(monster)) { this.valves.restore(monster, saved); return; }
     if (!saved || saved.role !== monster.def.role) return;
     const state = this.ensureState(monster);
     if (!state) return;
@@ -172,6 +191,8 @@ export class EncounterMechanics {
   }
 
   clear(host?: EncounterMechanicsHost): void {
+    this.valves.clear(host);
+    this.foundry.clear(host);
     for (const visual of [...this.worldVisuals]) {
       if (host) host.removeWorldObject(visual);
       disposeMechanicObject(visual);

@@ -32,3 +32,5 @@ export function directionToPlayer(floor: FloorData, x: number, z: number, tx: nu
   }
   return result;
 }
+
+export function invalidateNavigation(floor: FloorData): void { fields.delete(floor); }

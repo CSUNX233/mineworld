@@ -1,0 +1,50 @@
+{
+  "tool": "built-in image_gen",
+  "reference": "public/assets/ui/sunlit/icons-atlas.webp",
+  "layout": "3 columns x 2 rows; last cell empty; 5 icons per sheet",
+  "common": "Use case: stylized-concept. Create ONE production-ready 1536x1024 transparent PNG sprite atlas for Mineworld Sunlit Quest. Reference image is STYLE REFERENCE ONLY, do not copy its background or layout. Match its friendly bright adventure pixel art, dark navy #112238 outlines, teal #399895, silver ivory #f0dfb8, antique gold #d7a447 and pale gold #ffe085, orange fire accents, crisp square pixel clusters, 3-4 discrete shades per material, upper-left highlights. Consistent 48x48-source-pixel visual density enlarged with hard pixel steps. NOT smooth vector, not 3D, no blur, no soft shadows, no diffuse glow, no gradients, no photographic texture. Actual transparent alpha background, NOT a painted checkerboard, NOT solid navy or white. Exactly FIVE separate icons in a precise invisible THREE COLUMN by TWO ROW grid of square 512x512 cells. Strict row-major order: top-left, top-middle, top-right, bottom-left, bottom-middle. Bottom-right cell must be completely transparent and empty. Each icon centered within its cell and wholly inside central 70% (at least 15% clear margin on every edge). Equal perceived size, bold readable silhouettes at mobile 40px. No borders, frames, tiles, labels, text, numbers, watermark, or extra icons. Each specified subject forms ONE coherent pictogram; no overlapping between cells. Subjects in strict order: ",
+  "groups": [
+    [
+      "guard_counter: silver blade striking a teal gold shield with a bright rebound spark",
+      "seismic_slam: heavy hammer striking branching forward earth fissures",
+      "raise_company: compact cyan summoning sigil beneath three distinct tiny warrior shieldbearer archer silhouettes",
+      "soul_burst: spectral soul bursting out of a small skull in purple teal fragments",
+      "flame_rift: narrow diagonal jagged fissure emitting orange flames"
+    ],
+    [
+      "ember_blade: silver sword sweeping an orange crescent and absorbing ember sparks",
+      "melee_seed: upright silver sword with a small warm gold battle spark",
+      "melee_cleave: great axe splitting a jagged stone peak",
+      "melee_cleave_edge: sharp silver blade with three compact cutting streaks",
+      "melee_cleave_aftershock: hammer over two spreading angular earth shockwaves"
+    ],
+    [
+      "melee_guard: sturdy teal shield intercepting a silver sword",
+      "melee_guard_reserve: compact cyan mana droplet circulating around a small shield",
+      "melee_guard_bastion: stout shield with outward gold echo arcs",
+      "summon_seed: luminous teal soul tethered to a small ivory contract scroll",
+      "summon_legion: five compact ghost helmets arranged as a cohesive formation emblem"
+    ],
+    [
+      "summon_legion_drill: crossed spectral sword and bow joined by coordinated teal arrows",
+      "summon_legion_vanguard: two small shields exchanging places with curved arrows",
+      "summon_elite: one crowned spectral warrior helmet with gold accents",
+      "summon_elite_training: a teal soul flame refined inside a golden faceted crystal",
+      "summon_elite_guardian: spectral guardian shield with a small ivory immortal flame"
+    ],
+    [
+      "summon_warrior: bust portrait of friendly spectral skeletal swordsman with silver blade",
+      "summon_guardian: bust portrait of broad spectral armored guardian holding teal shield",
+      "summon_archer: bust portrait of hooded spectral skeletal archer with clearly visible bow",
+      "summon_focus: red orange enemy silhouette inside four converging gold arrows",
+      "summon_recall: three teal wisps returning along one curved arrow toward a small ivory banner"
+    ],
+    [
+      "vanguard_mastery: gold laurel medal enclosing silver sword and teal gem",
+      "arcanist_mastery: matching gold laurel medal enclosing orange flame and teal gem",
+      "summoner_mastery: matching gold laurel medal enclosing cyan spirit skull and teal gem",
+      "melee_momentum: three ascending gold energy wedges beside a sword hilt, no numbers",
+      "guard_stance: compact silver teal shield with bright poised parry star"
+    ]
+  ]
+}

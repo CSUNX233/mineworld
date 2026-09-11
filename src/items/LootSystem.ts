@@ -1,4 +1,5 @@
 import type { Item, MonsterDefinition } from '../types';
+import type { ArchetypeId } from '../progression/types';
 import { ItemGenerator } from './ItemGenerator';
 
 export type LootDrop =
@@ -15,6 +16,7 @@ export class LootSystem {
     luck: number,
     isBoss = false,
     playerLevel: number = floor,
+    rewardPreference?: ArchetypeId,
   ): LootDrop[] {
     const drops: LootDrop[] = [];
     drops.push({ kind: 'gold', amount: Math.round((3 + floor * 2 + Math.random() * floor * 4) * (1 + luck / 100)) });
@@ -27,7 +29,7 @@ export class LootSystem {
     if (Math.random() < manaChance) drops.push({ kind: 'mana', amount: 12 + floor * 2 });
     if (Math.random() < 0.02) drops.push({ kind: 'reforgeTicket', amount: 1 });
     if (Math.random() < itemChance || isBoss) {
-      drops.push({ kind: 'item', item: ItemGenerator.generate(floor, undefined, playerLevel, undefined, undefined, luck) });
+      drops.push({ kind: 'item', item: ItemGenerator.generate(floor, undefined, playerLevel, undefined, undefined, luck, rewardPreference) });
     }
     return drops;
   }

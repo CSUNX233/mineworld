@@ -11,13 +11,17 @@ const MONSTER_DEFS = monsterData as unknown as MonsterDefinition[];
 
 export class MonsterSpawner {
   static spawnEncounter(floor: FloorData, room: Room, player: { x: number; z: number }, rng: RNG): Monster[] {
+    const teaching = (floor.generationVersion ?? 0) >= 3 && room.template === 'pressure-ring';
+    const chapter = floor.generationVersion === 4 ? ENCOUNTERS.find(e => e.template === room.template && e.minFloor <= floor.floor) : undefined;
+    if (chapter) room.encounterId = chapter.id;
+    if (teaching) room.encounterId = 'pressure_lesson';
     const pool = this.availableForFloor(floor.floor);
     const roomCells = this.roomWalkableCells(floor, room);
     const candidates = roomCells.filter(cell => Math.hypot(cell.x + .5 - player.x, cell.z + .5 - player.z) > 3);
     const bossRoom = room.kind === 'exit' && floor.floor % 5 === 0;
-    const desiredCount = bossRoom
+    const desiredCount = chapter?.monsterIds?.length ?? (teaching ? 1 : bossRoom
       ? Math.min(3, Math.max(1, Math.floor(roomCells.length / 14)))
-      : this.encounterSize(roomCells.length, floor.floor, room.kind === 'elite', rng);
+      : this.encounterSize(roomCells.length, floor.floor, room.kind === 'elite', rng));
     const count = Math.min(desiredCount, Math.max(1, candidates.length));
     const spawnPool = candidates.length ? candidates : roomCells;
     const spots = this.pickSpacedSpots(spawnPool, count, rng);
@@ -28,7 +32,7 @@ export class MonsterSpawner {
 
     return spots.map((spot, i) => {
       const choices = pool.filter(def => this.roleForDefinition(def) === roles[i]);
-      const def = bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
+      const def = chapter?.monsterIds?.[i] ? this.definitionById(chapter.monsterIds[i])! : teaching ? this.definitionById('valve_overseer')! : bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
       const monster = new Monster(def, spot.x + .5, spot.z + .5);
       attachMechanicVisual(monster);
       monster.roomId = room.id!;
@@ -40,7 +44,7 @@ export class MonsterSpawner {
     });
   }
   static availableForFloor(floor: number): MonsterDefinition[] {
-    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss');
+    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss' && !['valve_overseer','ram_beast','chain_smith','prism_sentry'].includes(def.id));
   }
 
   static bossForFloor(floor: number): MonsterDefinition | null {
@@ -75,8 +79,8 @@ export class MonsterSpawner {
     return monsterAttack(monster.def.attack, floor, monster.def.behavior === 'boss');
   }
 
-  static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG): Monster | null {
-    const pool = this.availableForFloor(floorData.floor).filter(def => !def.role);
+  static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG, meleeOnly = false): Monster | null {
+    const pool = this.availableForFloor(floorData.floor).filter(def => !def.role && (!meleeOnly || def.id === 'slime' || def.id === 'zombie'));
     if (pool.length === 0) return null;
     const spot = this.findNearestWalkable(floorData, position.x, position.z);
     if (!spot) return null;

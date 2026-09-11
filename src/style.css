@@ -391,3 +391,10 @@ html.mobile-ui button {
 .hud-objective { position: absolute; left: 18px; top: 100px; padding: 6px 9px; font-size: 12px; background: #101b28d9; border-left: 2px solid #91c4ed; color: #d5e9f9; max-width: 320px; }
 .mobile-ui .hud-objective { top: 94px; left: 14px; font-size: 10px; max-width: 46vw; }
 @media (orientation: portrait) { .mobile-ui .hud-objective { top: 170px; max-width: 90vw; } }
+.summon-command-bar { position: absolute; left: 18px; top: 215px; z-index: 35; display: flex; flex-wrap: wrap; gap: 4px; width: 174px; pointer-events: auto; color: #f6e2b4; font-size: 12px; }
+.summon-command-bar[hidden] { display: none; }
+.summon-command-bar > span { width: 100%; text-shadow: 1px 1px #14283e; }
+.summon-command-bar > button { min-height: 36px; flex: 1; color: #f6e2b4; background: #233d45ed; border: 1px solid #98794b; border-radius: 8px; touch-action: manipulation; }
+.mobile-ui .summon-command-bar > button { min-height: 44px; }
+@media (orientation: landscape) { .mobile-ui .summon-command-bar { left: 50%; transform: translateX(-50%); top: max(52px, env(safe-area-inset-top)); width: 166px; } }
+@media (orientation: portrait) { .mobile-ui .summon-command-bar { left: max(14px, env(safe-area-inset-left)); top: 238px; width: 156px; } }

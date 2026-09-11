@@ -30,6 +30,8 @@ export class Minimap {
     this.context = this.element.getContext('2d')!;
   }
 
+  invalidate(): void { this.baseFloor = null; }
+
   update(
     floor: FloorData | null,
     player: Player,

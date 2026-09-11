@@ -4,6 +4,8 @@ import { RARITY_AFFIX_COUNT, RARITY_ORDER, rarityWeightsForFloor } from '../data
 import { AffixSystem } from './AffixSystem';
 import { baseDefenseFromArmor } from './StatRules';
 import { RNG } from '../utils/RNG';
+import type { ArchetypeId } from '../progression/types';
+import { matchesRewardPreference, REWARD_PREFERENCE_CHANCE } from './RewardPreference';
 
 interface BaseItemDef {
   id: string;
@@ -35,9 +37,16 @@ export class ItemGenerator {
     rarityOverride?: Rarity,
     slotOverride?: Item['slot'],
     luck = 0,
+    rewardPreference?: ArchetypeId,
+    forcePreference = false,
   ): Item {
-    const base = rng.pick(slotOverride ? BASE_ITEMS.filter(base => base.slot === slotOverride) : BASE_ITEMS);
+    const candidates = slotOverride ? BASE_ITEMS.filter(base => base.slot === slotOverride) : BASE_ITEMS;
+    let base = rng.pick(candidates);
     const rarity = rarityOverride ?? rng.weighted(rarityWeightsForFloor(floor, luck)).rarity;
+    if (rewardPreference && (forcePreference || rng.chance(REWARD_PREFERENCE_CHANCE))) {
+      const preferredCandidates = candidates.filter(candidate => matchesRewardPreference(candidate, rewardPreference));
+      if (preferredCandidates.length > 0) base = rng.pick(preferredCandidates);
+    }
     const itemLevel = Math.max(1, floor + rng.int(-1, 2));
     const [minAffixes, maxAffixes] = RARITY_AFFIX_COUNT[rarity];
     const affixCount = rng.int(minAffixes, maxAffixes);

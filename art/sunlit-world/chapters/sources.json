@@ -1,0 +1,37 @@
+{
+  "entries": [
+    {
+      "id": "foundry-floor",
+      "path": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-6b4fce57-71a6-47d9-aa81-a08275d9fdab.png"
+    },
+    {
+      "id": "ruins-floor",
+      "path": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-17dff142-32ae-40ed-a83d-24520c5e3a44.png"
+    },
+    {
+      "id": "ruins-wall",
+      "path": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-49cfbdc2-11c0-49c6-b1e6-d5b3eb039ce5.png"
+    },
+    {
+      "id": "foundry-wall",
+      "path": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-02587bed-a1e5-475f-b839-99788a2de33d.png"
+    }
+  ],
+  "prompts": [
+    "Create one seamless tileable square opaque ground texture for Mineworld Sunlit Quest foundry chapter floors 6-10. STYLE ONLY reference attached: bright adventure crisp pixel-art, chunky square pixel clusters, navy cool-gray stone and iron, subdued antique copper, 3-4 flat shades per material. Orthographic TOP DOWN flat albedo texture filling entire square edge to edge, no perspective, NO lighting shadows or ambient glow. Modular worn cool slate stone slabs reinforced by narrow iron seams with sparse muted copper rivets, irregular but orderly offset slab pattern, a few restrained scuffs, no holes, no obstacles, no props, no lava, no text, no icons or borders. Quiet moderately dark desaturated bluish gray #465561 / #35424d with subtle gray-blue highlights #657482 and tiny muted copper #8b694c accents. Low visual contrast so orange fire and cyan combat telegraphs remain highly readable. Must tile seamlessly on all four edges, no visible outer outline, no central focal point. Pixel art texture as if 128x128 native, enlarged nearest neighbor, hard edges, no smooth gradients, no blurry noise. Output ONE square 1024x1024 opaque PNG.",
+    [
+      [
+        "ruins-floor",
+        "Create ONE seamless square opaque pixel-art GAME MATERIAL TEXTURE for Mineworld Sunlit Quest. Match reference STYLE ONLY: friendly bright adventure, navy outlines within subtle seams, antique muted gold accents, restrained teal, crisp regular pixel clusters. Full-bleed flat ALBEDO surface, orthographic, no perspective, no objects, no icons, no text, no frame, no glow, no baked directional lighting, no soft gradient. Edge-to-edge seamlessly repeatable in both directions, no outer border. Low-contrast pattern for legible enemies and telegraphs. Designed at 128x128 source pixels enlarged nearest-neighbor to1024x1024. FLOORS 1-5 STONE GUARDIAN RUINS GROUND: worn warm gray sandstone paving, broad interlocking flagstones of varied rectangular sizes, pale muted ochre and ivory-gray mineral shades, small restrained desaturated green moss only in occasional narrow seams, few tiny chipped corners. Ancient inviting ruins, calm surface. Not grass or metal. Top-down horizontal ground."
+      ],
+      [
+        "ruins-wall",
+        "Create ONE seamless square opaque pixel-art GAME MATERIAL TEXTURE for Mineworld Sunlit Quest. Match reference STYLE ONLY: friendly bright adventure, navy outlines within subtle seams, antique muted gold accents, restrained teal, crisp regular pixel clusters. Full-bleed flat ALBEDO surface, orthographic, no perspective, no objects, no icons, no text, no frame, no glow, no baked directional lighting, no soft gradient. Edge-to-edge seamlessly repeatable in both directions, no outer border. Low-contrast pattern for legible enemies and telegraphs. Designed at 128x128 source pixels enlarged nearest-neighbor to1024x1024. FLOORS 1-5 STONE GUARDIAN RUINS WALL: front-facing masonry of large staggered weathered sandstone blocks, cool gray-green shadow seams, warm cream-gray stone faces, occasional subtle moss flecks, restrained chipped square corners. Readable chunky blocks, ancient sturdy wall, no windows, doors, pillars or relief symbols. Neutral flat material faces."
+      ],
+      [
+        "foundry-wall",
+        "Create ONE seamless square opaque pixel-art GAME MATERIAL TEXTURE for Mineworld Sunlit Quest. Match reference STYLE ONLY: friendly bright adventure, navy outlines within subtle seams, antique muted gold accents, restrained teal, crisp regular pixel clusters. Full-bleed flat ALBEDO surface, orthographic, no perspective, no objects, no icons, no text, no frame, no glow, no baked directional lighting, no soft gradient. Edge-to-edge seamlessly repeatable in both directions, no outer border. Low-contrast pattern for legible enemies and telegraphs. Designed at 128x128 source pixels enlarged nearest-neighbor to1024x1024. FLOORS 6-10 FOUNDRY WALL: front-facing chunky soot-gray masonry reinforced by understated dark iron strips and sparse muted copper rivets, cool blue-gray stone faces, deeper narrow seams, industrial fantasy foundry. No pipes or machinery as these are separate 3D objects; no glowing lava or hazard markings. Clearly different from warm sandstone ruins wall."
+      ]
+    ]
+  ]
+}

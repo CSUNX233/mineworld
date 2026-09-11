@@ -286,5 +286,114 @@
     "statusChance": 0.2,
     "resistances": { "physical": 20, "fire": 20, "frost": 18, "lightning": 15, "poison": 25, "shadow": 30 },
     "immunities": ["frozen"]
+  },
+  {
+    "id": "valve_overseer",
+    "name": "阀门监工",
+    "health": 86,
+    "attack": 15,
+    "armor": 1,
+    "speed": 1.5,
+    "detectRadius": 18,
+    "attackRange": 2,
+    "attackCooldown": 2,
+    "xp": 52,
+    "color": 14066240,
+    "minFloor": 6,
+    "behavior": "melee",
+    "role": "controller",
+    "element": "fire",
+    "statusChance": 0,
+    "resistances": {
+      "fire": 15
+    },
+    "immunities": []
+  },
+  {
+    "id": "ram_beast",
+    "name": "撞锤兽",
+    "health": 110,
+    "attack": 18,
+    "armor": 2,
+    "speed": 2.4,
+    "detectRadius": 22,
+    "attackRange": 2,
+    "attackCooldown": 2,
+    "xp": 58,
+    "color": 11895372,
+    "minFloor": 7,
+    "behavior": "charger",
+    "element": "physical",
+    "statusChance": 0,
+    "resistances": {
+      "fire": 15
+    },
+    "immunities": [],
+    "role": "controller"
+  },
+  {
+    "id": "chain_smith",
+    "name": "铸链师",
+    "health": 78,
+    "attack": 8,
+    "armor": 2,
+    "speed": 1.6,
+    "detectRadius": 22,
+    "attackRange": 2,
+    "attackCooldown": 2,
+    "xp": 48,
+    "color": 9421494,
+    "minFloor": 8,
+    "behavior": "melee",
+    "element": "physical",
+    "statusChance": 0,
+    "resistances": {
+      "fire": 15
+    },
+    "immunities": [],
+    "role": "controller"
+  },
+  {
+    "id": "prism_sentry",
+    "name": "棱镜哨兵",
+    "health": 68,
+    "attack": 17,
+    "armor": 2,
+    "speed": 1.6,
+    "detectRadius": 22,
+    "attackRange": 2,
+    "attackCooldown": 2,
+    "xp": 48,
+    "color": 11716584,
+    "minFloor": 8,
+    "behavior": "ranged",
+    "element": "physical",
+    "statusChance": 0,
+    "resistances": {
+      "fire": 15
+    },
+    "immunities": [],
+    "role": "controller"
+  },
+  {
+    "id": "furnace_regent",
+    "name": "铸炉执政官",
+    "health": 760,
+    "attack": 34,
+    "armor": 5,
+    "speed": 2,
+    "detectRadius": 22,
+    "attackRange": 2,
+    "attackCooldown": 2,
+    "xp": 320,
+    "color": 13338180,
+    "minFloor": 10,
+    "behavior": "boss",
+    "element": "physical",
+    "statusChance": 0,
+    "resistances": {
+      "fire": 15
+    },
+    "immunities": []
   }
 ]

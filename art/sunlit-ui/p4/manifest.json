@@ -1,0 +1,68 @@
+[
+  {
+    "sheet": 1,
+    "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-b20215a4-5ecf-4da9-b7ba-43ab5bf38cfe.png",
+    "icons": [
+      "guard_counter",
+      "seismic_slam",
+      "raise_company",
+      "soul_burst",
+      "flame_rift"
+    ]
+  },
+  {
+    "sheet": 2,
+    "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-0e4c00b6-773b-435f-9e01-c14943e545b8.png",
+    "icons": [
+      "ember_blade",
+      "melee_seed",
+      "melee_cleave",
+      "melee_cleave_edge",
+      "melee_cleave_aftershock"
+    ]
+  },
+  {
+    "sheet": 3,
+    "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-717381e4-5a4b-48b8-bd0c-422a6ac3bb0d.png",
+    "icons": [
+      "melee_guard",
+      "melee_guard_reserve",
+      "melee_guard_bastion",
+      "summon_seed",
+      "summon_legion"
+    ]
+  },
+  {
+    "sheet": 4,
+    "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-04aa0ef3-e79a-42f7-94cf-639d09defdad.png",
+    "icons": [
+      "summon_legion_drill",
+      "summon_legion_vanguard",
+      "summon_elite",
+      "summon_elite_training",
+      "summon_elite_guardian"
+    ]
+  },
+  {
+    "sheet": 5,
+    "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-db375d47-1741-4419-94f0-862c0a640273.png",
+    "icons": [
+      "summon_warrior",
+      "summon_guardian",
+      "summon_archer",
+      "summon_focus",
+      "summon_recall"
+    ]
+  },
+  {
+    "sheet": 6,
+    "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-11b6d05c-ae36-4c5a-9d40-8eb8b9cae7d9.png",
+    "icons": [
+      "vanguard_mastery",
+      "arcanist_mastery",
+      "summoner_mastery",
+      "melee_momentum",
+      "guard_stance"
+    ]
+  }
+]

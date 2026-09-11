@@ -16,11 +16,12 @@ export class EncounterDirector {
     return this.floor.rooms.find(room => roomContainsPoint(room, x, z));
   }
 
-  enter(x: number, z: number): Room | null {
+  enter(x: number, z: number, activateOptional = false): Room | null {
     const room = this.roomAt(x, z);
     if (!room?.id) return null;
     if (!this.state.visited.includes(room.id)) this.state.visited.push(room.id);
     if (!['battle', 'elite', 'exit'].includes(room.kind!) || this.state.started.includes(room.id)) return null;
+    if (room.template === 'overload-trial' && !activateOptional) return null;
     this.state.started.push(room.id);
     return room;
   }

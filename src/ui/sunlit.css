@@ -248,3 +248,17 @@
 }
 #ui-root .touch-inventory .sunlit-icon { inset: 4%; width: 92%; height: 92%; }
 #ui-root .touch-inventory:focus-visible { outline: 2px solid #70f5dc; outline-offset: 2px; }
+
+/* Generated round utility buttons retain the existing accessible hit targets. */
+#ui-root .touch-button.touch-pause, #ui-root .touch-button.touch-view-art {
+  border:0 !important; border-image:none !important; background:transparent !important;
+  box-shadow:none !important; border-radius:50% !important; padding:0;
+}
+#ui-root .touch-pause .sunlit-icon, #ui-root .touch-view-art .sunlit-icon { inset:0; width:100%; height:100%; }
+#ui-root .touch-view-art[data-view="first"] { outline:2px solid #92e4db; outline-offset:1px; }
+.summon-role-icons { display:flex; width:100%; gap:8px; }
+.summon-role-icons > span { display:flex; align-items:center; gap:2px; }
+.summon-role-icons .sunlit-icon { width:24px; height:24px; }
+.summon-command-bar button { display:flex; align-items:center; justify-content:center; gap:3px; }
+.summon-command-bar button .sunlit-icon { width:24px; height:24px; flex-shrink:0; }
+.build-state-icon { width:18px !important; height:18px !important; vertical-align:middle; margin:0 3px; }

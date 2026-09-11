@@ -1,7 +1,19 @@
 import type { SaveData } from '../types';
 
 export type ArchetypeId = 'vanguard' | 'arcanist' | 'summoner';
+export type RewardPreference = ArchetypeId;
+export type BuildBranchId =
+  | 'melee_cleave'
+  | 'melee_guard'
+  | 'summon_legion'
+  | 'summon_elite'
+  | 'spreading_flame'
+  | 'consuming_flame';
 export type RunOutcome = 'victory' | 'extracted' | 'death' | 'abandoned';
+export interface BuildUsage {
+  uses: number;
+  encounterKeys: string[];
+}
 export interface InvestmentSample {
   level: number;
   equipmentLevelTotal: number;
@@ -20,6 +32,7 @@ export interface ProfileData {
   unlockedNodes: string[];
   unlockedMapPools: string[];
   mastery: Record<string, number>;
+  rewardPreference?: RewardPreference;
   codex: Record<string, unknown>;
   claimedChallengeIds: string[];
 }
@@ -30,6 +43,7 @@ export interface RunState {
   rulesVersion: 2;
   seed: number;
   archetype: ArchetypeId;
+  rewardPreference?: RewardPreference;
   unlockedNodesAtStart: string[];
   startedAt: number;
   snapshot: SaveData | null;
@@ -37,6 +51,7 @@ export interface RunState {
   investments: EncounterInvestment[];
   maxLevel: number;
   upgradeCount: number;
+  buildUsage?: Partial<Record<BuildBranchId, BuildUsage>>;
 }
 export interface SettlementRecord {
   runId: string;
@@ -56,6 +71,7 @@ export interface SettlementRecord {
   investments: EncounterInvestment[];
   maxLevel: number;
   upgradeCount: number;
+  masteredBranches?: BuildBranchId[];
 }
 export interface SaveEnvelopeV3 {
   version: 3;
