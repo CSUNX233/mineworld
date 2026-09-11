@@ -1,4 +1,5 @@
 import type { Rarity } from '../types';
+import { monsterDifficultyMultiplier } from './DifficultyBalance';
 
 export const RARITY_COLORS: Record<Rarity, string> = {
   common: '#c9ced6',
@@ -18,12 +19,12 @@ export const RARITY_AFFIX_COUNT: Record<Rarity, [number, number]> = {
   legendary: [5, 6],
 };
 
-export function monsterHealth(base: number, floor: number): number {
-  return Math.round(base * (1 + 0.18 * Math.max(0, floor - 1)));
+export function monsterHealth(base: number, floor: number, isBoss = false): number {
+  return Math.round(base * monsterDifficultyMultiplier(floor, 'health', isBoss ? 'boss' : 'normal'));
 }
 
-export function monsterAttack(base: number, floor: number): number {
-  return Math.round(base * (1 + 0.12 * Math.max(0, floor - 1)));
+export function monsterAttack(base: number, floor: number, isBoss = false): number {
+  return Math.round(base * monsterDifficultyMultiplier(floor, 'attack', isBoss ? 'boss' : 'normal'));
 }
 
 export function monsterXp(base: number, floor: number): number {

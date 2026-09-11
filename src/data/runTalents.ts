@@ -146,7 +146,7 @@ export const RUN_TALENT_DEFS: readonly RunTalentDef[] = Object.freeze([
   {
     id: 'mana_from_ashes',
     name: '烬中汲取',
-    description: '每次引爆施法回复 4 点法力，不随命中目标数叠加。',
+    description: '每次成功引爆燃烧回复 4 点法力，不随命中目标数叠加。',
     cost: 1,
     lane: 'consuming',
     tier: 3,
@@ -156,7 +156,7 @@ export const RUN_TALENT_DEFS: readonly RunTalentDef[] = Object.freeze([
   {
     id: 'ash_guard',
     name: '灰烬护体',
-    description: '每次引爆施法获得 8 点护盾，不随目标数叠加；最多积累至最大生命 20%，且不降低已有的更高护盾。',
+    description: '每次成功引爆燃烧获得 8 点护盾，不随目标数叠加；额外护盾最多为最大生命 20%，不降低已有的更高护盾。',
     cost: 1,
     lane: 'consuming',
     tier: 3,
@@ -176,11 +176,11 @@ export const RUN_TALENT_DEFS: readonly RunTalentDef[] = Object.freeze([
   {
     id: 'tempered_skin',
     name: '淬火皮肤',
-    description: '护甲 +6。',
+    description: '防御力 +6。',
     cost: 1,
     lane: 'utility',
     tier: 1,
-    passive: { armor: 6 },
+    passive: { defense: 6 },
   },
   {
     id: 'deep_reservoir',
@@ -203,7 +203,7 @@ export const RUN_TALENT_DEFS: readonly RunTalentDef[] = Object.freeze([
   {
     id: 'steady_flame',
     name: '稳定燃烧',
-    description: '技能冷却缩减 +8%。',
+    description: '绝对技能冷却缩减增加 8 个百分点。',
     cost: 1,
     lane: 'utility',
     tier: 1,

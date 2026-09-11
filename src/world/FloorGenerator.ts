@@ -147,17 +147,23 @@ function openCellNear(
   grid: number[][],
   rng: RNG,
   excluded: readonly { x: number; z: number }[] = [],
+  minimumDistance = 0,
 ): { x: number; z: number } {
   const center = roomCenterCell(room);
-  const excludedCells = new Set(excluded.map(cell => cellKey(cell.x, cell.z)));
+  const isSeparated = (cell: { x: number; z: number }): boolean => excluded.every(excludedCell =>
+    Math.hypot(cell.x - excludedCell.x, cell.z - excludedCell.z) > minimumDistance,
+  );
   const candidates = room.cells.filter(cell =>
     grid[cell.z][cell.x] === BlockKind.Floor
-    && !excludedCells.has(cellKey(cell.x, cell.z))
+    && isSeparated(cell)
     && Math.abs(cell.x - center.x) + Math.abs(cell.z - center.z) >= 2
     && cell.x > room.x && cell.x < room.x + room.width - 1
     && cell.z > room.z && cell.z < room.z + room.depth - 1,
   );
-  return candidates.length ? rng.pick(candidates) : center;
+  if (candidates.length) return rng.pick(candidates);
+  const fallback = room.cells.filter(cell => grid[cell.z][cell.x] === BlockKind.Floor && isSeparated(cell));
+  if (fallback.length) return rng.pick(fallback);
+  throw new Error(`No separated open cell remains in room ${room.id}.`);
 }
 
 /** P3 generator: one stone-ruin theme, three topology families, and four tactical room modules. */
@@ -199,7 +205,7 @@ function generateP3Floor(seed: number, floor: number): FloorData {
   const safeRooms = rooms.filter(room => room.kind === 'treasure' || room.kind === 'sanctuary');
   const merchantRoom = merchantRng.pick(safeRooms);
   const merchant = floor % 3 === 0 || merchantRng.chance(0.35)
-    ? openCellNear(merchantRoom, grid, merchantRng, chests) : undefined;
+    ? openCellNear(merchantRoom, grid, merchantRng, [portal, ...chests], 2) : undefined;
 
   return {
     generationVersion: 2, layoutKind: layout.kind,

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ActorStatus, ElementType, Item } from '../types';
 import { applyStatus, updateStatuses } from '../combat/ElementSystem';
+import { defenseMitigation, boundedDodgeChance } from '../combat/DamageRules';
 
 export class Player {
   readonly group = new THREE.Group();
@@ -20,6 +21,15 @@ export class Player {
   attributePoints = 0;
   alive = true;
   shield = 0;
+  defense = 0;
+  maxShield = 0;
+  shieldRechargeDelay = 5;
+  shieldRechargeElapsed = 0;
+  movingShieldRecovery = 0;
+  dodgeChance = 0.05;
+  defenseFloor = 1;
+  lastHitDodged = false;
+  private leechReserve = 0;
   statuses: ActorStatus[] = [];
   invulnerable = 0;
   private stepTime = 0;
@@ -79,10 +89,21 @@ export class Player {
 
   update(dt: number, elapsed: number): void {
     this.invulnerable = Math.max(0, this.invulnerable - dt);
+    this.shieldRechargeElapsed = Math.min(60, this.shieldRechargeElapsed + Math.max(0, dt));
     const statusResult = updateStatuses(this, dt);
     if (statusResult.damage > 0 && this.alive) {
-      this.takeDamage(statusResult.damage);
+      this.takeDamage(statusResult.damage, false);
     }
+    if (this.alive && this.shield < this.maxShield) {
+      const recoveryTime = Math.min(Math.max(0, dt), Math.max(0, this.shieldRechargeElapsed - this.shieldRechargeDelay));
+      const recoveryRate = this.maxShield * 0.2 + (this.moving ? this.movingShieldRecovery : 0);
+      this.shield = Math.min(this.maxShield, this.shield + recoveryTime * recoveryRate);
+    }
+    if (this.alive && this.leechReserve > 0) {
+      const recovery = Math.min(this.leechReserve, this.maxHealth * 0.05 * dt);
+      this.heal(recovery);
+      this.leechReserve = Math.max(0, Math.min(this.maxHealth * 0.1, this.leechReserve - recovery));
+    } else if (!this.alive) this.leechReserve = 0;
     this.group.position.copy(this.position);
     this.group.rotation.y = this.yaw;
     if (this.moving && this.onGround) {
@@ -108,8 +129,16 @@ export class Player {
     applyStatus(this, status);
   }
 
-  takeDamage(amount: number): number {
+  takeDamage(amount: number, directHit = true): number {
+    this.lastHitDodged = false;
+    if (!this.alive || !Number.isFinite(amount) || amount <= 0) return 0;
+    this.interruptShieldRecovery();
     if (this.invulnerable > 0) return 0;
+    if (directHit && Math.random() < boundedDodgeChance(this.dodgeChance)) {
+      this.lastHitDodged = true;
+      return 0;
+    }
+    if (directHit) amount = Math.max(1, amount * (1 - defenseMitigation(this.defense, this.defenseFloor)));
     const absorbed = Math.min(this.shield, amount);
     this.shield -= absorbed;
     const actual = Math.max(0, amount - absorbed);
@@ -119,7 +148,38 @@ export class Player {
   }
 
   heal(amount: number): void {
+    if (!this.alive || !Number.isFinite(amount) || amount <= 0) return;
     this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
+  clearRecovery(): void {
+    this.leechReserve = 0;
+    this.lastHitDodged = false;
+    this.maxShield = 0;
+    this.shield = 0;
+    this.shieldRechargeElapsed = 0;
+  }
+
+  interruptShieldRecovery(): void {
+    this.shieldRechargeElapsed = 0;
+  }
+
+  setShieldCapacity(capacity: number): void {
+    const next = Math.max(0, capacity);
+    // Losing capacity removes that portion of shield; gaining capacity cannot refill it by swapping gear.
+    if (next < this.maxShield) this.shield = Math.max(0, this.shield - (this.maxShield - next));
+    this.maxShield = next;
+  }
+
+  grantShield(amount: number, extraCapacity: number): void {
+    if (!this.alive || amount <= 0) return;
+    this.shield = Math.max(this.shield, Math.min(this.maxShield + Math.max(0, extraCapacity), this.shield + amount));
+  }
+
+  /** Leech uses actual health removed, with a bounded recovery rate against groups. */
+  leech(amount: number): void {
+    if (!this.alive || amount <= 0 || !Number.isFinite(amount)) return;
+    this.leechReserve = Math.min(this.maxHealth * 0.1, this.leechReserve + amount);
   }
 
   addMana(amount: number): void {

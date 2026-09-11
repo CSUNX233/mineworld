@@ -35,7 +35,9 @@ import { RARITY_COLORS, RARITY_ORDER, xpToNext } from '../data/recipes';
 import type { ActorStatus, ElementType, Item, MaterialId, Rarity, SaveData, SavedMonster, ShopStockEntry, Slot, StatMap } from '../types';
 import { DEFAULT_SKILL_LOADOUT, SKILLS, skillById } from '../data/skills';
 import { MATERIALS, MATERIAL_ORDER } from '../data/materials';
-import { elementalDamage, applyElementalHit, applyStatus, type StatusedActor } from '../combat/ElementSystem';
+import { elementalDamage, applyElementalHit, applyStatus, makeActorStatus, type StatusedActor } from '../combat/ElementSystem';
+import { ELEMENTS, elementStatusChance } from '../data/elements';
+import { defenseMitigation, boundedCritChance } from '../combat/DamageRules';
 import { ShopSystem, SHOP_SLOTS } from '../items/ShopSystem';
 import { buildShopView } from '../ui/ShopUI';
 import { CraftingSystem } from '../items/CraftingSystem';
@@ -759,6 +761,7 @@ export class Game {
     this.player.attributePoints = 0;
     this.controller.setFirstPerson(false);
     this.player.health = 9999;
+    this.player.clearRecovery();
     this.player.mana = 9999;
     this.player.shield = 0;
     this.player.invulnerable = 0;
@@ -796,7 +799,7 @@ export class Game {
     this.reforgeTickets = save.reforgeTickets ?? 0;
     this.pendingSavedMonsters = Array.isArray(save.monsters) ? save.monsters : null;
     this.pendingPortalActive = save.portalActive ?? null;
-    this.skillLoadout = [...new Set(save.skillLoadout ?? DEFAULT_SKILL_LOADOUT)].filter(id => this.isSkillUnlocked(id)).slice(0, 4);
+    this.skillLoadout = [...new Set(save.skillLoadout ?? DEFAULT_SKILL_LOADOUT)].slice(0, 4);
     this.shopStock = Array.isArray(save.shopStock) ? [...save.shopStock] : [];
     this.shopFloor = save.shopFloor ?? 0;
     this.shopRefreshes = save.shopRefreshes ?? 0;
@@ -807,6 +810,7 @@ export class Game {
     this.kills = save.kills;
     this.inventory.items = [...save.inventory];
     this.equipment.equipment = { ...save.equipment };
+    this.skillLoadout = this.skillLoadout.filter(id => this.isSkillUnlocked(id));
     this.player.level = save.player.level;
     this.player.xp = save.player.xp;
     this.player.attributePoints = 0;
@@ -818,9 +822,11 @@ export class Game {
     this.controller.setFirstPerson(Boolean(save.player.firstPerson));
     this.bonusAttributes = talentStats(this.runTalents);
     this.player.health = save.player.health;
+    this.player.clearRecovery();
     this.player.mana = save.player.mana;
     this.player.statuses = Array.isArray(save.playerStatuses) ? [...save.playerStatuses] : [];
     this.player.shield = Math.max(0, runtime?.shield ?? 0);
+    this.player.shieldRechargeElapsed = Math.max(0, Math.min(60, runtime?.shieldRechargeElapsed ?? 0));
     this.player.invulnerable = Math.max(0, runtime?.invulnerable ?? 0);
     this.upgradeCount = this.envelope?.activeRun?.upgradeCount ?? 0;
     this.attackTimer = Math.max(0, runtime?.attackTimer ?? 0);
@@ -1229,20 +1235,15 @@ export class Game {
         this.player.health = Math.min(this.player.maxHealth, this.player.health + stats.lifeRegen * rawDt);
       }
       this.lowHealthShieldCooldown = Math.max(0, this.lowHealthShieldCooldown - rawDt);
-      const aegisWalkCount = this.equipment.getSpecialCount('aegisWalk');
-      if (aegisWalkCount > 0 && this.player.moving) {
-        const cap = this.player.maxHealth * .2 * aegisWalkCount;
-        if (this.player.shield < cap) this.player.shield = Math.min(cap, this.player.shield + this.player.maxHealth * .01 * aegisWalkCount * rawDt);
-      }
       if (
         this.equipment.hasSpecial('lowHealthShield') &&
         this.player.health < this.player.maxHealth * 0.3 &&
         this.lowHealthShieldCooldown <= 0
       ) {
-        this.player.shield = Math.max(this.player.shield, this.player.maxHealth * 0.35);
+        this.player.grantShield(this.player.maxHealth * 0.35, this.player.maxHealth * 0.35);
         this.lowHealthShieldCooldown = 12;
         this.effects.explosion(this.player.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x7fc4ff);
-        this.hud.showCenterMessage('血誓护盾触发', '获得临时护盾', 1.4);
+        this.hud.showCenterMessage('血誓护盾触发', '获得额外护盾', 1.4);
       }
       if (this.equipment.hasSpecial('fireTrail') && this.player.moving && Math.random() < rawDt * 5) {
         this.spawnFireTrail();
@@ -1924,7 +1925,7 @@ export class Game {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'sunlit-menu-button sunlit-skill-action';
-      if (!unlocked) {
+      if (!unlocked && !equipped) {
         button.textContent = '未解锁';
         button.disabled = true;
       } else {
@@ -2006,8 +2007,6 @@ export class Game {
   private doMeleeAttack(weapon: Item | null, aim: THREE.Vector3, stats: DerivedStats): void {
     const element = weapon?.element ?? 'physical';
     const statusChance = weapon?.statusChance;
-    const fullHealthBonus =
-      this.equipment.hasSpecial('executeFullHealth') && this.player.health >= this.player.maxHealth ? 1.25 : 1;
     const profile = this.getMeleeProfile(weapon);
     const targets = this.getTargetsInFront(aim, profile.range, 1.0);
     this.audio.swing();
@@ -2021,7 +2020,7 @@ export class Game {
     targets.slice(0, 3).forEach((target, index) => {
       const falloff = Math.max(0.65, 1 - index * 0.12);
       const result = CombatSystem.rollDamage(
-        stats.attack * falloff * fullHealthBonus,
+        stats.attack * falloff,
         stats.critChance,
         stats.critDamage,
         target.def.armor,
@@ -2034,21 +2033,25 @@ export class Game {
       this.applyPlayerElementalHit(target, element, stats.attack * falloff, statusChance);
     });
 
-    if (targets.length > 0 && this.equipment.hasSpecial('chainLightning') && Math.random() < 0.15) {
-      const target = targets[0];
-      const result = CombatSystem.rollDamage(stats.attack, stats.critChance, stats.critDamage, target.def.armor, this.floor);
+    if (targets.length > 0) this.triggerBasicAttackEffects(targets[0], stats);
+  }
+
+  private triggerBasicAttackEffects(target: Monster, stats: DerivedStats): void {
+    if (this.equipment.hasSpecial('chainLightning') && Math.random() < 0.15) {
       const chainTargets = this.monsters.filter(
         (monster) => monster !== target && !monster.dead && monster.position.distanceTo(target.position) < 4,
       );
       chainTargets.slice(0, 3).forEach((chainTarget, index) => {
-        const chainDamage = Math.max(1, Math.round(result.damage * 0.55 * (1 - index * 0.18)));
-        this.applyMonsterDamage(chainTarget, chainDamage, false);
+        const raw = stats.attack * 0.55 * (1 - index * 0.18);
+        const result = CombatSystem.rollDamage(raw, stats.critChance, stats.critDamage,
+          chainTarget.def.armor, this.floor, 'lightning', chainTarget.def.resistances, chainTarget.statuses);
+        this.applyMonsterDamage(chainTarget, result.damage, result.crit, 0.45, undefined, 'lightning', false);
+        this.applyPlayerElementalHit(chainTarget, 'lightning', raw);
       });
       this.effects.explosion(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x8ed4ff);
     }
 
-    if (targets.length > 0 && this.equipment.hasSpecial('meteorOnAttack') && Math.random() < 0.18) {
-      const target = targets[0];
+    if (this.equipment.hasSpecial('meteorOnAttack') && Math.random() < 0.18) {
       this.spawnMeteor(target.position.clone());
     }
   }
@@ -2131,7 +2134,7 @@ export class Game {
         monster.def.resistances,
         monster.statuses,
       );
-      this.applyMonsterDamage(monster, result.damage, result.crit, 1.3, undefined, 'fire');
+      this.applyMonsterDamage(monster, result.damage, result.crit, 1.3, undefined, 'fire', false);
       this.applyPlayerElementalHit(monster, 'fire', stats.attack * 1.1, 0.2);
     });
   }
@@ -2166,7 +2169,7 @@ export class Game {
           monster.def.resistances,
           monster.statuses,
         );
-        this.applyMonsterDamage(monster, result.damage, result.crit, 0.25, undefined, 'fire');
+        this.applyMonsterDamage(monster, result.damage, result.crit, 0.25, undefined, 'fire', false);
         this.applyPlayerElementalHit(monster, 'fire', stats.attack * 0.22, 0.12);
       });
     window.setTimeout(() => {
@@ -2177,6 +2180,7 @@ export class Game {
   }
 
   private tryUseSkill(skill: SkillState, stats: DerivedStats): void {
+    if (!this.isSkillUnlocked(skill.id)) return;
     if (skill.cooldownRemaining > 0 || this.player.mana < skill.manaCost) return;
     if (skill.id === 'detonate' && !this.detonationTargets().length) {
       this.hud.showCenterMessage('没有可引爆的目标', '先用火球点燃视线内的敌人', 1.2);
@@ -2276,14 +2280,33 @@ export class Game {
 
   private applyPlayerElementalHit(monster: Monster, element: ElementType, damage: number, chance?: number): void {
     if (monster.dead) return;
-    if (element === 'fire' && this.fireModifiers.enabled) this.igniteMonster(monster, damage, this.fireModifiers);
-    else applyElementalHit(monster, element, damage, chance, monster.def.immunities);
+    if (element === 'fire' && this.fireModifiers.enabled) {
+      this.igniteMonster(monster, damage, this.fireModifiers);
+      return;
+    }
+    const type = ELEMENTS[element].status;
+    if (!type || monster.def.immunities?.includes(type)) return;
+    const mastery = element === 'frost' && this.equipment.hasSpecial('freezeMastery')
+      || element === 'lightning' && this.equipment.hasSpecial('shockMastery');
+    if (Math.random() >= Math.min(1, elementStatusChance(element, chance) * (mastery ? 1.5 : 1))) return;
+    const status = makeActorStatus(type, damage, element);
+    if (element === 'fire' && this.equipment.hasSpecial('burnMastery')) status.damagePerTick *= 1.25;
+    if (element === 'poison' && this.equipment.hasSpecial('poisonMastery')) {
+      status.damagePerTick *= 1.35;
+      status.duration *= 1.25;
+    }
+    if (element === 'frost' && mastery) status.duration *= 1.2;
+    status.maxDuration = status.duration;
+    applyStatus(monster, status);
   }
 
   private igniteMonster(monster: Monster, damage: number, mods: FireModifiers): void {
     if (monster.dead) return;
     const burn = createBurn(damage, mods, monster.def.immunities);
-    if (burn) applyStatus(monster, burn);
+    if (burn) {
+      if (this.equipment.hasSpecial('burnMastery')) burn.damagePerTick *= 1.25;
+      applyStatus(monster, burn);
+    }
   }
 
   private hasLineOfSight(from: THREE.Vector3, to: THREE.Vector3): boolean {
@@ -2325,20 +2348,24 @@ export class Game {
       this.effects.explosion(target.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff401a);
     }
     this.player.addMana(refund);
-    if (shield > 0) this.player.shield = Math.max(this.player.shield, Math.min(this.player.maxHealth * this.fireModifiers.detonateShieldCapMaxHealthRatio, this.player.shield + shield));
+    if (shield > 0) this.player.grantShield(shield, this.player.maxHealth * this.fireModifiers.detonateShieldCapMaxHealthRatio);
     this.audio.explosion();
     this.controller.addShake(0.12);
   }
 
   private useFrostNova(stats: DerivedStats, skill: SkillState): void {
+    const empowered = this.equipment.hasSpecial('glacialNova');
+    const radius = empowered ? 6 : 5;
+    const damage = stats.attack * 1.25 * (empowered ? 1.2 : 1);
     this.audio.explosion();
     this.controller.addShake(0.12);
     this.effects.explosion(this.player.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x9ee7ff);
     this.monsters
-      .filter((monster) => !monster.dead && monster.position.distanceTo(this.player.position) <= 5)
+      .filter((monster) => !monster.dead && monster.position.distanceTo(this.player.position) <= radius
+        && this.hasLineOfSight(this.player.position, monster.position))
       .forEach((target) => {
         const result = CombatSystem.rollDamage(
-          stats.attack * 1.25,
+          damage,
           stats.critChance,
           stats.critDamage,
           target.def.armor,
@@ -2348,7 +2375,7 @@ export class Game {
           target.statuses,
         );
         this.applyMonsterDamage(target, result.damage, result.crit, 0.85, undefined, skill.element);
-        this.applyPlayerElementalHit(target, skill.element, stats.attack * 1.25, skill.statusChance);
+        this.applyPlayerElementalHit(target, skill.element, damage, empowered ? 1 : skill.statusChance);
       });
   }
 
@@ -2428,14 +2455,8 @@ export class Game {
       if (monster.dead || this.encounterMechanics.handles(monster)) continue;
       if (MonsterAI.shouldDealMelee(monster) && distance <= monster.def.attackRange + 0.5) {
         const damage = Math.max(1, MonsterSpawner.baseAttack(monster, this.floor));
-        const wasAlive = this.player.alive;
-        this.player.takeDamage(damage);
-        applyElementalHit(this.player, monster.def.element ?? 'physical', damage, monster.def.statusChance);
-        this.recordDeathTransition(wasAlive, 'monster_melee', damage);
+        this.damagePlayerWithElement(damage, monster.def.element ?? 'physical', monster.def.statusChance, 'monster_melee');
         if (this.isGameplayPaused()) return;
-        this.audio.hurt();
-        this.controller.addShake(0.16);
-        this.hud.showCenterMessage('受到攻击', '', 0.35);
         monster.attackCooldown = monster.def.attackCooldown;
         monster.state = 'chase';
       } else if (MonsterAI.shouldShoot(monster) && distance <= monster.def.attackRange + 4) {
@@ -2495,9 +2516,17 @@ export class Game {
 
   private damagePlayerWithElement(amount: number, element: ElementType, statusChance?: number, cause = 'unknown'): void {
     if (!this.running || !this.player.alive) return;
+    if (this.player.invulnerable > 0) {
+      this.player.interruptShieldRecovery();
+      return;
+    }
     const damage = Math.max(1, Math.round(amount));
     const wasAlive = this.player.alive;
     this.player.takeDamage(damage);
+    if (this.player.lastHitDodged) {
+      this.hud.spawnDamage('闪避', '#a7eadc', false, 0.85);
+      return;
+    }
     applyElementalHit(this.player, element, amount, statusChance);
     this.recordDeathTransition(wasAlive, cause, damage);
     this.audio.hurt();
@@ -2533,29 +2562,26 @@ export class Game {
       projectile.mesh.position.copy(projectile.position);
       let remove = hitWall || hitPlayer || hitMonster !== null;
       if (hitMonster) {
-        const crit = Math.random() < this.effectiveStats().critChance;
+        const crit = Math.random() < boundedCritChance(this.effectiveStats().critChance);
         const element = projectile.element ?? 'physical';
         const raw = projectile.damage * (crit ? this.effectiveStats().critDamage : 1);
-        const damage = elementalDamage(raw, element, hitMonster.def.resistances, hitMonster.statuses);
+        const damage = elementalDamage(raw * (1 - defenseMitigation(hitMonster.def.armor, this.floor)),
+          element, hitMonster.def.resistances, hitMonster.statuses);
         this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7, projectile.position, element);
         if (this.isGameplayPaused()) return;
         const fire = projectile.fireModifiers ?? this.fireModifiers;
         if (element === 'fire' && fire.enabled) {
           this.igniteMonster(hitMonster, raw, fire);
           if (projectile.sourceSkillId === 'fireball') this.spreadFire(hitMonster, raw, fire);
-        } else applyElementalHit(hitMonster, element, projectile.damage, projectile.statusChance, hitMonster.def.immunities);
+        } else this.applyPlayerElementalHit(hitMonster, element, raw, projectile.statusChance);
+        if (projectile.sourceSkillId === 'staff_attack') this.triggerBasicAttackEffects(hitMonster, this.effectiveStats());
         if ((projectile.piercesRemaining ?? 0) > 0 && !expired) {
           projectile.piercesRemaining!--;
           remove = false;
         }
       } else if (hitPlayer) {
-        const wasAlive = this.player.alive;
-        this.player.takeDamage(projectile.damage);
-        applyElementalHit(this.player, projectile.element ?? 'physical', projectile.damage, projectile.statusChance);
-        this.recordDeathTransition(wasAlive, 'enemy_projectile', projectile.damage);
+        this.damagePlayerWithElement(projectile.damage, projectile.element ?? 'physical', projectile.statusChance, 'enemy_projectile');
         if (this.isGameplayPaused()) return;
-        this.audio.hurt();
-        this.controller.addShake(0.14);
       }
       if (remove) {
         this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
@@ -2606,11 +2632,15 @@ export class Game {
     }
   }
 
-  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3, element: ElementType = 'physical'): void {
+  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3, element: ElementType = 'physical', canLeech = true): void {
     if (monster.dead) return;
+    if (this.equipment.hasSpecial('executeFullHealth') && this.player.health >= this.player.maxHealth) damage *= 1.25;
     if (directSource) damage = this.encounterMechanics.onDirectHit(monster, directSource, damage);
     if (monster.def.id === 'ruins_warden') damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
+    damage = Math.max(1, Math.round(damage));
+    const actualDamage = Math.min(monster.health, damage);
     const killed = monster.takeDamage(damage);
+    if (canLeech) this.player.leech(actualDamage * this.effectiveStats().lifeSteal);
     const hitImpact = Math.max(0.25, Math.min(1.3, impact));
     monster.hitFlash = Math.max(monster.hitFlash, 0.05 + hitImpact * 0.07);
     this.hitstopTimer = Math.max(this.hitstopTimer, 0.012 + hitImpact * 0.03);
@@ -2630,6 +2660,7 @@ export class Game {
     if (monster.def.id === 'ruins_warden') this.finalBossController.clear();
     else if (monster.def.behavior === 'boss') this.bossController.clearWarnings();
     this.kills++;
+    this.player.heal(Math.min(this.effectiveStats().killHeal, this.player.maxHealth * 0.02));
     this.audio.kill();
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.9, 0)), monster.def.color, 22, 5);
 
@@ -2640,8 +2671,9 @@ export class Game {
         (other) => other !== monster && !other.dead && other.position.distanceTo(monster.position) < 3,
       );
       nearby.forEach((other) => {
-        const damage = Math.max(1, Math.round(this.effectiveStats().attack * 0.45));
-        this.applyMonsterDamage(other, damage, false);
+        const damage = elementalDamage(this.effectiveStats().attack * 0.45 * (1 - defenseMitigation(other.def.armor, this.floor)),
+          'fire', other.def.resistances, other.statuses);
+        this.applyMonsterDamage(other, damage, false, 0.6, undefined, 'fire', false);
       });
     }
 
@@ -2659,13 +2691,13 @@ export class Game {
         );
         nearby.forEach((other) => {
           const damage = Math.max(1, Math.round(this.effectiveStats().attack * 0.3));
-          this.applyMonsterDamage(other, damage, false);
+          this.applyMonsterDamage(other, damage, false, 0.6, undefined, 'fire', false);
         });
       }
       if (Math.random() < 0.4) {
         this.spawnDrop(monster.position, {
           kind: 'item',
-          item: ItemGenerator.generate(this.floor, undefined, this.player.level),
+          item: ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck),
         });
       }
     }
@@ -2712,7 +2744,7 @@ export class Game {
           target.def.resistances,
           target.statuses,
         );
-        this.applyMonsterDamage(target, result.damage, result.crit);
+        this.applyMonsterDamage(target, result.damage, result.crit, 0.6, undefined, 'physical', false);
       }
       if (summon.life <= 0) {
         summon.dispose(this.scene);
@@ -2841,24 +2873,39 @@ export class Game {
   private interactionLabel(): string | null {
     if (!this.floorData) return null;
     const p = this.player.position;
+    const candidates: { label: string; distance: number }[] = [];
     const merchant = this.floorData.merchant;
-    if (merchant && Math.hypot(p.x - merchant.x - .5, p.z - merchant.z - .5) <= 2) return '进入商店';
+    if (merchant) {
+      const distance = Math.hypot(p.x - merchant.x - .5, p.z - merchant.z - .5);
+      if (distance <= 2) candidates.push({ label: '进入商店', distance });
+    }
     const room = this.encounters?.roomAt(p.x,p.z);
     if (room?.kind === 'sanctuary' && !this.encounters!.state.usedSanctuaries.includes(room.id!)
-      && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) return '圣所恢复';
+      && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
+      candidates.push({ label: '圣所恢复', distance: Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z) });
+    }
     if (this.portalActive && Math.abs(Math.floor(p.x) - this.floorData.portal.x) <= 1
-      && Math.abs(Math.floor(p.z) - this.floorData.portal.z) <= 1) return '进入传送门';
-    return this.floorData.chests.some((chest) => !this.openedChests.has(`${chest.x},${chest.z}`)
-      && Math.hypot(p.x - chest.x - 0.5, p.z - chest.z - 0.5) <= 1.8) ? '打开宝箱' : null;
+      && Math.abs(Math.floor(p.z) - this.floorData.portal.z) <= 1) {
+      candidates.push({ label: '进入传送门', distance: Math.hypot(p.x-this.floorData.portal.x-.5,p.z-this.floorData.portal.z-.5) });
+    }
+    for (const chest of this.floorData.chests) {
+      const distance = Math.hypot(p.x - chest.x - .5, p.z - chest.z - .5);
+      if (!this.openedChests.has(`${chest.x},${chest.z}`) && distance <= 1.8) {
+        candidates.push({ label: '打开宝箱', distance });
+      }
+    }
+    // Nearby merchants must not capture every interaction with an adjacent exit.
+    return candidates.sort((a, b) => a.distance - b.distance)[0]?.label ?? null;
   }
 
   private tryInteract(): boolean {
     if (!this.floorData || this.isGameplayPaused() || !this.player.alive) return false;
-    if (this.interactionLabel() === '进入商店') {
+    const label = this.interactionLabel();
+    if (label === '进入商店') {
       this.showShopMenu();
       return true;
     }
-    if (this.interactionLabel() === '圣所恢复') {
+    if (label === '圣所恢复') {
       const room = this.encounters!.roomAt(this.player.position.x,this.player.position.z)!;
       this.encounters!.state.usedSanctuaries.push(room.id!);
       this.player.heal(this.player.maxHealth * 0.45);
@@ -2870,7 +2917,7 @@ export class Game {
     const playerX = Math.floor(this.player.position.x);
     const playerZ = Math.floor(this.player.position.z);
 
-    if (this.portalActive) {
+    if (label === '进入传送门' && this.portalActive) {
       const dx = playerX - this.floorData.portal.x;
       const dz = playerZ - this.floorData.portal.z;
       if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) {
@@ -2879,7 +2926,11 @@ export class Game {
       }
     }
 
-    for (const chest of this.floorData.chests) {
+    if (label !== '打开宝箱') return false;
+    const nearbyChests = [...this.floorData.chests].sort((a, b) =>
+      Math.hypot(this.player.position.x-a.x-.5,this.player.position.z-a.z-.5)
+      - Math.hypot(this.player.position.x-b.x-.5,this.player.position.z-b.z-.5));
+    for (const chest of nearbyChests) {
       const key = `${chest.x},${chest.z}`;
       if (this.openedChests.has(key)) continue;
       const dx = this.player.position.x - (chest.x + 0.5);
@@ -2888,7 +2939,7 @@ export class Game {
         this.openedChests.add(key);
         this.reforgeTickets++;
         this.world.removeChest(chest.x, chest.z);
-        const item = ItemGenerator.generate(this.floor, undefined, this.player.level);
+        const item = ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck);
         const gold = 10 + this.floor * 3;
         this.changeGold(gold, 'chest', { chest: key });
         if (this.inventory.add(item)) {
@@ -3038,8 +3089,15 @@ export class Game {
   }
 
   private updatePlayerStats(stats: DerivedStats): void {
+    this.player.defense = stats.defense;
+    this.player.dodgeChance = stats.dodgeChance;
+    this.player.defenseFloor = this.floor;
     this.player.maxHealth = Math.round(stats.maxHealth);
     this.player.maxMana = Math.round(stats.maxMana);
+    const aegisCount = this.equipment.getSpecialCount('aegisWalk');
+    this.player.setShieldCapacity(stats.armor + this.player.maxHealth * 0.2 * aegisCount);
+    this.player.shieldRechargeDelay = stats.shieldRechargeDelay;
+    this.player.movingShieldRecovery = this.player.maxHealth * 0.01 * aegisCount;
     this.player.health = Math.min(this.player.health, this.player.maxHealth);
     this.player.mana = Math.min(this.player.mana, this.player.maxMana);
   }
@@ -3211,6 +3269,8 @@ export class Game {
     const def = skillById(id);
     if (!def) return false;
     if (!def.talentId) return true;
+    if (id === 'frost_nova') return this.equipment.hasSpecial('glacialNova');
+    if (id === 'lightning_chain') return this.equipment.hasSpecial('shockMastery');
     return def.id === 'detonate' && this.runTalents.unlocked.includes('consuming_flame');
   }
 
@@ -3227,6 +3287,7 @@ export class Game {
     this.updatePlayerStats(this.effectiveStats());
     this.updateWeaponVisual();
     this.inventoryUI.show(this.equipment, this.inventory);
+    this.skills = this.buildSkillStates();
   }
 
   private unequipSlot(slot: Slot): void {
@@ -3235,6 +3296,7 @@ export class Game {
     if (this.inventory.add(item)) {
       this.updatePlayerStats(this.effectiveStats());
       this.updateWeaponVisual();
+      this.skills = this.buildSkillStates();
       this.showInventory();
     } else {
       this.equipment.equip(item);
@@ -3619,6 +3681,7 @@ export class Game {
         finalBoss: this.monsters.some(monster => monster.def.id === 'ruins_warden' && !monster.dead) ? this.finalBossController.snapshot() : undefined,
         elapsed: Math.max(0, this.elapsed),
         shield: Math.max(0, this.player.shield),
+        shieldRechargeElapsed: this.player.shieldRechargeElapsed,
         invulnerable: Math.max(0, this.player.invulnerable),
         attackTimer: Math.max(0, this.attackTimer),
         comboCount: Math.max(0, this.comboCount),

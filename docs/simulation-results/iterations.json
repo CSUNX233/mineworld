@@ -1,0 +1,1210 @@
+[
+  {
+    "name": "baseline-100",
+    "startedAt": "2026-09-11T05:35:32.861Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 46,
+        "wins": 0,
+        "deaths": 46,
+        "invalid": 4,
+        "winRate": 0,
+        "wilson95": [
+          -6.938893903907228e-18,
+          0.07707617732978073
+        ],
+        "deathFloors": {
+          "1": 1,
+          "4": 5,
+          "5": 5,
+          "6": 4,
+          "7": 3,
+          "8": 4,
+          "10": 5,
+          "11": 8,
+          "12": 3,
+          "13": 4,
+          "15": 1,
+          "17": 1,
+          "19": 1,
+          "24": 1
+        },
+        "passedFive": 35,
+        "firstFiveRate": 0.7608695652173914,
+        "firstFiveWilson95": [
+          0.6206458383088198,
+          0.860879634388686
+        ],
+        "meanFloor": 8.9,
+        "meanSimulatedSeconds": 895.9799999999392
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 44,
+        "wins": 22,
+        "deaths": 22,
+        "invalid": 6,
+        "winRate": 0.5,
+        "wilson95": [
+          0.35831521095931473,
+          0.6416847890406853
+        ],
+        "deathFloors": {
+          "4": 1,
+          "9": 1,
+          "12": 1,
+          "13": 1,
+          "14": 2,
+          "15": 2,
+          "17": 1,
+          "19": 1,
+          "20": 5,
+          "21": 3,
+          "22": 2,
+          "23": 1,
+          "24": 1
+        },
+        "passedFive": 43,
+        "firstFiveRate": 0.9772727272727273,
+        "firstFiveWilson95": [
+          0.8819202086846235,
+          0.9959768516143629
+        ],
+        "meanFloor": 20.42,
+        "meanSimulatedSeconds": 1093.4229999998915
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/simulation/PersonaPolicy.ts": "effba80123a4c52de0b852bfe6aa87b6f5b7d697a04feaf5571783a1c43db9e0",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/core/Game.ts": "ee42aeb364081d81705bf8ac8dfb52f0d6fba0d9e441d8abd7c99a430798327a"
+    }
+  },
+  {
+    "name": "baseline-fixed-100",
+    "startedAt": "2026-09-11T05:55:48.127Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 36,
+        "wins": 17,
+        "deaths": 19,
+        "invalid": 14,
+        "winRate": 0.4722222222222222,
+        "wilson95": [
+          0.31985792907209337,
+          0.6299432837306054
+        ],
+        "deathFloors": {
+          "10": 2,
+          "13": 1,
+          "15": 2,
+          "16": 2,
+          "17": 2,
+          "19": 2,
+          "20": 4,
+          "21": 3,
+          "22": 1
+        },
+        "passedFive": 36,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9035781695514236,
+          1
+        ],
+        "meanFloor": 18.48,
+        "meanSimulatedSeconds": 1343.2300000001476
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 42,
+        "wins": 22,
+        "deaths": 20,
+        "invalid": 8,
+        "winRate": 0.5238095238095238,
+        "wilson95": [
+          0.3772221394020704,
+          0.6664063552403504
+        ],
+        "deathFloors": {
+          "5": 1,
+          "7": 1,
+          "9": 1,
+          "10": 1,
+          "11": 4,
+          "12": 1,
+          "14": 2,
+          "18": 2,
+          "19": 2,
+          "20": 3,
+          "22": 2
+        },
+        "passedFive": 41,
+        "firstFiveRate": 0.9761904761904762,
+        "firstFiveWilson95": [
+          0.8767851883475174,
+          0.9957847045008997
+        ],
+        "meanFloor": 17.96,
+        "meanSimulatedSeconds": 975.3000000000809
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "ee42aeb364081d81705bf8ac8dfb52f0d6fba0d9e441d8abd7c99a430798327a",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "e7dd7eb2f9e97cd2800b91852978e29889d60ab291b278bfb090e32e10656f20",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "b0d3a54f0c37e2c8f497bfda4464924f50d0927166778c68024cbff6a88386a4"
+    }
+  },
+  {
+    "name": "baseline-interaction-100",
+    "startedAt": "2026-09-11T05:59:22.038Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 24,
+        "deaths": 26,
+        "invalid": 0,
+        "winRate": 0.48,
+        "wilson95": [
+          0.3479691239550571,
+          0.6148848774119157
+        ],
+        "deathFloors": {
+          "10": 2,
+          "13": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "19": 1,
+          "20": 5,
+          "21": 3,
+          "22": 2,
+          "23": 1,
+          "24": 2,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.7,
+        "meanSimulatedSeconds": 845.2809999997703
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 49,
+        "wins": 20,
+        "deaths": 29,
+        "invalid": 1,
+        "winRate": 0.40816326530612246,
+        "wilson95": [
+          0.2821503460597105,
+          0.5475293002795374
+        ],
+        "deathFloors": {
+          "5": 1,
+          "9": 2,
+          "10": 1,
+          "11": 4,
+          "12": 2,
+          "13": 3,
+          "14": 1,
+          "15": 2,
+          "18": 1,
+          "19": 2,
+          "20": 3,
+          "21": 2,
+          "22": 2,
+          "24": 1,
+          "25": 2
+        },
+        "passedFive": 48,
+        "firstFiveRate": 0.9795918367346939,
+        "firstFiveWilson95": [
+          0.8930623153224584,
+          0.9963884204614692
+        ],
+        "meanFloor": 19.56,
+        "meanSimulatedSeconds": 651.6869999999473
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "e7dd7eb2f9e97cd2800b91852978e29889d60ab291b278bfb090e32e10656f20",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "b0d3a54f0c37e2c8f497bfda4464924f50d0927166778c68024cbff6a88386a4"
+    }
+  },
+  {
+    "name": "baseline-dash-100",
+    "startedAt": "2026-09-11T06:02:06.070Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 24,
+        "deaths": 26,
+        "invalid": 0,
+        "winRate": 0.48,
+        "wilson95": [
+          0.3479691239550571,
+          0.6148848774119157
+        ],
+        "deathFloors": {
+          "10": 2,
+          "13": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "19": 1,
+          "20": 5,
+          "21": 3,
+          "22": 2,
+          "23": 1,
+          "24": 2,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.7,
+        "meanSimulatedSeconds": 845.2809999997703
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 12,
+        "deaths": 38,
+        "invalid": 0,
+        "winRate": 0.24,
+        "wilson95": [
+          0.14297252401872207,
+          0.3741294937519236
+        ],
+        "deathFloors": {
+          "5": 1,
+          "9": 2,
+          "10": 4,
+          "11": 1,
+          "12": 4,
+          "13": 1,
+          "14": 2,
+          "15": 1,
+          "16": 6,
+          "17": 2,
+          "18": 6,
+          "20": 3,
+          "21": 1,
+          "23": 1,
+          "24": 2,
+          "25": 1
+        },
+        "passedFive": 49,
+        "firstFiveRate": 0.98,
+        "firstFiveWilson95": [
+          0.8950431352816304,
+          0.9964608319110235
+        ],
+        "meanFloor": 17.86,
+        "meanSimulatedSeconds": 557.1379999999658
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "613d8b239acaecc82e96af2089f8c3fd469ebc4e6805d4182e4254dc40c0b13f",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "b0d3a54f0c37e2c8f497bfda4464924f50d0927166778c68024cbff6a88386a4"
+    }
+  },
+  {
+    "name": "baseline-ready-100",
+    "startedAt": "2026-09-11T06:05:58.841Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 24,
+        "deaths": 26,
+        "invalid": 0,
+        "winRate": 0.48,
+        "wilson95": [
+          0.3479691239550571,
+          0.6148848774119157
+        ],
+        "deathFloors": {
+          "10": 2,
+          "13": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "19": 1,
+          "20": 5,
+          "21": 3,
+          "22": 2,
+          "23": 1,
+          "24": 2,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.7,
+        "meanSimulatedSeconds": 845.2809999997703
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 16,
+        "deaths": 34,
+        "invalid": 0,
+        "winRate": 0.32,
+        "wilson95": [
+          0.20758044093999403,
+          0.45810557136276076
+        ],
+        "deathFloors": {
+          "5": 1,
+          "9": 1,
+          "10": 2,
+          "12": 2,
+          "13": 3,
+          "14": 2,
+          "15": 1,
+          "16": 4,
+          "17": 2,
+          "18": 2,
+          "19": 2,
+          "20": 4,
+          "21": 4,
+          "22": 2,
+          "23": 1,
+          "24": 1
+        },
+        "passedFive": 49,
+        "firstFiveRate": 0.98,
+        "firstFiveWilson95": [
+          0.8950431352816304,
+          0.9964608319110235
+        ],
+        "meanFloor": 19.34,
+        "meanSimulatedSeconds": 601.7829999999474
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "fe31ff65e8e2962d9e3a31715933c4c2a74f44dd3f0ecdc7848741231c593067",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "b0d3a54f0c37e2c8f497bfda4464924f50d0927166778c68024cbff6a88386a4"
+    }
+  },
+  {
+    "name": "balance-combo-01",
+    "startedAt": "2026-09-11T06:08:51.207Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 24,
+        "deaths": 26,
+        "invalid": 0,
+        "winRate": 0.48,
+        "wilson95": [
+          0.3479691239550571,
+          0.6148848774119157
+        ],
+        "deathFloors": {
+          "10": 2,
+          "13": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "19": 1,
+          "20": 5,
+          "21": 3,
+          "22": 2,
+          "23": 1,
+          "24": 2,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.7,
+        "meanSimulatedSeconds": 845.2809999997703
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 18,
+        "deaths": 32,
+        "invalid": 0,
+        "winRate": 0.36,
+        "wilson95": [
+          0.24138562967182875,
+          0.49859237989698046
+        ],
+        "deathFloors": {
+          "5": 1,
+          "8": 1,
+          "9": 1,
+          "10": 3,
+          "11": 2,
+          "12": 1,
+          "13": 2,
+          "15": 3,
+          "16": 4,
+          "18": 2,
+          "19": 1,
+          "20": 3,
+          "22": 1,
+          "23": 1,
+          "24": 2,
+          "25": 4
+        },
+        "passedFive": 49,
+        "firstFiveRate": 0.98,
+        "firstFiveWilson95": [
+          0.8950431352816304,
+          0.9964608319110235
+        ],
+        "meanFloor": 19.58,
+        "meanSimulatedSeconds": 595.1759999999398
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "a5fa71b1b4537c921934b51e3648a45a0318a04cdc9ae57b0d5f0258093cbd73",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "fe31ff65e8e2962d9e3a31715933c4c2a74f44dd3f0ecdc7848741231c593067",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "b0d3a54f0c37e2c8f497bfda4464924f50d0927166778c68024cbff6a88386a4"
+    }
+  },
+  {
+    "name": "balance-combo-02",
+    "startedAt": "2026-09-11T06:11:35.528Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 24,
+        "deaths": 26,
+        "invalid": 0,
+        "winRate": 0.48,
+        "wilson95": [
+          0.3479691239550571,
+          0.6148848774119157
+        ],
+        "deathFloors": {
+          "10": 2,
+          "13": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "19": 1,
+          "20": 5,
+          "21": 3,
+          "22": 2,
+          "23": 1,
+          "24": 2,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.7,
+        "meanSimulatedSeconds": 845.2809999997703
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 20,
+        "deaths": 30,
+        "invalid": 0,
+        "winRate": 0.4,
+        "wilson95": [
+          0.2760818978624575,
+          0.5381881089724063
+        ],
+        "deathFloors": {
+          "7": 1,
+          "9": 1,
+          "10": 4,
+          "11": 2,
+          "12": 2,
+          "13": 1,
+          "14": 1,
+          "15": 1,
+          "17": 2,
+          "18": 3,
+          "19": 1,
+          "20": 3,
+          "21": 3,
+          "22": 1,
+          "23": 2,
+          "25": 2
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 19.84,
+        "meanSimulatedSeconds": 594.7539999999443
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "a5fa71b1b4537c921934b51e3648a45a0318a04cdc9ae57b0d5f0258093cbd73",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "fe31ff65e8e2962d9e3a31715933c4c2a74f44dd3f0ecdc7848741231c593067",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "b0d3a54f0c37e2c8f497bfda4464924f50d0927166778c68024cbff6a88386a4"
+    }
+  },
+  {
+    "name": "baseline-visible-100",
+    "startedAt": "2026-09-11T06:16:48.160Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 27,
+        "deaths": 23,
+        "invalid": 0,
+        "winRate": 0.54,
+        "wilson95": [
+          0.40398634328388083,
+          0.6703056539821737
+        ],
+        "deathFloors": {
+          "5": 1,
+          "11": 1,
+          "13": 1,
+          "15": 4,
+          "16": 1,
+          "19": 3,
+          "20": 1,
+          "21": 2,
+          "22": 4,
+          "23": 1,
+          "24": 3,
+          "25": 1
+        },
+        "passedFive": 49,
+        "firstFiveRate": 0.98,
+        "firstFiveWilson95": [
+          0.8950431352816304,
+          0.9964608319110235
+        ],
+        "meanFloor": 22.14,
+        "meanSimulatedSeconds": 885.4639999997313
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 47,
+        "wins": 17,
+        "deaths": 30,
+        "invalid": 3,
+        "winRate": 0.3617021276595745,
+        "wilson95": [
+          0.2396602228576844,
+          0.5046436542822955
+        ],
+        "deathFloors": {
+          "5": 1,
+          "7": 1,
+          "9": 1,
+          "10": 5,
+          "11": 2,
+          "13": 1,
+          "15": 1,
+          "16": 5,
+          "17": 1,
+          "18": 1,
+          "20": 3,
+          "22": 2,
+          "25": 6
+        },
+        "passedFive": 46,
+        "firstFiveRate": 0.9787234042553191,
+        "firstFiveWilson95": [
+          0.8888676347566887,
+          0.9962343289895351
+        ],
+        "meanFloor": 19.32,
+        "meanSimulatedSeconds": 752.646999999984
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "964f1dfdb56184c1473edfc14ad2c7356f2436785541552d05c434292329ad3f",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "4b9c49490018e623e0b454a7eec2ee61a38d0c64dcc68a5084ba9f8536850fcb"
+    }
+  },
+  {
+    "name": "baseline-path-100",
+    "startedAt": "2026-09-11T06:20:08.970Z",
+    "runs": 100,
+    "seedStart": 42001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 26,
+        "deaths": 24,
+        "invalid": 0,
+        "winRate": 0.52,
+        "wilson95": [
+          0.3851151225880844,
+          0.6520308760449429
+        ],
+        "deathFloors": {
+          "5": 1,
+          "10": 1,
+          "11": 2,
+          "14": 1,
+          "15": 1,
+          "17": 5,
+          "18": 1,
+          "19": 1,
+          "20": 2,
+          "21": 3,
+          "22": 3,
+          "23": 1,
+          "24": 1,
+          "25": 1
+        },
+        "passedFive": 49,
+        "firstFiveRate": 0.98,
+        "firstFiveWilson95": [
+          0.8950431352816304,
+          0.9964608319110235
+        ],
+        "meanFloor": 21.58,
+        "meanSimulatedSeconds": 854.7719999997535
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 40,
+        "deaths": 10,
+        "invalid": 0,
+        "winRate": 0.8,
+        "wilson95": [
+          0.6696262789551477,
+          0.8875637005402612
+        ],
+        "deathFloors": {
+          "15": 3,
+          "16": 2,
+          "20": 1,
+          "22": 2,
+          "23": 1,
+          "24": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 23.76,
+        "meanSimulatedSeconds": 792.4729999998218
+      }
+    },
+    "converged": true,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "7f88283d314f4006f34f6442235e931f0889e3b9f19618187680e1e0641472e2",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "4b9c49490018e623e0b454a7eec2ee61a38d0c64dcc68a5084ba9f8536850fcb"
+    }
+  },
+  {
+    "name": "validation-100",
+    "startedAt": "2026-09-11T06:22:50.159Z",
+    "runs": 100,
+    "seedStart": 43001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 25,
+        "deaths": 25,
+        "invalid": 0,
+        "winRate": 0.5,
+        "wilson95": [
+          0.36644286412332855,
+          0.6335571358766714
+        ],
+        "deathFloors": {
+          "10": 3,
+          "13": 2,
+          "14": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "18": 1,
+          "19": 3,
+          "20": 1,
+          "21": 2,
+          "22": 3,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.06,
+        "meanSimulatedSeconds": 822.494999999788
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 34,
+        "deaths": 16,
+        "invalid": 0,
+        "winRate": 0.68,
+        "wilson95": [
+          0.5418944286372394,
+          0.792419559060006
+        ],
+        "deathFloors": {
+          "10": 2,
+          "11": 2,
+          "14": 2,
+          "15": 2,
+          "16": 1,
+          "20": 3,
+          "22": 1,
+          "24": 2,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 22.42,
+        "meanSimulatedSeconds": 740.7579999998487
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "7f88283d314f4006f34f6442235e931f0889e3b9f19618187680e1e0641472e2",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "4b9c49490018e623e0b454a7eec2ee61a38d0c64dcc68a5084ba9f8536850fcb"
+    }
+  },
+  {
+    "name": "balance-guard-100",
+    "startedAt": "2026-09-11T06:26:15.279Z",
+    "runs": 100,
+    "seedStart": 43001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 25,
+        "deaths": 25,
+        "invalid": 0,
+        "winRate": 0.5,
+        "wilson95": [
+          0.36644286412332855,
+          0.6335571358766714
+        ],
+        "deathFloors": {
+          "10": 3,
+          "13": 2,
+          "14": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "18": 1,
+          "19": 3,
+          "20": 1,
+          "21": 2,
+          "22": 3,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.06,
+        "meanSimulatedSeconds": 822.494999999788
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 34,
+        "deaths": 16,
+        "invalid": 0,
+        "winRate": 0.68,
+        "wilson95": [
+          0.5418944286372394,
+          0.792419559060006
+        ],
+        "deathFloors": {
+          "10": 2,
+          "11": 2,
+          "14": 2,
+          "15": 2,
+          "16": 1,
+          "18": 1,
+          "19": 1,
+          "20": 2,
+          "23": 1,
+          "24": 1,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 22.3,
+        "meanSimulatedSeconds": 736.8489999998527
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "e5609839e215da6f17903cffe4eb3dde0530fd63e746aa1928cf18cedde8e97a",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "7f88283d314f4006f34f6442235e931f0889e3b9f19618187680e1e0641472e2",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "4b9c49490018e623e0b454a7eec2ee61a38d0c64dcc68a5084ba9f8536850fcb"
+    }
+  },
+  {
+    "name": "balance-guard-02",
+    "startedAt": "2026-09-11T06:28:57.505Z",
+    "runs": 100,
+    "seedStart": 43001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 25,
+        "deaths": 25,
+        "invalid": 0,
+        "winRate": 0.5,
+        "wilson95": [
+          0.36644286412332855,
+          0.6335571358766714
+        ],
+        "deathFloors": {
+          "10": 3,
+          "13": 2,
+          "14": 1,
+          "15": 2,
+          "16": 2,
+          "17": 4,
+          "18": 1,
+          "19": 3,
+          "20": 1,
+          "21": 2,
+          "22": 3,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 21.06,
+        "meanSimulatedSeconds": 822.494999999788
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 34,
+        "deaths": 16,
+        "invalid": 0,
+        "winRate": 0.68,
+        "wilson95": [
+          0.5418944286372394,
+          0.792419559060006
+        ],
+        "deathFloors": {
+          "10": 2,
+          "11": 2,
+          "14": 3,
+          "15": 1,
+          "18": 1,
+          "19": 1,
+          "20": 2,
+          "24": 2,
+          "25": 2
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 22.48,
+        "meanSimulatedSeconds": 746.3729999998433
+      }
+    },
+    "converged": false,
+    "sourceHashes": {
+      "src/core/Game.ts": "e5609839e215da6f17903cffe4eb3dde0530fd63e746aa1928cf18cedde8e97a",
+      "src/data/DifficultyBalance.ts": "8853b0eb82a973a85fdbad3808a0fab05583d3a81dbcbf5056ffa96668f0c5bd",
+      "src/simulation/PersonaPolicy.ts": "7f88283d314f4006f34f6442235e931f0889e3b9f19618187680e1e0641472e2",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "4b9c49490018e623e0b454a7eec2ee61a38d0c64dcc68a5084ba9f8536850fcb"
+    }
+  },
+  {
+    "name": "balance-depth-100",
+    "startedAt": "2026-09-11T06:31:55.227Z",
+    "runs": 100,
+    "seedStart": 43001,
+    "groups": {
+      "novice": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 28,
+        "deaths": 22,
+        "invalid": 0,
+        "winRate": 0.56,
+        "wilson95": [
+          0.4230578680014353,
+          0.6883801278976466
+        ],
+        "deathFloors": {
+          "10": 3,
+          "13": 2,
+          "15": 1,
+          "16": 1,
+          "17": 2,
+          "18": 1,
+          "19": 2,
+          "20": 1,
+          "21": 2,
+          "22": 2,
+          "24": 3,
+          "25": 2
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 22.1,
+        "meanSimulatedSeconds": 876.9819999997386
+      },
+      "expert": {
+        "planned": 50,
+        "recorded": 50,
+        "valid": 50,
+        "wins": 38,
+        "deaths": 12,
+        "invalid": 0,
+        "winRate": 0.76,
+        "wilson95": [
+          0.6258705062480763,
+          0.8570274759812779
+        ],
+        "deathFloors": {
+          "10": 2,
+          "11": 2,
+          "14": 2,
+          "15": 2,
+          "20": 2,
+          "23": 1,
+          "25": 1
+        },
+        "passedFive": 50,
+        "firstFiveRate": 1,
+        "firstFiveWilson95": [
+          0.9286499658256813,
+          1
+        ],
+        "meanFloor": 22.76,
+        "meanSimulatedSeconds": 757.6119999998338
+      }
+    },
+    "converged": true,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "694db9843a8bc152629c331a426ebdb918dae106fe96f1202fa00f01c6d5e65d",
+      "src/simulation/PersonaPolicy.ts": "7f88283d314f4006f34f6442235e931f0889e3b9f19618187680e1e0641472e2",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "4b9c49490018e623e0b454a7eec2ee61a38d0c64dcc68a5084ba9f8536850fcb"
+    }
+  },
+  {
+    "name": "final-validation-200",
+    "startedAt": "2026-09-11T06:34:27.872Z",
+    "runs": 200,
+    "seedStart": 44001,
+    "groups": {
+      "novice": {
+        "planned": 100,
+        "recorded": 100,
+        "valid": 100,
+        "wins": 51,
+        "deaths": 49,
+        "invalid": 0,
+        "winRate": 0.51,
+        "wilson95": [
+          0.4134784047743415,
+          0.6057816990761385
+        ],
+        "deathFloors": {
+          "5": 3,
+          "9": 1,
+          "10": 4,
+          "12": 1,
+          "13": 2,
+          "15": 5,
+          "16": 1,
+          "17": 4,
+          "18": 5,
+          "19": 3,
+          "20": 4,
+          "21": 5,
+          "22": 4,
+          "23": 2,
+          "24": 4,
+          "25": 1
+        },
+        "passedFive": 97,
+        "firstFiveRate": 0.97,
+        "firstFiveWilson95": [
+          0.915479219195973,
+          0.9897456617765851
+        ],
+        "meanFloor": 21.23,
+        "meanSimulatedSeconds": 831.202499999767
+      },
+      "expert": {
+        "planned": 100,
+        "recorded": 100,
+        "valid": 100,
+        "wins": 74,
+        "deaths": 26,
+        "invalid": 0,
+        "winRate": 0.74,
+        "wilson95": [
+          0.6462882736813838,
+          0.8159542187301354
+        ],
+        "deathFloors": {
+          "5": 4,
+          "10": 4,
+          "13": 1,
+          "15": 4,
+          "17": 1,
+          "18": 1,
+          "19": 1,
+          "20": 6,
+          "22": 2,
+          "24": 2
+        },
+        "passedFive": 96,
+        "firstFiveRate": 0.96,
+        "firstFiveWilson95": [
+          0.9016278276739262,
+          0.984336949448152
+        ],
+        "meanFloor": 22.49,
+        "meanSimulatedSeconds": 744.0044999998405
+      }
+    },
+    "converged": true,
+    "sourceHashes": {
+      "src/core/Game.ts": "bb27960aab1945b1e3b69778a171a4a254330c6db7c39acb50b0a813f49e1b57",
+      "src/data/DifficultyBalance.ts": "694db9843a8bc152629c331a426ebdb918dae106fe96f1202fa00f01c6d5e65d",
+      "src/simulation/PersonaPolicy.ts": "7f88283d314f4006f34f6442235e931f0889e3b9f19618187680e1e0641472e2",
+      "src/simulation/SimulationHarness.ts": "3bd5f966cfcc3b6ca605733abc0ae89ab3da633f6de02151b2499a57f173d46a",
+      "src/world/FloorGenerator.ts": "4b9c49490018e623e0b454a7eec2ee61a38d0c64dcc68a5084ba9f8536850fcb"
+    }
+  }
+]

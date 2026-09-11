@@ -204,7 +204,9 @@ export class PlayerController {
       this.cameraYaw = lerpAngle(this.cameraYaw, p.yaw, 1 - Math.exp(-2 * realDt));
     }
 
-    const speed = stats.moveSpeed * (p.sprinting ? 1.65 : 1) * 5.5;
+    const slow = p.statuses.reduce((factor, status) => status.duration > 0
+      ? Math.min(factor, status.slowMultiplier ?? 1) : factor, 1);
+    const speed = stats.moveSpeed * (p.sprinting ? 1.65 : 1) * 5.5 * slow;
     const targetVelocity = moveDir.multiplyScalar(speed);
     if (this.dashTime > 0) {
       targetVelocity.add(this.dashVelocity);

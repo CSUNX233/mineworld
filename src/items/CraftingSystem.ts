@@ -2,6 +2,7 @@ import type { Item, MaterialId } from '../types';
 import { materialForItem } from '../data/materials';
 import { RARITY_AFFIX_COUNT, RARITY_ORDER } from '../data/recipes';
 import { AffixSystem } from './AffixSystem';
+import { baseDefenseFromArmor } from './StatRules';
 import { RNG } from '../utils/RNG';
 
 export interface MaterialCost {
@@ -54,10 +55,13 @@ export class CraftingSystem {
     const nextLevel = item.itemLevel + 1;
     const factor = 1.055;
     const baseStats = { ...item.baseStats };
+    if (baseStats.defense === undefined && (baseStats.armor ?? 0) > 0) {
+      baseStats.defense = baseDefenseFromArmor(baseStats.armor);
+    }
     for (const [key, value] of Object.entries(baseStats)) {
       if (key === 'attackSpeed') continue;
       const raw = value * factor;
-      const integer = ['attack', 'maxHealth', 'armor', 'strength', 'agility', 'vitality', 'intelligence', 'maxMana', 'killHeal', 'luck'].includes(key);
+      const integer = ['attack', 'maxHealth', 'armor', 'defense', 'strength', 'agility', 'vitality', 'intelligence', 'maxMana', 'killHeal', 'luck'].includes(key);
       baseStats[key as keyof typeof baseStats] = integer ? Math.max(1, Math.round(raw)) : Number(raw.toFixed(4));
     }
     return {

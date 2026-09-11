@@ -1,0 +1,4 @@
+interface:
+  display_name: "MineWorld 玩家模拟"
+  short_description: "以固定的新手与熟练玩家策略运行真实战斗，记录百局结果并迭代游戏平衡。"
+  default_prompt: "使用 $mineworld-player-sim 模拟新手和熟练玩家，运行一百局并根据结果调整 MineWorld 数值。"

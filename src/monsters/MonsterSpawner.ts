@@ -32,7 +32,7 @@ export class MonsterSpawner {
       const monster = new Monster(def, spot.x + .5, spot.z + .5);
       attachMechanicVisual(monster);
       monster.roomId = room.id!;
-      monster.maxHealth = monsterHealth(def.health,floor.floor);
+      monster.maxHealth = monsterHealth(def.health, floor.floor, def.behavior === 'boss');
       monster.health = monster.maxHealth;
       if (room.kind === 'elite' && i === 0) { monster.setElite(['extraHealth']); monster.maxHealth *= 1.6; monster.health=monster.maxHealth; }
       monster.state = 'chase';
@@ -72,7 +72,7 @@ export class MonsterSpawner {
   }
 
   static baseAttack(monster: Monster, floor: number): number {
-    return monsterAttack(monster.def.attack, floor);
+    return monsterAttack(monster.def.attack, floor, monster.def.behavior === 'boss');
   }
 
   static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG): Monster | null {

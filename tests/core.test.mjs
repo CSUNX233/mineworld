@@ -25,22 +25,26 @@ const { generateFloor,isWalkable,EncounterDirector,BuildSystem,EquipmentManager,
 test('800 maps remain bounded, connected and have a short route with optional loops', () => {
   for (let seed=0;seed<200;seed++) for (const depth of [1,5,25,100]) {
     const floor=generateFloor(seed,depth);
-    assert.equal(floor.size,40);
-    assert.equal(floor.rooms.length,9);
+    assert.ok(floor.size >= 48 && floor.size <= 64);
+    assert.ok(floor.rooms.length >= 6 && floor.rooms.length <= 8);
     assert.equal(floor.rooms.filter(room=>room.required).length,2);
     assert.ok(floor.connections.length >= floor.rooms.length);
-    const distances=new Int16Array(1600).fill(-1), queue=[floor.spawn.z*40+floor.spawn.x];
+    const distances=new Int16Array(floor.size*floor.size).fill(-1), queue=[floor.spawn.z*floor.size+floor.spawn.x];
     distances[queue[0]]=0;
     for (let head=0;head<queue.length;head++) {
-      const index=queue[head],x=index%40,z=Math.floor(index/40);
+      const index=queue[head],x=index%floor.size,z=Math.floor(index/floor.size);
       for (const [nx,nz] of [[x-1,z],[x+1,z],[x,z-1],[x,z+1]]) {
-        const next=nz*40+nx;
+        const next=nz*floor.size+nx;
         if (isWalkable(floor,nx,nz)&&distances[next]<0) { distances[next]=distances[index]+1;queue.push(next); }
       }
     }
-    assert.ok(distances[floor.portal.z*40+floor.portal.x] <= 30);
-    for (let z=0;z<40;z++) for(let x=0;x<40;x++) if(isWalkable(floor,x,z)) assert.ok(distances[z*40+x]>=0);
+    assert.ok(distances[floor.portal.z*floor.size+floor.portal.x] <= floor.size+12);
+    for (let z=0;z<floor.size;z++) for(let x=0;x<floor.size;x++) if(isWalkable(floor,x,z)) assert.ok(distances[z*floor.size+x]>=0);
   }
+});
+
+test('legacy generation remains fixed at 40 tiles', () => {
+  assert.equal(generateFloor(42,12,1).size,40);
 });
 
 test('seeded rooms reproduce the same map, themes do not enlarge it', () => {

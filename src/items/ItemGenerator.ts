@@ -2,6 +2,7 @@ import type { ElementType, Item, Rarity, StatMap } from '../types';
 import itemData from '../data/items.json';
 import { RARITY_AFFIX_COUNT, RARITY_ORDER, rarityWeightsForFloor } from '../data/recipes';
 import { AffixSystem } from './AffixSystem';
+import { baseDefenseFromArmor } from './StatRules';
 import { RNG } from '../utils/RNG';
 
 interface BaseItemDef {
@@ -46,6 +47,9 @@ export class ItemGenerator {
     for (const [key, value] of Object.entries(base.baseStats)) {
       baseStats[key as keyof StatMap] = this.scaleBaseStat(key, value, itemLevel);
     }
+    if (baseStats.defense === undefined && (baseStats.armor ?? 0) > 0) {
+      baseStats.defense = baseDefenseFromArmor(baseStats.armor);
+    }
 
     const prefix = affixes.length > 0 ? `${affixes[0].name}` : '';
     const name = prefix ? `${prefix}${base.name}` : base.name;
@@ -84,7 +88,7 @@ export class ItemGenerator {
     if (key === 'attackSpeed') return value;
     const scale = 1 + Math.max(0, itemLevel - 1) * 0.055;
     const raw = value * scale;
-    const integer = ['attack', 'maxHealth', 'armor', 'strength', 'agility', 'vitality', 'intelligence'].includes(key);
+    const integer = ['attack', 'maxHealth', 'armor', 'defense', 'strength', 'agility', 'vitality', 'intelligence'].includes(key);
     return integer ? Math.max(1, Math.round(raw)) : Number(raw.toFixed(4));
   }
 

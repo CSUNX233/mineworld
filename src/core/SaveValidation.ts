@@ -110,6 +110,7 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
   if (snapshot.mapGenerationVersion !== undefined && snapshot.mapGenerationVersion !== 1 && snapshot.mapGenerationVersion !== 2) return false;
   if (snapshot.mapLayoutKind !== undefined && typeof snapshot.mapLayoutKind !== 'string') return false;
   if (snapshot.runtime?.finalBoss !== undefined && !validFinalBoss(snapshot.runtime.finalBoss)) return false;
+  if (snapshot.runtime?.shieldRechargeElapsed !== undefined && !isNonNegativeNumber(snapshot.runtime.shieldRechargeElapsed)) return false;
   if (snapshot.runTalents !== undefined && !isValidRunTalentState(snapshot.runTalents)) return false;
   if (snapshot.monsters !== undefined && (!Array.isArray(snapshot.monsters) || snapshot.monsters.some(monster => !isRecord(monster) || (monster.mechanicState !== undefined && !validMechanicState(monster.mechanicState))))) return false;
   if (snapshot.monsters?.some(monster => monster.statuses !== undefined && (!Array.isArray(monster.statuses) || monster.statuses.some(status =>

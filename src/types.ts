@@ -20,6 +20,8 @@ export type Stat =
   | 'critDamage'
   | 'maxHealth'
   | 'armor'
+  | 'defense'
+  | 'shieldRecoveryRate'
   | 'moveSpeed'
   | 'cooldown'
   | 'pickupRange'
@@ -35,6 +37,8 @@ export type Stat =
   | 'lifeRegen';
 
 export type StatMap = Partial<Record<Stat, number>>;
+export type StatValueMode = 'flat' | 'increased';
+export type StatValueModes = Partial<Record<Stat, StatValueMode>>;
 
 export type ElementType = 'physical' | 'fire' | 'frost' | 'lightning' | 'poison' | 'shadow';
 
@@ -47,6 +51,7 @@ export interface Affix {
   name: string;
   tier: number;
   values: StatMap;
+  valueModes?: StatValueModes;
   special?: string;
 }
 
@@ -175,6 +180,7 @@ export interface SaveData {
     finalBoss?: FinalBossState;
     elapsed: number;
     shield: number;
+    shieldRechargeElapsed?: number;
     invulnerable: number;
     attackTimer: number;
     comboCount: number;

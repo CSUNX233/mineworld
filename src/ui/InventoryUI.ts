@@ -3,7 +3,7 @@ import type { EquipmentManager, DerivedStats } from '../items/EquipmentManager';
 import type { Inventory } from '../items/Inventory';
 import type { Item, Rarity, Slot, Stat } from '../types';
 import { SETS, setDisplayName } from '../data/sets';
-import { statLabel, formatValue } from '../items/AffixSystem';
+import { statLabel, formatModifier } from '../items/AffixSystem';
 import { itemTooltipHTML } from './ItemTooltip';
 import { isMobileDevice } from '../utils/mobile';
 import { createItemIcon, createUiIcon, UI_RARITY_COLORS } from './UiAssets';
@@ -180,15 +180,26 @@ export class InventoryUI {
       `攻击 ${Math.round(stats.attack)}`,
       `攻速 ${(stats.baseAttackSpeed * (1 + stats.attackSpeedBonus)).toFixed(2)}/s`,
       `生命 ${Math.round(stats.maxHealth)}`,
-      `护甲 ${Math.round(stats.armor)}`,
+      `护甲护盾 ${Math.round(stats.armor)}`,
+      `防御力 ${Math.round(stats.defense)}`,
+      `护盾恢复等待 ${stats.shieldRechargeDelay.toFixed(1)}s`,
       `暴击 ${(stats.critChance * 100).toFixed(1)}%`,
       `暴伤 ${(stats.critDamage * 100).toFixed(0)}%`,
+      `闪避 ${(stats.dodgeChance * 100).toFixed(1)}%`,
+      `吸血 ${(stats.lifeSteal * 100).toFixed(1)}%`,
       `移速 ${stats.moveSpeed.toFixed(2)}`,
       `回蓝 ${stats.manaRegen.toFixed(1)}/s`,
       `回血 ${stats.lifeRegen.toFixed(1)}/s`,
       `幸运 ${Number(stats.luck.toFixed(1))}`,
     ].join(' · ');
+    summary.title = '护甲护盾决定装备提供的可回复护盾容量；受击后基础等待 5 秒才开始自然恢复，护盾恢复启动速度可将等待缩短至最低 2.5 秒。';
     equipmentPanel.appendChild(summary);
+    const shieldRule = document.createElement('div');
+    shieldRule.style.gridColumn = '1 / -1';
+    shieldRule.style.fontSize = '11px';
+    shieldRule.style.opacity = '0.72';
+    shieldRule.textContent = '护甲护盾决定可回复容量；受击后基础等待 5 秒，启动速度可缩短至最低 2.5 秒。';
+    equipmentPanel.appendChild(shieldRule);
     const setSummary = document.createElement('div');
     setSummary.className = 'inventory-set-summary';
     const activeSets = equipment.getActiveSetBonuses();
@@ -415,7 +426,10 @@ export class InventoryUI {
             const bonus = setDef.bonuses[threshold];
             const active = set.count >= threshold;
             const statsText = Object.entries(bonus.stats)
-              .map(([stat, value]) => `${statLabel(stat as Stat)} +${formatValue(stat as Stat, value)}`)
+              .map(([stat, value]) => {
+                const typedStat = stat as Stat;
+                return `${statLabel(typedStat)} ${formatModifier(typedStat, value, bonus.valueModes?.[typedStat] ?? 'flat')}`;
+              })
               .join(' · ');
             const specialText = bonus.special ? ` · ${this.specialLabel(bonus.special)}` : '';
             const line = document.createElement('div');
@@ -602,20 +616,20 @@ export class InventoryUI {
 
   private specialLabel(special: string): string {
     const labels: Record<string, string> = {
-      chainLightning: '攻击有概率触发连锁闪电',
+      chainLightning: '普攻命中时有 15% 概率触发连锁闪电（近战与法杖均可）',
       explosiveKill: '击杀时产生爆炸',
-      aegisWalk: '移动时每秒获得最大生命 1% 的护盾，容量 20%；不同来源叠加',
-      meteorOnAttack: '攻击有概率召唤陨石',
+      aegisWalk: '每个来源增加最大生命 20% 的可回复护盾容量；脱战移动时每秒恢复最大生命 1% 的护盾',
+      meteorOnAttack: '普攻命中时有 18% 概率召唤陨石',
       summonSkeletonOnKill: '击杀时召唤骷髅',
-      executeFullHealth: '满血时额外伤害',
+      executeFullHealth: '满血时命中伤害提高 25%（不含持续伤害）',
       dashInvincibility: '冲刺后短暂无敌',
       fireTrail: '移动留下火焰路径',
-      lowHealthShield: '低血量时获得护盾',
-      burnMastery: '火焰异常强化',
-      freezeMastery: '冰霜异常强化',
-      poisonMastery: '毒素异常强化',
-      shockMastery: '闪电异常强化',
-      glacialNova: '冰霜新星强化',
+      lowHealthShield: '生命低于 30% 时获得最大生命 35% 的额外护盾，冷却 12 秒',
+      burnMastery: '燃烧伤害提高 25%',
+      freezeMastery: '冰霜异常触发率提高 50%，持续时间提高 20%',
+      poisonMastery: '中毒伤害提高 35%，持续时间提高 25%',
+      shockMastery: '闪电异常触发率提高 50%，并解锁闪电链',
+      glacialNova: '解锁冰霜新星：半径和伤害提高 20%，并必定施加冰霜减速',
     };
     return labels[special] ?? special;
   }
