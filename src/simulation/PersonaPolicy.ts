@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import * as THREE from 'three';
 import { CraftingSystem } from '../items/CraftingSystem';
 import { EquipmentManager, type DerivedStats } from '../items/EquipmentManager';
@@ -158,7 +159,7 @@ class GamePersonaPolicy implements PersonaPolicy {
   }
 
   describe(): unknown {
-    return { kind: this.kind, parameters: this.params, stats: structuredClone(this.stats) };
+    return { kind: this.kind, parameters: this.params, stats: cloneData(this.stats) };
   }
 
   reset(): void {

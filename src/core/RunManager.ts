@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import { archetypeAllowed } from '../progression/MetaProgression';
 import { BUILD_BRANCH_IDS, completedBasicVictoryCount } from '../progression/MetaProgression';
@@ -73,7 +74,7 @@ export class RunManager {
       throw new Error(`Archetype is not unlocked: ${archetype}`);
     }
 
-    const next = structuredClone(envelope);
+    const next = cloneData(envelope);
     next.revision += 1;
     next.preferredArchetype = archetype;
     next.activeRun = {
@@ -155,8 +156,8 @@ export class RunManager {
     if (envelope.claimedRunIds.includes(run.runId)) return envelope;
 
     const settlement = settleRun(run, outcome, now, envelope.profile.researchXp);
-    const next = structuredClone(envelope);
-    const record = structuredClone(settlement.record);
+    const next = cloneData(envelope);
+    const record = cloneData(settlement.record);
     next.revision += 1;
     next.profile.researchXp = settlement.researchXp;
     next.profile.availableMetaPoints += settlement.pointsEarned;
@@ -168,13 +169,13 @@ export class RunManager {
     next.activeRun = null;
     next.pendingSettlement = record;
     next.claimedRunIds = [...new Set([...next.claimedRunIds, run.runId])];
-    next.recentRuns = [structuredClone(record), ...next.recentRuns].slice(0, 20);
+    next.recentRuns = [cloneData(record), ...next.recentRuns].slice(0, 20);
     return next;
   }
 
   static acknowledge(envelope: SaveEnvelopeV3): SaveEnvelopeV3 {
     if (!envelope.pendingSettlement) return envelope;
-    const next = structuredClone(envelope);
+    const next = cloneData(envelope);
     next.revision += 1;
     next.pendingSettlement = null;
     return next;

@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import type { ProfileData, SaveEnvelopeV3 } from '../progression/types';
 import { validateSaveEnvelope } from './SaveValidation';
 import { RunManager } from './RunManager';
@@ -70,6 +71,6 @@ export function migrateSharedCamp(envelopes: SaveEnvelopeV3[]): SharedCamp {
 
 export function useSharedCamp(envelope: SaveEnvelopeV3, camp: SharedCamp): void {
   envelope.sharedCampRevision = camp.revision;
-  envelope.profile = structuredClone(camp.profile);
+  envelope.profile = cloneData(camp.profile);
   envelope.claimedRunIds = [...camp.claimedRunIds];
 }

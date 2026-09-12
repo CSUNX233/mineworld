@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import { normalizeSetRingName } from '../items/SetItems';
 import { DeathReaper } from '../items/DeathReaper';
 import { DeathReaperVisual } from '../items/DeathReaperVisual';
@@ -11,7 +12,7 @@ import { sanctumEncounterForRoom } from '../data/SanctumChapter';
 import { ChapterRituals, isOptionalTrial, trialTitle } from '../world/ChapterEvents';
 import { OathGatekeeperController } from '../monsters/OathGatekeeperController';
 import { SanctumController, type SanctumHost } from '../monsters/SanctumController';
-import { preloadGameImages, prepareTrackedTextures } from './AssetLoading';
+import { preloadGameImages, preloadRemainingGameImages, prepareTrackedTextures } from './AssetLoading';
 import type { EquipmentMechanismTag } from '../items/RewardPreference';
 import { SetRuntime } from '../items/SetRuntime';
 import { setDefinition } from '../data/sets';
@@ -555,11 +556,20 @@ export class Game {
     this.removeStartMenu();
     const { overlay, panel } = this.createStartMenuShell();
     panel.classList.add('controls-guide-panel');
+    overlay.classList.add('controls-guide-overlay');
+    const header = document.createElement('div');
+    header.className = 'controls-guide-header';
     const title = document.createElement('h2');
     title.textContent = '操作说明';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'panel-close-button controls-guide-close';
+    close.setAttribute('aria-label', '关闭操作说明，返回主菜单');
+    close.onclick = () => this.showStartMenu();
+    header.append(title, close);
     const back = this.makeMenuButton('返回主菜单');
     back.onclick = () => this.showStartMenu();
-    panel.append(title, buildControlsGuide(this.mobile), back);
+    panel.append(header, buildControlsGuide(this.mobile), back);
     overlay.appendChild(panel);
     this.startOverlay = overlay;
     this.uiRoot.appendChild(overlay);
@@ -1048,7 +1058,7 @@ export class Game {
     this.craftingSequence = save.craftingSequence ?? 0;
     this.setRuntime.restore(save.runtime?.setState);
     this.reaper.restore(save.runtime?.deathReaper);
-    this.runTalents = save.runTalents ? structuredClone(save.runTalents) : createRunTalents();
+    this.runTalents = save.runTalents ? cloneData(save.runTalents) : createRunTalents();
     this.migratedRunTalents = !save.runTalents;
     this.fireModifiers = deriveFireModifiers(this.runTalents);
     this.skillCooldowns = { ...(save.runtime?.skillCooldowns ?? {}) };
@@ -1191,7 +1201,14 @@ export class Game {
     await loading.step(25, '加载章节材质');
     await Promise.all([
       preloadChapterTextures(this.floor),
-      preloadGameImages((done, total) => loading.report(25 + Math.floor(done / Math.max(1, total) * 30), `加载贴图 ${done}/${total}`)),
+      preloadGameImages((done, total) => loading.report(25 + Math.floor(done / Math.max(1, total) * 30), `加载贴图 ${done}/${total}`), {
+        items: [...this.equipment.getEquippedItems(), ...this.inventory.items, ...(resume?.runtime?.relicDrops?.map(drop => drop.item) ?? [])],
+        iconIds: [
+          ...this.skillLoadout.map(id => SKILL_UI_ICONS[id] ?? id), 'melee_momentum', 'guard_stance',
+          ...(this.skillLoadout.includes('raise_company') || resume?.runtime?.summonSquad
+            ? ['summon_warrior', 'summon_guardian', 'summon_archer', 'summon_focus', 'summon_recall'] : []),
+        ],
+      }),
     ]);
     await loading.step(55, '构建场景');
     prepareFoundryPanels(data, resume?.runtime?.brokenFoundryPanels);
@@ -1267,6 +1284,7 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
     await loading.step(100, '准备完成');
     loading.close();
+    preloadRemainingGameImages();
     this.lastTime = performance.now();
     return true;
     } catch (error) {
@@ -1439,7 +1457,7 @@ export class Game {
         maxHealth: monster.maxHealth,
         elite: monster.elite,
         eliteModifiers: [...monster.eliteModifiers],
-        statuses: structuredClone(monster.statuses),
+        statuses: cloneData(monster.statuses),
         difficultyStatMultiplier: GLOBAL_MONSTER_STAT_MULTIPLIER,
         mechanicState: this.encounterMechanics.serialize(monster),
         sanctumState: this.sanctumController.snapshot(monster),
@@ -1920,6 +1938,20 @@ export class Game {
     this.pauseOverlay = overlay;
     this.uiRoot.appendChild(overlay);
     this.addPanelCloseButton(panel, () => this.resumeGame());
+    if (this.mobile) {
+      const header = document.createElement('header');header.className = 'mobile-pause-header';
+      header.append(title, panel.querySelector('.panel-close-button')!);
+      const body = document.createElement('div');body.className = 'mobile-pause-body mobile-scroll';
+      const help = document.createElement('details');help.className = 'mobile-pause-help';
+      const summary = document.createElement('summary');summary.textContent = '排查问题与试玩记录';
+      help.append(summary, seedInfo, exportBtn, exportHelp);
+      const actions = document.createElement('div');actions.className = 'mobile-pause-actions';
+      actions.append(unstuckBtn, exitBtn);
+      body.append(actions, ...Array.from(panel.children), help);
+      panel.append(header, body, continueBtn);
+      // Continue is a fixed bottom action; settings alone scroll.
+      continueBtn.classList.add('mobile-pause-resume');
+    }
     this.bindOverlayMaskClose(overlay, () => this.resumeGame());
     this.mobileBack.register('pause', () => this.resumeGame());
   }
@@ -2290,8 +2322,20 @@ export class Game {
     const list = document.createElement('div');
     list.className = 'sunlit-skill-list mobile-scroll';
     list.setAttribute('aria-label', '可配置技能');
-
-    SKILLS.forEach((skill) => {
+    const filters = document.createElement('div');
+    filters.className = 'sunlit-skill-filters';
+    const available = this.makeMenuButton('已装备 / 可用');
+    const all = this.makeMenuButton('全部技能');
+    const filter = (showAll: boolean) => {
+      list.classList.toggle('show-locked', showAll);
+      available.setAttribute('aria-pressed', String(!showAll));
+      all.setAttribute('aria-pressed', String(showAll));
+      list.scrollTop = 0;
+    };
+    available.onclick = () => filter(false);all.onclick = () => filter(true);
+    filters.append(available, all);header.append(filters);filter(false);
+    const rank = (id: string) => this.skillLoadout.includes(id) ? this.skillLoadout.indexOf(id) : this.isSkillUnlocked(id) ? 10 : 20;
+    [...SKILLS].sort((a,b) => rank(a.id)-rank(b.id)).forEach((skill) => {
       const unlocked = this.isSkillUnlocked(skill.id);
       const equipped = this.skillLoadout.includes(skill.id);
       const equippedSlot = this.skillLoadout.indexOf(skill.id);
@@ -2314,7 +2358,14 @@ export class Game {
       const description = document.createElement('div');
       description.className = 'sunlit-skill-description';
       description.textContent = `${skill.description} · ${cooldown.toFixed(1)}s · 法力 ${manaCost}${!unlocked && skill.talentId ? ' · 解锁：' + (RUN_TALENT_BY_ID.get(skill.talentId)?.name ?? '对应装备套装') : ''}`;
-      info.append(skillName, description);
+      const statsLine = document.createElement('div');
+      statsLine.className = 'sunlit-skill-stats';
+      statsLine.textContent = `冷却 ${cooldown.toFixed(1)}s · 法力 ${manaCost}`;
+      const details = document.createElement('details');
+      details.className = 'sunlit-skill-details';
+      const summary = document.createElement('summary');summary.textContent = '招式说明';
+      details.append(summary,description);
+      info.append(skillName, statsLine, details);
       row.appendChild(info);
 
       const button = document.createElement('button');
@@ -2327,6 +2378,9 @@ export class Game {
         button.textContent = equipped ? '卸载' : '装备';
         if (equipped) button.classList.add('is-equipped');
         button.disabled = !this.canEditRunTalents();
+        if (!equipped && this.skillLoadout.length >= 4) {
+          button.textContent = '槽位已满';button.disabled = true;
+        }
         button.onclick = () => {
           if (!this.canEditRunTalents()) return;
           if (equipped) this.removeSkillFromLoadout(skill.id);
@@ -3581,7 +3635,7 @@ export class Game {
   private finishRun(outcome: RunOutcome): void {
     const envelope = this.envelope;
     if (!envelope?.activeRun || this.failedSaveCandidate) return;
-    const base = structuredClone(envelope);
+    const base = cloneData(envelope);
     if (!base.activeRun) return;
     if (this.running) {
       base.activeRun.snapshot = this.captureRunSnapshot();
@@ -4255,7 +4309,7 @@ export class Game {
       version: 2,
       floorProgress: this.encounters?.state,
       openedChests: [...this.openedChests],
-      runTalents: structuredClone(this.runTalents),
+      runTalents: cloneData(this.runTalents),
       mapGenerationVersion: this.floorData?.generationVersion ?? 1,
       mapLayoutKind: this.floorData?.layoutKind,
       floor: this.floor,
@@ -4323,7 +4377,7 @@ export class Game {
   private saveGame(): boolean {
     if (!this.envelope?.activeRun) return true;
     if (this.failedSaveCandidate) return false;
-    const candidate = structuredClone(this.envelope);
+    const candidate = cloneData(this.envelope);
     if (!candidate.activeRun) return true;
     candidate.activeRun.maxLevel = Math.max(candidate.activeRun.maxLevel, this.player.level);
     candidate.activeRun.upgradeCount = Math.max(candidate.activeRun.upgradeCount, this.upgradeCount);

@@ -1,4 +1,5 @@
 import './meta-talent-tree.css';
+import './mobile-meta-tree.css';
 import { META_NODES, completedBasicVictoryCount, metaBonusDescription, metaUnlockReason, permanentMetaBonuses, type MetaNode } from '../progression/MetaProgression';
 import type { SaveEnvelopeV3 } from '../progression/types';
 import { DEATH_REAPER_ITEMS } from '../data/DeathReaperItems';
@@ -29,18 +30,22 @@ function action(label: string,callback:()=>void,disabled = false): HTMLButtonEle
 /** A scrollable graph keeps node details and purchase actions readable on desktop and touch screens. */
 export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string)=>void): HTMLElement {
   const root = document.createElement('section');root.className='meta-tree';root.setAttribute('aria-label','营地天赋树');
-  root.append(text('h3','营地修习 · 长期天赋树'),text('p','先沿公共主干深入，再逐点修习分支。小节点累加，末端积习稍强；出发时生效。本局期间可查看。','sunlit-copy'));
+  root.append(text('h3','营地修习 · 长期天赋树','meta-tree-title'));
+  const controls = document.createElement('div');controls.className='meta-tree-controls';root.append(controls);
+  const help = document.createElement('details');help.className='meta-tree-help';
+  const helpSummary = document.createElement('summary');helpSummary.textContent='修习说明与永久加成';help.append(helpSummary,text('p','先沿公共主干深入，再逐点修习分支。小节点累加，末端积习稍强；出发时生效。本局期间可查看。','sunlit-copy'));
   const bonus = permanentMetaBonuses(envelope.profile.unlockedNodes);
   const bonusCopy = Object.values(bonus).some(value=>value>0) ? metaBonusDescription(bonus) : '尚无永久属性加成。';
-  root.append(text('p',`已修习 ${envelope.profile.unlockedNodes.filter(id=>META_NODES.some(n=>n.id===id&&n.kind==='permanent')).length} / 40 · ${bonusCopy}`,'meta-tree-summary'));
+  const learned = envelope.profile.unlockedNodes.filter(id=>META_NODES.some(n=>n.id===id&&n.kind==='permanent')).length;
+  help.append(text('p',bonusCopy,'meta-tree-summary'));
   const count = completedBasicVictoryCount(envelope);
-  root.append(text('p',count >= 3 ? `完整通关 ${count} 次 · 已取得后续进阶研究资格，内容尚未开放。` : `进阶研究资格：完整通过 25 层 ${count} / 3 次。提前撤离不计；后续内容尚未开放。`,'meta-tree-qualification'));
+  help.append(text('p',count >= 3 ? `完整通关 ${count} 次 · 已取得后续进阶研究资格，内容尚未开放。` : `进阶研究资格：完整通过 25 层 ${count} / 3 次。提前撤离不计；后续内容尚未开放。`,'meta-tree-qualification'));controls.append(help);
   const toolbar = document.createElement('div');toolbar.className='meta-tree-toolbar';
-  toolbar.append(text('span','金色：已解锁 · 青色：可修习 · 灰色：前置未满足'));
-  root.append(toolbar);
+  toolbar.append(text('span',`已修习 ${learned}/40 · 余 ${envelope.profile.availableMetaPoints} 点`,'meta-tree-progress'));
+  controls.append(toolbar);
   const layout = document.createElement('div');layout.className='meta-tree-layout';
   const viewport = document.createElement('div');viewport.className='meta-tree-viewport';viewport.tabIndex=0;
-  viewport.setAttribute('aria-label','天赋连线图，可滚动或用方向键移动；电脑可拖动空白处');
+  viewport.setAttribute('aria-label','天赋连线图，可双向拖动、滚动或用方向键移动；点击节点查看详情');
   const board = document.createElement('div');board.className='meta-tree-board';board.style.width=`${WIDTH}px`;board.style.height=`${HEIGHT}px`;
   const svg = document.createElementNS(NS,'svg');svg.setAttribute('width',String(WIDTH));svg.setAttribute('height',String(HEIGHT));svg.setAttribute('aria-hidden','true');
   for (const node of META_NODES) {
@@ -53,16 +58,21 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
   board.append(svg);
   const detail = document.createElement('aside');detail.className='meta-tree-detail';detail.setAttribute('aria-live','polite');
   const buttons = new Map<string,HTMLButtonElement>();
-  const select = (node: MetaNode) => {
+  const closeDetail = () => {root.classList.remove('is-detail-open');detail.hidden=true;};
+  const select = (node: MetaNode, open = true) => {
     selectedId = node.id;
     for (const [id,button] of buttons) {button.classList.toggle('is-selected',id===node.id);button.setAttribute('aria-pressed',String(id===node.id));}
-    detail.replaceChildren(text('span',node.kind==='permanent' ? BRANCH_LABELS[node.branch] : node.kind==='mastery' ? '流派掌握' : '流派入门','meta-tree-branch'),text('h3',node.name),text('p',node.description));
+    const heading = document.createElement('div');heading.className='meta-tree-detail-heading';
+    const close = action('收起详情',()=>{closeDetail();buttons.get(node.id)?.focus({preventScroll:true});});close.classList.add('meta-tree-detail-close');
+    heading.append(text('h3',node.name),close);
+    detail.replaceChildren(heading,text('span',node.kind==='permanent' ? BRANCH_LABELS[node.branch] : node.kind==='mastery' ? '流派掌握' : '流派入门','meta-tree-branch'),text('p',node.description));
     if (node.requiresNode) detail.append(text('p',`前置：${META_NODES.find(n=>n.id===node.requiresNode)?.name ?? node.requiresNode}`));
     if (node.kind==='mastery') detail.append(text('p','需完整通关，并在至少 3 个战斗房使用任一对应分支 20 次。'));
     detail.append(text('p',`消耗 ${node.cost} 个营地天赋点 · 当前 ${envelope.profile.availableMetaPoints} 点`));
     const reason = metaUnlockReason(envelope,node);
     detail.append(text('p',reason ?? '前置已满足，可修习。','meta-tree-status'),action(envelope.profile.unlockedNodes.includes(node.id) ? '已解锁' : `修习 · ${node.cost} 点`,()=>unlock(node.id),reason!==null));
     if (node.kind==='permanent') detail.append(text('p','永久属性在下一局出发时固定，进行中的对局保留原有修习配置。','meta-tree-footnote'));
+    root.classList.toggle('is-detail-open',open);detail.hidden=!open;detail.scrollTop=0;
   };
   for (const node of META_NODES) {
     const p = position(node),button = document.createElement('button');button.type='button';button.className='meta-tree-node';
@@ -72,16 +82,20 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
     button.append(text('span',node.kind==='permanent' ? node.notable ? '◆' : node.id.slice(node.id.lastIndexOf('_')+1) : node.kind==='mastery' ? '★' : node.id==='vanguard' ? '剑' : node.id==='arcanist' ? '术' : '契','meta-tree-node-symbol'));
     const label = text('span',node.name,'meta-tree-node-label');button.append(label);button.onclick=()=>select(node);board.append(button);buttons.set(node.id,button);
   }
-  viewport.append(board);layout.append(viewport,detail);root.append(layout,text('p','滚轮或触屏滑动查看连线；电脑可拖动空白处，也可用方向键移动。点击节点查看详情，再确认修习。','meta-tree-footnote'));
-  toolbar.append(action('回到主干',()=>viewport.scrollTo({left:440-viewport.clientWidth/2,top:220,behavior:'smooth'})));
-  let drag: {x:number;y:number;left:number;top:number} | null = null;
-  viewport.addEventListener('pointerdown',event=>{if(event.pointerType!=='mouse'||event.button!==0||(event.target as HTMLElement).closest('button'))return;drag={x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};viewport.setPointerCapture(event.pointerId);viewport.classList.add('is-dragging');event.preventDefault();});
-  viewport.addEventListener('pointermove',event=>{if(drag){viewport.scrollLeft=drag.left-event.clientX+drag.x;viewport.scrollTop=drag.top-event.clientY+drag.y;}});
-  const endDrag=()=>{drag=null;viewport.classList.remove('is-dragging');};viewport.addEventListener('pointerup',endDrag);viewport.addEventListener('pointercancel',endDrag);
+  viewport.append(board);layout.append(viewport,detail);root.append(layout,text('p','金：已解锁 · 青：可修习 · 灰：待解锁｜双向拖动，点节点查看','meta-tree-footnote meta-tree-gesture-hint'));
+  toolbar.append(action('回到主干',()=>{closeDetail();requestAnimationFrame(()=>viewport.scrollTo({left:440-viewport.clientWidth/2,top:220,behavior:'smooth'}));}));
+  let drag: {id:number;x:number;y:number;left:number;top:number;moved:boolean} | null = null;
+  let suppressClick = false;
+  viewport.addEventListener('pointerdown',event=>{if(!event.isPrimary||event.button!==0)return;suppressClick=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,moved:false};});
+  viewport.addEventListener('pointermove',event=>{if(!drag||drag.id!==event.pointerId)return;if(!drag.moved&&Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<8)return;if(!drag.moved){drag.moved=true;viewport.setPointerCapture(event.pointerId);viewport.classList.add('is-dragging');}event.preventDefault();viewport.scrollLeft=drag.left-event.clientX+drag.x;viewport.scrollTop=drag.top-event.clientY+drag.y;});
+  const endDrag=(event:PointerEvent)=>{if(!drag||drag.id!==event.pointerId)return;suppressClick=drag.moved;drag=null;viewport.classList.remove('is-dragging');if(viewport.hasPointerCapture(event.pointerId))viewport.releasePointerCapture(event.pointerId);};viewport.addEventListener('pointerup',endDrag);viewport.addEventListener('pointercancel',endDrag);viewport.addEventListener('lostpointercapture',()=>{drag=null;viewport.classList.remove('is-dragging');});
+  viewport.addEventListener('pointerleave',()=>{if(drag&&!drag.moved)drag=null;});
+  viewport.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopPropagation();suppressClick=false;}},true);
+  root.addEventListener('keydown',event=>{if(event.key==='Escape'&&root.classList.contains('is-detail-open')){event.preventDefault();event.stopPropagation();closeDetail();buttons.get(selectedId)?.focus({preventScroll:true});}});
   viewport.addEventListener('scroll',()=>{savedScroll={left:viewport.scrollLeft,top:viewport.scrollTop};});
   const scroll = savedScroll;
   requestAnimationFrame(()=>{viewport.scrollLeft=scroll?.left ?? Math.max(0,440-viewport.clientWidth/2);viewport.scrollTop=scroll?.top ?? 220;});
-  select(META_NODES.find(n=>n.id===selectedId) ?? META_NODES.find(n=>n.id==='camp_trunk_1')!);
+  select(META_NODES.find(n=>n.id===selectedId) ?? META_NODES.find(n=>n.id==='camp_trunk_1')!,!matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches);
   const collection = document.createElement('details');collection.className='meta-relic-collection';
   const discovered = new Set(envelope.profile.discoveredRelics ?? []),summary = document.createElement('summary');
   summary.textContent=`死亡收割图鉴 · 已发现 ${DEATH_REAPER_ITEMS.filter(item=>discovered.has(item.id)).length} / ${DEATH_REAPER_ITEMS.length} 件`;

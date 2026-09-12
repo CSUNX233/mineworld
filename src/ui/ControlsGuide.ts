@@ -36,9 +36,11 @@ export function buildControlsGuide(mobile: boolean): HTMLElement {
   const select = (index: number) => {
     buttons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
     body.replaceChildren();
+    let entry = 0;
     for (const [title, description] of index === 0 ? DESKTOP : MOBILE) {
-      const section = document.createElement('section');
-      const heading = document.createElement('h3');
+      const section = document.createElement('details');
+      section.open = entry++ < 3;
+      const heading = document.createElement('summary');
       heading.textContent = title;
       const text = document.createElement('p');
       text.textContent = description;

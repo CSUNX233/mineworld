@@ -389,3 +389,30 @@
 .controls-guide-body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding-right: 8px; }
 .controls-guide-body h3 { font-size: 15px; margin: 12px 0 4px; }
 .controls-guide-body p { font-size: 13px; line-height: 1.7; margin: 0; }
+
+/* Keep both exit paths outside the scroll area, including browsers without dvh. */
+#ui-root .controls-guide-overlay {
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+}
+#ui-root .controls-guide-panel {
+  box-sizing: border-box;
+  width: 100%; max-width: 680px;
+  height: calc(100vh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: 720px; min-height: 0; min-width: 0;
+  padding: 12px; gap: 8px;
+}
+@supports (height: 100dvh) {
+  #ui-root .controls-guide-panel { height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+}
+.controls-guide-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#ui-root .controls-guide-close { position: static; width: 44px; height: 44px; min-width: 44px; margin: 0; padding: 0; flex-shrink: 0; touch-action: manipulation; }
+#ui-root .controls-guide-panel > .sunlit-menu-button { width: 100%; min-width: 0; min-height: 44px; margin: 0; }
+.controls-guide { min-width: 0; }
+.controls-guide-tabs button { min-width: 0; min-height: 44px; flex-basis: 0; padding: 6px; }
+.controls-guide-body { min-width: 0; text-align: left; touch-action: pan-y; -webkit-overflow-scrolling: touch; overflow-wrap: anywhere; }
+.controls-guide-body section { padding: 0 0 12px; border-bottom: 1px solid #64553930; }
+.controls-guide-body p { font-size: 14px; }
+@media (max-width: 480px) {
+  #ui-root .controls-guide-panel { padding: 8px; }
+  .controls-guide-header h2 { font-size: 20px; }
+}

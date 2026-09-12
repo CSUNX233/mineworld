@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import type { Monster } from '../monsters/Monster';
 import type { ElementType } from '../types';
 import type { SummonRole } from '../summons/types';
@@ -305,7 +306,7 @@ export class SetRuntime {
   /** Victim references and delayed hits never survive a floor boundary. Reserved damage is not refunded. */
   clearTargets(): void { this.delayed = []; this.trails = []; }
   reset(): void { this.state = { version: 1, time: 0, meters: {}, cooldowns: {}, budgets: {} }; this.delayed = []; this.trails = []; this.counts = {}; }
-  snapshot(): SetSnapshot { return structuredClone(this.state); }
+  snapshot(): SetSnapshot { return cloneData(this.state); }
   restore(value: unknown): void {
     this.reset();
     if (!value || typeof value !== 'object') return;
@@ -315,6 +316,6 @@ export class SetRuntime {
       if (!s[field] || typeof s[field] !== 'object' || Object.keys(s[field]).length > 100
         || Object.values(s[field]).some(v => !Number.isFinite(v) || v < 0 || v > 1e9)) return;
     }
-    this.state = structuredClone(s);
+    this.state = cloneData(s);
   }
 }

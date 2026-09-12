@@ -549,9 +549,9 @@ export class TouchControls {
       this.utilityRow.style.left = '';
       this.utilityRow.style.right = 'max(12px, env(safe-area-inset-right))';
       this.utilityRow.style.transform = 'none';
-      this.utilityRow.style.flexDirection = 'column';
+      this.utilityRow.style.flexDirection = 'row';
       this.utilityRow.style.bottom = '';
-      this.utilityRow.style.top = 'calc(176px + env(safe-area-inset-top))';
+      this.utilityRow.style.top = 'calc(172px + env(safe-area-inset-top))';
     }
 
     this.pauseButton.style.right = 'calc(max(12px, env(safe-area-inset-right)) + 90px + 10px)';

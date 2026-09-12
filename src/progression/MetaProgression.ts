@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import type {
   ArchetypeId,
   BuildBranchId,
@@ -225,7 +226,7 @@ export function setRewardPreference(envelope: SaveEnvelopeV3, id: string): SaveE
   }
   if (envelope.profile.rewardPreference === preference) return envelope;
 
-  const next = structuredClone(envelope);
+  const next = cloneData(envelope);
   next.revision += 1;
   next.profile.rewardPreference = preference;
   return next;
@@ -256,7 +257,7 @@ export function unlockNode(envelope: SaveEnvelopeV3, nodeId: string): SaveEnvelo
     }
   }
 
-  const next = structuredClone(envelope);
+  const next = cloneData(envelope);
   next.revision += 1;
   next.profile.availableMetaPoints -= node.cost;
   next.profile.unlockedNodes.push(node.id);

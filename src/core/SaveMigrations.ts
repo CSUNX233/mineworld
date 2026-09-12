@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import type { SaveData } from '../types';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 
@@ -34,7 +35,7 @@ export function upgradeEnvelopeRules(value: unknown): unknown {
     }
   }
 
-  const upgraded = structuredClone(value);
+  const upgraded = cloneData(value);
   const upgradedRun = upgraded.activeRun as Record<string, unknown>;
   upgradedRun.runDefinitionId = BASIC_RUN_DEFINITION.id;
   upgradedRun.rulesVersion = BASIC_RUN_DEFINITION.rulesVersion;

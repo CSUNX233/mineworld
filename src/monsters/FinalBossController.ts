@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import { monsterAggression } from './EnemyIntent';
 import * as THREE from 'three';
 import { decorateTelegraph, disposeTelegraphArt } from '../ui/CombatArt';
@@ -27,10 +28,10 @@ export class FinalBossController {
 
   get damageMultiplier(): number { return this.state.recovery > 0 ? 1.5 : .8; }
 
-  snapshot(): FinalBossState { return structuredClone(this.state); }
+  snapshot(): FinalBossState { return cloneData(this.state); }
   restore(state: FinalBossState): void {
     this.clear();
-    this.state = structuredClone(state);
+    this.state = cloneData(state);
     for (const warning of this.state.warnings) this.draw(warning);
   }
 

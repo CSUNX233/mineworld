@@ -545,7 +545,32 @@
   }
 }
 
-/* Mobile inventory uses the safe viewport as a compact two-pane workspace. */
+/* Keep the equipment grid symmetric on every screen. */
+#ui-root .sunlit-inventory .inventory-equipment {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-auto-rows: max-content;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
+}
+#ui-root .sunlit-inventory:not(.mobile-inventory) .inventory-equipment > .inventory-item-slot {
+  width: 100% !important;
+  height: 58px !important;
+}
+.inventory-set-summary {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-height: 72px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.inventory-set-summary > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ui-root .inventory-set-button { grid-column: 1 / -1; min-height: 36px; padding: 3px 8px; }
+
+/* Mobile keeps equipment and its actions above a separately scrolling bag. */
 #ui-root .mobile-inventory.sunlit-inventory {
   left: calc(env(safe-area-inset-left) + 6px) !important;
   right: calc(env(safe-area-inset-right) + 6px) !important;
@@ -557,61 +582,86 @@
   max-height: none !important;
   padding: 6px !important;
   gap: 6px !important;
-  grid-template-rows: 36px minmax(0, 1fr) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: 44px auto minmax(0, 1fr) !important;
   transform: none !important;
+  overflow: hidden;
 }
-
 #ui-root .mobile-inventory .inventory-header {
-  min-height: 0;
-  padding-right: 36px;
+  grid-column: 1 / -1;
+  min-height: 44px;
+  padding-right: 50px;
 }
-
-#ui-root .mobile-inventory .inventory-header > strong {
-  font-size: 12px;
-}
-
+#ui-root .mobile-inventory .inventory-header > strong { display: block !important; font-size: 14px; }
 #ui-root .mobile-inventory .panel-close-button {
-  top: 2px !important;
-  right: 2px !important;
-  width: 32px !important;
-  min-width: 32px !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  border-width: 4px !important;
-  border-image-width: 4px !important;
+  top: 6px !important;
+  right: 6px !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  border-width: 5px !important;
+  border-image-width: 5px !important;
 }
-
-#ui-root .mobile-inventory .inventory-tabs {
-  min-width: 0;
+#ui-root .mobile-inventory[data-tab] .inventory-equipment {
+  display: grid !important;
+  max-height: none !important;
+  overflow: visible !important;
+  gap: 4px !important;
+}
+#ui-root .mobile-inventory .inventory-equipment-title { display: none; }
+#ui-root .mobile-inventory .inventory-equipment > .equipment-slot {
+  width: 100% !important;
+  height: 44px !important;
+  min-height: 44px;
+  gap: 0;
+}
+#ui-root .mobile-inventory .equipment-slot .inventory-item-icon {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+}
+#ui-root .mobile-inventory .equipment-slot-label { font-size: 10px; line-height: 1.1; }
+#ui-root .mobile-inventory .inventory-stat-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 0 !important;
+  padding-top: 4px !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
+#ui-root .mobile-inventory .inventory-equipment-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
-
-#ui-root .mobile-inventory .inventory-tabs button {
+#ui-root .mobile-inventory .inventory-equipment-actions button {
+  grid-column: auto !important;
   min-width: 0;
-  min-height: 32px;
-  padding: 2px 8px;
-  border-width: 4px !important;
-  border-image-width: 4px !important;
-  font-size: 11px;
+  min-height: 44px;
+  margin: 0 !important;
+  padding: 4px !important;
+  border-width: 5px !important;
+  border-image-width: 5px !important;
+  font-size: 12px;
+  line-height: 1.2;
+  touch-action: manipulation;
 }
-
+#ui-root .mobile-inventory[data-tab] .inventory-content {
+  display: flex !important;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
 #ui-root .mobile-inventory .inventory-section-title {
   min-height: 24px;
   margin-bottom: 4px !important;
   padding: 0 1px 3px;
   font-size: 12px;
 }
-
-#ui-root .mobile-inventory .inventory-section-icon {
-  width: 18px;
-  height: 18px;
-  flex-basis: 18px;
-}
-
-#ui-root .mobile-inventory .inventory-content {
-  padding: 0;
-}
-
+#ui-root .mobile-inventory .inventory-section-icon { width: 18px; height: 18px; flex-basis: 18px; }
 #ui-root .mobile-inventory .inventory-materials {
   margin-bottom: 4px !important;
   overflow: hidden;
@@ -620,12 +670,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 #ui-root .mobile-inventory .inventory-hint,
-#ui-root .mobile-inventory .inventory-bulk-label {
-  display: none;
-}
-
+#ui-root .mobile-inventory .inventory-bulk-label { display: none; }
 #ui-root .mobile-inventory .inventory-grid.sunlit-inset {
   min-height: 0;
   padding: 5px;
@@ -634,153 +680,124 @@
   grid-auto-rows: 48px !important;
   border-width: 5px;
   border-image-width: 5px;
+  overscroll-behavior: contain;
 }
-
 #ui-root .mobile-inventory .inventory-bulk {
-  margin-top: 5px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
+  flex-shrink: 0;
+  margin-top: 6px !important;
   gap: 4px !important;
-  flex-wrap: nowrap;
 }
-
 #ui-root .mobile-inventory .inventory-bulk button,
 #ui-root .mobile-inventory .inventory-bulk select {
-  min-height: 30px;
-  padding: 2px 5px !important;
-  border-width: 4px !important;
-  border-image-width: 4px !important;
-  font-size: 10px;
-  line-height: 1.1;
-}
-
-#ui-root .mobile-inventory .inventory-bulk select {
-  width: min(118px, 34vw);
-  max-width: 118px;
-}
-
-#ui-root .mobile-inventory .inventory-bulk button {
-  flex: 0 1 auto;
-}
-
-#ui-root .mobile-inventory .inventory-stat-summary {
-  margin-top: 4px !important;
-  padding-top: 4px !important;
-  font-size: 10px !important;
-  line-height: 1.35 !important;
-}
-
-#ui-root .mobile-inventory .inventory-set-panel {
-  margin-top: 3px !important;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
   padding: 4px !important;
-  border-width: 5px;
-  border-image-width: 5px;
-  font-size: 9px !important;
-  line-height: 1.3 !important;
+  border-width: 5px !important;
+  border-image-width: 5px !important;
+  font-size: 12px;
+  line-height: 1.2;
+  touch-action: manipulation;
 }
-
-#ui-root .mobile-inventory .inventory-allocate {
-  min-height: 30px;
-  margin-top: 2px !important;
-  padding: 2px 5px !important;
-  border-width: 4px !important;
-  border-image-width: 4px !important;
-  font-size: 10px;
-}
-
-@media (orientation: portrait) {
+@media (orientation: landscape) {
   #ui-root .mobile-inventory.sunlit-inventory {
-    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-columns: clamp(210px, 30vw, 280px) minmax(0, 1fr) !important;
+    grid-template-rows: 44px minmax(0, 1fr) !important;
   }
-
-  #ui-root .mobile-inventory .equipment-slot {
-    height: 52px !important;
-    min-height: 52px;
-    gap: 1px;
-  }
-
-  #ui-root .mobile-inventory .inventory-item-icon {
-    width: 30px;
-    height: 30px;
-    flex-basis: 30px;
-  }
-}
-
-@media (orientation: landscape) and (max-height: 500px) {
-  #ui-root .mobile-inventory.sunlit-inventory {
-    grid-template-columns: 190px minmax(0, 1fr) !important;
-  }
-
-  #ui-root .mobile-inventory .inventory-equipment {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 3px !important;
+  #ui-root .mobile-inventory[data-tab] .inventory-equipment {
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
     padding-right: 2px;
   }
-
-  #ui-root .mobile-inventory .equipment-slot {
-    height: 46px !important;
-    min-height: 46px;
-    gap: 1px;
-  }
-
-  #ui-root .mobile-inventory .equipment-slot-label {
-    font-size: 10px;
-    line-height: 1;
-  }
-
-  #ui-root .mobile-inventory .inventory-item-icon {
-    width: 24px;
-    height: 24px;
-    flex-basis: 24px;
-  }
-
-  #ui-root .mobile-inventory .inventory-grid .inventory-item-icon {
-    width: 36px;
-    height: 36px;
-    flex-basis: 36px;
-  }
+  #ui-root .mobile-inventory .inventory-stat-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #ui-root .mobile-inventory .inventory-equipment-actions button { font-size: 11px; }
 }
-/* Keep equipment symmetric and set descriptions out of the inventory layout. */
-#ui-root .sunlit-inventory .inventory-equipment {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden;
-  align-content: start;
+
+/* Attribute and set dialogs share a fixed header and scroll only their body. */
+#ui-root .inventory-set-overlay,
+#ui-root .item-details-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: #081525b8;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  box-sizing: border-box;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
 }
-#ui-root .sunlit-inventory:not(.mobile-inventory) .inventory-equipment > .inventory-item-slot {
-  width: 100% !important; height: 58px !important;
+#ui-root .inventory-set-dialog {
+  position: relative;
+  box-sizing: border-box;
+  width: min(620px, 100%);
+  max-height: 100%;
+  height: min(560px, 86dvh);
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  overflow: hidden;
+  color: var(--sunlit-ink);
 }
-.inventory-set-summary { grid-column: 1 / -1; min-width: 0; max-height: 72px; overflow-y: auto; font-size: 12px; line-height: 1.6; }
-.inventory-set-summary > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#ui-root .inventory-set-button { grid-column: 1 / -1; min-height: 36px; padding: 3px 8px; }
-#ui-root .inventory-set-overlay { position: fixed; inset: 0; z-index: 1500; background: #081525b8; display: grid; place-items: center; pointer-events: auto; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-#ui-root .inventory-set-dialog { position: relative; box-sizing: border-box; width: min(620px, 100%); max-height: 100%; height: min(560px, 86dvh); padding: 12px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; overflow: hidden; color: var(--sunlit-ink); }
-.inventory-set-dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-#ui-root .inventory-set-dialog .panel-close-button { position: static !important; float: none !important; margin: 0 !important; width: 44px; height: 44px; flex-shrink: 0; }
+.inventory-set-dialog-header,
+.item-details-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+#ui-root .inventory-set-dialog .panel-close-button,
+#ui-root .item-details-header .panel-close-button {
+  position: static !important;
+  float: none !important;
+  margin: 0 !important;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  flex-shrink: 0;
+}
 .inventory-set-dialog-body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; line-height: 1.65; padding-right: 6px; }
 .inventory-set-dialog-body .inventory-set-title { color: var(--sunlit-ink); margin-top: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--sunlit-gold); }
 .inventory-set-dialog-body .inventory-set-title:first-child { margin-top: 0; }
 .inventory-set-dialog-body .inventory-set-bonus { color: #726451; padding: 8px 0; opacity: 1; }
 .inventory-set-dialog-body .inventory-set-bonus.is-active { color: #176653; font-weight: bold; }
-@media (max-height: 500px) {
-  #ui-root .inventory-set-dialog { height: calc(100dvh - 16px); gap: 4px; padding: 6px; }
-  #ui-root .mobile-inventory .inventory-set-summary { max-height: 38px; font-size: 10px; line-height: 1.5; }
-  #ui-root .mobile-inventory .inventory-set-button { min-height: 32px; padding: 2px 5px; font-size: 11px; }
+.inventory-stat-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 14px; }
+.inventory-stat-list > div { padding: 7px; background: #fff4d148; border-bottom: 1px solid #b8862c66; }
+.inventory-shield-rule { margin: 16px 0 0; padding: 10px; font-size: 13px; color: var(--sunlit-muted); border-left: 3px solid var(--sunlit-gold); }
+
+/* Item descriptions scroll independently so close and item actions stay available. */
+#ui-root .sunlit-item-details {
+  box-sizing: border-box;
+  width: min(720px, 100%);
+  height: min(640px, 88dvh);
+  max-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  grid-template-rows: 44px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  overflow: hidden;
 }
-#ui-root .sunlit-inventory .inventory-equipment { grid-auto-rows: max-content; }
+.item-details-header { grid-column: 1 / -1; color: var(--sunlit-ink); }
+.sunlit-item-details .item-details-info { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+#ui-root .sunlit-item-details .item-details-actions { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+#ui-root .sunlit-item-details .item-details-actions button { min-height: 44px; flex-shrink: 0; padding: 7px; font-size: 13px; touch-action: manipulation; }
+@media (orientation: portrait) and (max-width: 600px) {
+  #ui-root .sunlit-item-details {
+    height: min(740px, calc(100dvh - 16px));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 44px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 6px;
+  }
+  #ui-root .sunlit-item-details .item-details-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; overflow: visible; }
+  .inventory-stat-list { gap: 6px; font-size: 13px; }
+}
 @media (orientation: landscape) and (max-height: 500px) {
-  #ui-root .mobile-inventory .inventory-equipment > .equipment-slot { height: 40px !important; min-height: 40px; }
-  #ui-root .mobile-inventory .inventory-equipment-title { min-height: 23px; padding-bottom: 3px; }
-  #ui-root .mobile-inventory .inventory-set-summary { min-height: 30px; }
-  #ui-root .mobile-inventory .inventory-stat-summary { margin-top: 1px !important; padding-top: 2px !important; }
+  #ui-root .sunlit-item-details { height: calc(100dvh - 16px); gap: 6px; padding: 6px; }
+  #ui-root .sunlit-item-details .item-details-actions { display: flex; flex-direction: column; gap: 5px; }
 }
-/* Portrait shows both sections; only their contents scroll. */
-@media (orientation: portrait) {
-  #ui-root .mobile-inventory.sunlit-inventory { grid-template-rows: 28px minmax(0, .95fr) minmax(0, 1.05fr) !important; }
-  #ui-root .mobile-inventory .inventory-tabs { display: none !important; }
-  #ui-root .mobile-inventory .inventory-header > strong { display: block !important; }
-  #ui-root .mobile-inventory[data-tab] .inventory-equipment { display: grid !important; max-height: none !important; overflow-y: auto !important; }
-  #ui-root .mobile-inventory[data-tab] .inventory-content { display: flex !important; overflow: hidden; min-height: 0; }
-  #ui-root .mobile-inventory .inventory-grid { flex: 1 1 0; overflow-y: auto; overscroll-behavior: contain; }
-  #ui-root .mobile-inventory .inventory-equipment > .equipment-slot { height: 44px !important; min-height: 44px; }
-  #ui-root .mobile-inventory .inventory-set-summary { max-height: 32px; }
+@media (max-height: 500px) {
+  #ui-root .inventory-set-dialog { height: calc(100dvh - 16px); gap: 6px; padding: 6px; }
 }
 
 /* Red-gold chromatic relic frames: the glint is clipped to the rim, never the icon. */

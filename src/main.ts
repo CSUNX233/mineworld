@@ -5,6 +5,7 @@ import './style.css';
 import './ui/sunlit.css';
 import './ui/sunlit-inventory.css';
 import './ui/sunlit-menus.css';
+import './ui/mobile-layout.css';
 
 installMobileShell();
 MobileGestureGuard.install();

@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import type { ArchetypeId } from '../progression/types';
 import type { Item } from '../types';
 
@@ -33,6 +34,6 @@ const STARTER_STAFF: Item = {
 };
 
 export function starterWeapon(archetype: ArchetypeId): Item {
-  if (archetype === 'summoner') return { ...structuredClone(STARTER_STAFF), id: 'starter_contract_staff', name: '营地契约法杖', element: 'shadow', statusChance: 0, icon: 'staff', flavor: '无需击杀即可补充亡者编队。' };
-  return structuredClone(archetype === 'arcanist' ? STARTER_STAFF : STARTER_SWORD);
+  if (archetype === 'summoner') return { ...cloneData(STARTER_STAFF), id: 'starter_contract_staff', name: '营地契约法杖', element: 'shadow', statusChance: 0, icon: 'staff', flavor: '无需击杀即可补充亡者编队。' };
+  return cloneData(archetype === 'arcanist' ? STARTER_STAFF : STARTER_SWORD);
 }

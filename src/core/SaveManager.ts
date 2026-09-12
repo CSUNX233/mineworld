@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import { SHARED_CAMP_KEY, readSharedCamp, migrateSharedCamp, useSharedCamp } from './SharedCamp';
 import type { SaveEnvelopeV3, SaveResult, SlotReadResult } from '../progression/types';
 import type { SaveData } from '../types';
@@ -88,7 +89,7 @@ export class SaveManager {
     try {
       const camp = readSharedCamp();
       if (!camp || (envelope.sharedCampRevision ?? 0) !== camp.revision) return {ok:false,error:'共享营地已更新，请返回后重新打开天赋树。'};
-      camp.profile = structuredClone(envelope.profile);camp.revision += 1;
+      camp.profile = cloneData(envelope.profile);camp.revision += 1;
       localStorage.setItem(SHARED_CAMP_KEY,JSON.stringify(camp));envelope.sharedCampRevision=camp.revision;
       return {ok:true};
     } catch(error) {return {ok:false,error:`营地天赋保存失败：${errorMessage(error)}`};}

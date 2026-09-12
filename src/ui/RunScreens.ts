@@ -91,14 +91,19 @@ export function buildNewAdventureView(envelope: SaveEnvelopeV3, actions: { start
 }
 
 export function buildMetaProgressionView(envelope:SaveEnvelopeV3,actions:{unlock:(id:string)=>void;setPreference:(id:RewardPreference)=>void;back:()=>void},message = ''):HTMLDivElement {
-  const root=panel('营地天赋树','本机五个存档共用修习、掌握和图鉴。选择节点查看详情，修习后在下一局出发时生效。');
-  notice(root,message);root.append(row(button('返回存档界面',actions.back)));
-  root.append(element('div',`可用天赋点 ${envelope.profile.availableMetaPoints} · 研究经验 ${envelope.profile.researchXp} / ${XP_PER_POINT}`));
-  root.append(paragraph('进行中的对局保留出发时天赋，新的修习与奖励偏好在下次出发时生效。'));
+  const root=element('div');root.className='sunlit-run-screen meta-screen-content';
+  const header=element('header');header.className='meta-screen-header';
+  const heading=element('h2','营地天赋树');heading.className='sunlit-screen-title';
+  const back=button('关闭',actions.back);back.classList.add('panel-close-button');back.setAttribute('aria-label','关闭天赋树，返回存档');
+  header.append(heading,back);root.append(header);
+  const points=element('div',`天赋点 ${envelope.profile.availableMetaPoints} · 研究经验 ${envelope.profile.researchXp} / ${XP_PER_POINT}`);points.className='meta-screen-points';root.append(points);
+  notice(root,message);
   root.append(buildMetaTalentTree(envelope,actions.unlock));
+  const more=element('details');more.className='meta-screen-more mobile-scroll';more.append(element('summary','修习说明与奖励偏好'));
+  more.append(paragraph('本机五个存档共用修习、掌握和图鉴。新的修习与奖励偏好在下次出发时生效，进行中的对局保留原有配置。'));
   const preferences=MASTERY_NODES.filter(n=>envelope.profile.unlockedNodes.includes(n.id));
-  if(preferences.length){root.append(element('h3','下一局奖励偏好'),row(...preferences.map(n=>button(`${n.name}${envelope.profile.rewardPreference===n.archetype?' · 已选择':''}`,()=>actions.setPreference(n.archetype),!!envelope.activeRun||!!envelope.pendingSettlement||envelope.profile.rewardPreference===n.archetype))));}
-  root.append(row(button('返回存档界面',actions.back)));return root;
+  if(preferences.length){more.append(element('h3','下一局奖励偏好'),row(...preferences.map(n=>button(`${n.name}${envelope.profile.rewardPreference===n.archetype?' · 已选择':''}`,()=>actions.setPreference(n.archetype),!!envelope.activeRun||!!envelope.pendingSettlement||envelope.profile.rewardPreference===n.archetype))));}
+  root.append(more);return root;
 }
 
 export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, message?: string): HTMLDivElement {

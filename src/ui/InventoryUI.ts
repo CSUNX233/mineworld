@@ -42,7 +42,6 @@ export class InventoryUI {
   private tooltip: HTMLDivElement | null = null;
   private equipment: EquipmentManager | null = null;
   private inventory: Inventory | null = null;
-  private activeTab = 'bag';
   private bulkRarity: Rarity = 'common';
   private dismissContext: ((event: PointerEvent) => void) | null = null;
   onDetailsOpen: (() => void) | null = null;
@@ -66,7 +65,8 @@ export class InventoryUI {
 
   constructor(private root: HTMLElement) {
     window.addEventListener('resize', () => {
-      if (this.open && this.equipment && this.inventory) this.show(this.equipment, this.inventory);
+      // Mobile orientation is handled by CSS; keep dialogs and scroll containers mounted.
+      if (!this.mobile && this.open && this.equipment && this.inventory) this.show(this.equipment, this.inventory);
     });
   }
 
@@ -106,26 +106,12 @@ export class InventoryUI {
     if (mobile) this.panel.style.overflow = 'hidden';
     this.root.appendChild(this.panel);
     if (mobile) {
-      this.panel.dataset.tab = this.activeTab;
+      this.panel.dataset.tab = 'bag';
       const header = document.createElement('div');
       header.className = 'inventory-header';
       const heading = document.createElement('strong');
       heading.textContent = '装备与背包';
       header.appendChild(heading);
-      const tabs = document.createElement('div');
-      tabs.className = 'inventory-tabs';
-      for (const [tab, label] of [['bag', '背包'], ['equipment', '装备 / 属性']]) {
-        const button = document.createElement('button');
-        button.textContent = label;
-        button.setAttribute('aria-pressed', String(this.activeTab === tab));
-        button.onclick = () => {
-          this.activeTab = tab;
-          if (this.panel) this.panel.dataset.tab = tab;
-          tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
-        };
-        tabs.appendChild(button);
-      }
-      header.appendChild(tabs);
       this.panel.appendChild(header);
     }
     this.addCloseButton(this.panel);
@@ -176,22 +162,14 @@ export class InventoryUI {
     summary.style.paddingTop = '8px';
     summary.style.fontSize = '12px';
     summary.style.lineHeight = '1.55';
-    summary.innerHTML = [
-      `攻击 ${Math.round(stats.attack)}`,
-      `攻速 ${(stats.baseAttackSpeed * (1 + stats.attackSpeedBonus)).toFixed(2)}/s`,
-      `生命 ${Math.round(stats.maxHealth)}`,
-      `护甲护盾 ${Math.round(stats.armor)}`,
-      `防御力 ${Math.round(stats.defense)}`,
-      `护盾恢复等待 ${stats.shieldRechargeDelay.toFixed(1)}s`,
-      `暴击 ${(stats.critChance * 100).toFixed(1)}%`,
-      `暴伤 ${(stats.critDamage * 100).toFixed(0)}%`,
-      `闪避 ${(stats.dodgeChance * 100).toFixed(1)}%`,
-      `吸血 ${(stats.lifeSteal * 100).toFixed(1)}%`,
-      `移速 ${stats.moveSpeed.toFixed(2)}`,
-      `回蓝 ${stats.manaRegen.toFixed(1)}/s`,
-      `回血 ${stats.lifeRegen.toFixed(1)}/s`,
-      `幸运 ${Number(stats.luck.toFixed(1))}`,
-    ].join(' · ');
+    const fullStats = this.statLines(stats);
+    if (mobile) {
+      for (const text of [`攻击 ${Math.round(stats.attack)}`, `生命 ${Math.round(stats.maxHealth)}`, `护盾 ${Math.round(stats.armor)}`, `防御 ${Math.round(stats.defense)}`]) {
+        const entry = document.createElement('span');
+        setPixelText(entry, text);
+        summary.appendChild(entry);
+      }
+    } else summary.innerHTML = fullStats.join(' · ');
     summary.title = '护甲护盾决定装备提供的可回复护盾容量；受击后基础等待 5 秒才开始自然恢复，护盾恢复启动速度可将等待缩短至最低 2.5 秒。';
     equipmentPanel.appendChild(summary);
     const shieldRule = document.createElement('div');
@@ -199,7 +177,7 @@ export class InventoryUI {
     shieldRule.style.fontSize = '11px';
     shieldRule.style.opacity = '0.72';
     shieldRule.textContent = '护甲护盾决定可回复容量；受击后基础等待 5 秒，启动速度可缩短至最低 2.5 秒。';
-    equipmentPanel.appendChild(shieldRule);
+    if (!mobile) equipmentPanel.appendChild(shieldRule);
     const setSummary = document.createElement('div');
     setSummary.className = 'inventory-set-summary';
     const activeSets = this.equippedSets();
@@ -210,21 +188,33 @@ export class InventoryUI {
       setSummary.appendChild(line);
     }
     if (!activeSets.length) setSummary.textContent = '尚未装备套装';
-    equipmentPanel.appendChild(setSummary);
+    if (!mobile) equipmentPanel.appendChild(setSummary);
+    const equipmentActions = document.createElement('div');
+    equipmentActions.className = 'inventory-equipment-actions';
+    if (mobile) {
+      const attributes = document.createElement('button');
+      attributes.className = 'inventory-attributes-button';
+      attributes.textContent = '角色属性';
+      attributes.onclick = () => this.openStatsDetails(attributes);
+      equipmentActions.appendChild(attributes);
+    }
     const setButton = document.createElement('button');
     setButton.className = 'inventory-set-button';
-    setButton.textContent = '套装属性';
+    setButton.textContent = mobile ? '套装' : '套装属性';
+    setButton.setAttribute('aria-label', '查看套装属性');
     setButton.onclick = () => this.openSetDetails(setButton);
-    equipmentPanel.appendChild(setButton);
+    (mobile ? equipmentActions : equipmentPanel).appendChild(setButton);
     const allocate = document.createElement('button');
     allocate.className = 'inventory-allocate';
-    allocate.textContent = this.attributePoints > 0 ? `局内天赋 · 可用 ${this.attributePoints} 点` : '局内天赋';
+    allocate.textContent = this.attributePoints > 0 ? mobile ? `天赋 +${this.attributePoints}` : `局内天赋 · 可用 ${this.attributePoints} 点` : '局内天赋';
+    allocate.setAttribute('aria-label', this.attributePoints > 0 ? `局内天赋，可用 ${this.attributePoints} 点` : '局内天赋');
     allocate.style.gridColumn = '1 / -1';
     allocate.style.marginTop = '4px';
     allocate.style.padding = '8px';
     allocate.style.cursor = 'pointer';
     allocate.onclick = () => this.onAllocateClick?.();
-    equipmentPanel.appendChild(allocate);
+    (mobile ? equipmentActions : equipmentPanel).appendChild(allocate);
+    if (mobile) equipmentPanel.appendChild(equipmentActions);
     this.panel.appendChild(equipmentPanel);
 
     const right = document.createElement('div');
@@ -400,6 +390,79 @@ export class InventoryUI {
     return `${definition?.name ?? id}${version < 2 ? '（旧版）' : ''} ${count}/${Math.max(1, ...thresholds)}${progress}`;
   }
 
+  private statLines(stats: DerivedStats, includeAll = false): string[] {
+    const lines = [
+      `攻击 ${Math.round(stats.attack)}`,
+      `攻速 ${(stats.baseAttackSpeed * (1 + stats.attackSpeedBonus)).toFixed(2)}/s`,
+      `生命 ${Math.round(stats.maxHealth)}`,
+      `护甲护盾 ${Math.round(stats.armor)}`,
+      `防御力 ${Math.round(stats.defense)}`,
+      `护盾恢复等待 ${stats.shieldRechargeDelay.toFixed(1)}s`,
+      `暴击 ${(stats.critChance * 100).toFixed(1)}%`,
+      `暴伤 ${(stats.critDamage * 100).toFixed(0)}%`,
+      `闪避 ${(stats.dodgeChance * 100).toFixed(1)}%`,
+      `吸血 ${(stats.lifeSteal * 100).toFixed(1)}%`,
+      `移速 ${stats.moveSpeed.toFixed(2)}`,
+      `回蓝 ${stats.manaRegen.toFixed(1)}/s`,
+      `回血 ${stats.lifeRegen.toFixed(1)}/s`,
+      `幸运 ${Number(stats.luck.toFixed(1))}`,
+    ];
+    if (includeAll) lines.push(
+      `法力 ${Math.round(stats.maxMana)}`,
+      `击杀回血 ${stats.killHeal.toFixed(1)}`,
+      `拾取范围 ${stats.pickupRange.toFixed(2)}`,
+      `冷却缩减 ${(stats.cooldownReduction * 100).toFixed(1)}%`,
+    );
+    return lines;
+  }
+
+  private openStatsDetails(trigger: HTMLButtonElement): void {
+    const stats = this.getCurrentStats?.() ?? this.equipment?.getDerivedStats();
+    if (!stats) return;
+    this.closeDetails();
+    const overlay = document.createElement('div');
+    overlay.className = 'inventory-set-overlay';
+    const panel = document.createElement('div');
+    panel.className = 'panel inventory-set-dialog inventory-stat-dialog';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', '角色属性');
+    const header = document.createElement('div');
+    header.className = 'inventory-set-dialog-header';
+    const heading = document.createElement('strong');
+    heading.textContent = '角色属性';
+    const close = document.createElement('button');
+    close.className = 'panel-close-button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', '关闭角色属性');
+    close.onclick = () => { this.closeDetails(); trigger.focus(); };
+    header.append(heading, close);
+    const body = document.createElement('div');
+    body.className = 'inventory-set-dialog-body mobile-scroll';
+    const list = document.createElement('div');
+    list.className = 'inventory-stat-list';
+    for (const text of this.statLines(stats, true)) {
+      const row = document.createElement('div');
+      setPixelText(row, text);
+      list.appendChild(row);
+    }
+    const rule = document.createElement('p');
+    rule.className = 'inventory-shield-rule';
+    rule.textContent = '护甲护盾决定装备提供的可回复护盾容量。受击后基础等待 5 秒才开始自然恢复；护盾恢复启动速度可将等待缩短至最低 2.5 秒。';
+    body.append(list, rule);
+    panel.append(header, body);
+    overlay.appendChild(panel);
+    overlay.onclick = event => { if (event.target === overlay) close.click(); };
+    overlay.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close.click(); }
+      if (event.key === 'Tab') { event.preventDefault(); close.focus(); }
+    });
+    this.root.appendChild(overlay);
+    this.contextMenu = overlay;
+    this.onDetailsOpen?.();
+    close.focus();
+  }
+
   private openSetDetails(trigger: HTMLButtonElement): void {
     this.closeDetails();
     this.tooltip?.remove();
@@ -490,11 +553,23 @@ export class InventoryUI {
     const overlay = document.createElement('div');
     overlay.className = 'item-details-overlay';
     const panel = document.createElement('div');
-    panel.className = 'panel item-details sunlit-item-details mobile-scroll';
+    panel.className = 'panel item-details sunlit-item-details';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', '物品详情');
+    panel.setAttribute('aria-modal', 'true');
+    const header = document.createElement('div');
+    header.className = 'item-details-header';
+    const heading = document.createElement('strong');
+    heading.textContent = '物品详情';
+    const close = document.createElement('button');
+    close.className = 'panel-close-button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', '关闭物品详情');
+    close.onclick = () => this.closeDetails();
+    header.append(heading, close);
+    panel.appendChild(header);
     const info = document.createElement('div');
-    info.className = 'item-details-info';
+    info.className = 'item-details-info mobile-scroll';
     info.innerHTML = itemTooltipHTML(item, index !== null ? this.comparisonItem(item) : undefined);
     panel.appendChild(info);
     const actions = document.createElement('div');
@@ -523,9 +598,20 @@ export class InventoryUI {
     panel.appendChild(actions);
     overlay.appendChild(panel);
     overlay.onclick = (event) => { if (event.target === overlay) this.closeDetails(); };
+    overlay.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.closeDetails(); }
+      if (event.key === 'Tab') {
+        const buttons = [...panel.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    });
     this.root.appendChild(overlay);
     this.contextMenu = overlay;
     this.onDetailsOpen?.();
+    close.focus();
   }
 
   closeDetails(): void {

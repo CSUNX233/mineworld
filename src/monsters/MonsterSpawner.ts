@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import { canSealEncounterRoom } from '../world/EncounterBarriers';
 import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
 import { foundryOpeningEncounter } from '../data/FoundryChapter';
@@ -132,7 +133,7 @@ export class MonsterSpawner {
     const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
     attachMechanicVisual(monster);
     if (saved.elite && saved.eliteModifiers.length > 0) monster.setElite(saved.eliteModifiers);
-    monster.statuses = structuredClone(saved.statuses ?? []);
+    monster.statuses = cloneData(saved.statuses ?? []);
     monster.roomId = saved.roomId ?? '';
     const previousScale = Number.isFinite(saved.difficultyStatMultiplier) && saved.difficultyStatMultiplier! > 0 ? saved.difficultyStatMultiplier! : 1;
     const ratio = GLOBAL_MONSTER_STAT_MULTIPLIER / previousScale;

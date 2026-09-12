@@ -1,3 +1,4 @@
+import { cloneData } from '../utils/cloneData';
 import {
   BASIC_RUN_DEFINITION,
   REQUIRED_OBJECTIVE_IDS,
@@ -106,7 +107,7 @@ export function settleRun(
   const totalXp = baseXp;
   const xpPool = Math.max(0, Math.floor(currentResearchXp)) + totalXp;
   const pointsEarned = Math.floor(xpPool / XP_PER_POINT);
-  const investments: EncounterInvestment[] = structuredClone(run.investments);
+  const investments: EncounterInvestment[] = cloneData(run.investments);
 
   return {
     researchXp: xpPool % XP_PER_POINT,
