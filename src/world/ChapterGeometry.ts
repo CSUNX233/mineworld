@@ -5,11 +5,11 @@ import { sanctumRitualPositions, sanctumThroneSlots } from '../data/SanctumChapt
 
 /** Low-contrast, collision-free greybox landmarks. No additional realtime lights. */
 export function createChapterLandmarks(data: FloorData): THREE.Group | null {
-  if ((data.generationVersion ?? 1) < 5 || !(data.floor <= 5 || (data.floor >= 10 && data.floor <= 15))) return null;
+  if ((data.generationVersion ?? 1) < 5 || !(data.floor >= 10 && data.floor <= 15)) return null;
   const group = new THREE.Group(); group.name = 'chapter-landmarks';
   const sanctum = data.floor >= 11;
-  const stone = sanctum ? 0xaaa38e : data.floor === 3 ? 0x8b805a : 0x858578;
-  const accent = sanctum ? 0x506966 : data.floor === 2 || data.floor === 4 ? 0x97704e : 0x617c4e;
+  const stone = sanctum ? 0xaaa38e : 0x858578;
+  const accent = sanctum ? 0x506966 : 0x617c4e;
   const box = (x: number,y: number,z: number,w: number,h: number,d: number,color: number) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color}));
     mesh.position.set(x,y,z); group.add(mesh); return mesh;
@@ -49,22 +49,6 @@ export function createChapterLandmarks(data: FloorData): THREE.Group | null {
         const bell = new THREE.Mesh(new THREE.CylinderGeometry(.8,1.25,1.8,8,1,true),new THREE.MeshLambertMaterial({color:0x81795b,side:THREE.DoubleSide}));
         bell.rotation.z = .22; bell.position.set(c.x,.7,room.z+2.5); group.add(bell);
         arch(c.x,room.z+room.depth-2.5,stone,false);
-      }
-    } else if (data.floor <= 5) {
-      tile(c.x,c.z,Math.min(7,room.width-5),4,accent);
-      if (template === 'ruins-court' || template === 'ruins-double-path') arch(c.x,room.z+2.5,stone,true);
-      if (template === 'ruins-chapel') for (const x of [room.x+3.5,room.x+room.width-3.5]) {
-        box(x,.22,room.z+3.5,1.3,.44,1.3,0x817652); box(x,.62,room.z+3.5,.55,.35,.55,stone);
-      }
-      if (data.floor === 2 || data.floor === 4) {
-        box(room.x+2.5,.75,room.z+room.depth-2.5,.12,1.5,.12,stone);
-        box(room.x+2.8,1.05,room.z+room.depth-2.5,.55,.6,.05,0x816350);
-      }
-      if (template === 'ruins-trial') box(c.x,.65,c.z,.45,1.3,.45,0xae8558);
-      if (template === 'ruins-gate-arena') {
-        arch(c.x,room.z+2.5,0x67645a,false);
-        box(c.x,1.1,room.z+2.5,4.7,2.2,.3,0x4e4d47);
-        box(c.x,.85,room.z+2.31,.16,1.6,.035,0xce833c);
       }
     }
   }

@@ -1,0 +1,30 @@
+{
+  "triangles": {
+    "wall": 176,
+    "wall_high": 260,
+    "wall_joint": 12,
+    "pillar": 476,
+    "broken_pier": 240,
+    "arch": 216,
+    "banner": 120,
+    "ivy": 384,
+    "shrub": 156,
+    "flowers": 132,
+    "tree": 180,
+    "moss": 84,
+    "rubble": 60,
+    "wall_torch": 48,
+    "campfire": 120,
+    "shield_barricade": 104,
+    "weapon_rack": 96,
+    "reliquary": 104,
+    "guardian_statue": 120,
+    "king_gate": 636,
+    "fallen_fragment": 60,
+    "rock_terrace": 60,
+    "distant_tower": 248,
+    "brazier": 72
+  },
+  "total": 4164,
+  "atlas": 512
+}

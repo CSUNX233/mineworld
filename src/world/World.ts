@@ -1,4 +1,6 @@
+import { createChest, createMerchantProp, createSupplyRack, fitInteractionProp, openChestVisual, updateChestVisual, disposeInteractionProp } from './InteractionProps';
 import { getChapterTexture } from './ChapterTextures';
+import { createRuinsKit, disposeRuinsKit, updateRuinsFirelight } from './RuinsKit';
 import { foundryPanels, breakFoundryPanel } from './FoundryPanels';
 import { createFoundryPipes } from './FoundryGeometry';
 import { roomCenter } from './RoomGeometry';
@@ -19,10 +21,12 @@ import {
 export class World {
   readonly group = new THREE.Group();
   private panelMeshes = new Map<string, THREE.InstancedMesh>();
-  private supplyMeshes = new Map<string, THREE.InstancedMesh>();
+  private supplyMeshes = new Map<string, THREE.Group>();
   private floorData: FloorData | null = null;
   private portalMesh: THREE.Mesh | null = null;
   private encounterBarrierMesh: THREE.InstancedMesh | null = null;
+  /** One-shot invalidation; static shadows stay cached when nothing moves. */
+  shadowDirty = false;
 
   constructor(scene: THREE.Scene) {
     initBlockRegistry();
@@ -61,7 +65,7 @@ export class World {
     this.group.add(floor);
     const pipes = createFoundryPipes(data);
     if (pipes) this.group.add(pipes);
-    const landmarks = createChapterLandmarks(data);
+    const landmarks = data.floor <= 5 ? null : createChapterLandmarks(data);
     if (landmarks) this.group.add(landmarks);
 
     const supplyCells = new Set<string>();
@@ -69,9 +73,7 @@ export class World {
       const cells = ruinsSupplyCells(room).filter(c => data.grid[c.z]?.[c.x] === BlockKind.Obstacle);
       for (const c of cells) supplyCells.add(`${c.x},${c.z}`);
       if (!cells.length) continue;
-      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(.95,1.05,.95),new THREE.MeshLambertMaterial({color:0x8e6745}),cells.length);
-      const matrix = new THREE.Matrix4(); cells.forEach((c,i) => mesh.setMatrixAt(i,matrix.makeTranslation(c.x+.5,.525,c.z+.5)));
-      mesh.instanceMatrix.needsUpdate = true; mesh.name = 'ruins-supply-rack';
+      const mesh = createSupplyRack(cells);
       this.supplyMeshes.set(room.id!,mesh); this.group.add(mesh);
     }
 
@@ -100,7 +102,15 @@ export class World {
       }
     }
 
-    if (wallCells.length > 0) {
+    const ruins = createRuinsKit(data, supplyCells);
+    if (ruins) {
+      this.group.add(ruins);
+      floorMaterial.map = null;
+      floorTexture.dispose();
+      floorMaterial.color.setHex(0x727950);
+      floor.position.y = -.13;
+    }
+    if (!ruins && wallCells.length > 0) {
       const wallDef = getBlock(theme.wallType);
       const wallTexture = (getChapterTexture(data.floor, 'wall') ?? wallDef.texture).clone();
       wallTexture.repeat.set(1, 1);
@@ -146,15 +156,11 @@ export class World {
       const stall = new THREE.Group();
       stall.name = 'merchant';
       stall.position.set(data.merchant.x + .5, 0, data.merchant.z + .5);
-      const addBox = (w: number, h: number, d: number, y: number, color: number) => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
-        mesh.position.y = y;
-        stall.add(mesh);
-      };
-      addBox(1.2, .65, .6, .325, 0x805938);
-      addBox(1.65, .15, 1.1, 1.9, 0xe2ad4d);
-      addBox(.35, .6, .3, 1.05, 0x386f7d);
-      addBox(.32, .32, .32, 1.5, 0xd5aa7e);
+      const merchantArt = createMerchantProp();
+      fitInteractionProp(merchantArt, data, data.merchant.x, data.merchant.z, .8);
+      merchantArt.position.set(0, 0, 0);
+      merchantArt.userData.interactionProp = true;
+      stall.add(merchantArt);
       const marker = new THREE.Mesh(new THREE.RingGeometry(.95, 1.1, 24), new THREE.MeshBasicMaterial({ color: 0xffcc66, side: THREE.DoubleSide }));
       marker.rotation.x = -Math.PI / 2;
       marker.position.y = .035;
@@ -162,14 +168,11 @@ export class World {
       this.group.add(stall);
     }
 
-    const chestMaterial = new THREE.MeshLambertMaterial({ color: 0xd7a93b });
-    const chestGeometry = new THREE.BoxGeometry(0.6, 0.45, 0.4);
     data.chests.forEach((chest) => {
-      const mesh = new THREE.Mesh(chestGeometry, chestMaterial);
-      mesh.position.set(chest.x + 0.5, 0.3, chest.z + 0.5);
-      mesh.userData.chest = { x: chest.x, z: chest.z };
-      mesh.name = 'chest';
-      this.group.add(mesh);
+      const model = createChest();
+      fitInteractionProp(model, data, chest.x, chest.z, .85);
+      model.userData.chest = { x: chest.x, z: chest.z };
+      this.group.add(model);
     });
   }
 
@@ -217,21 +220,15 @@ export class World {
     this.group.add(mesh);
   }
 
-  removeChest(x: number, z: number): void {
+  removeChest(x: number, z: number, immediate = false): void {
     const chest = this.group.children.find(
       (child) =>
         child.name === 'chest' &&
         (child.userData.chest as { x?: number; z?: number } | undefined)?.x === x &&
         (child.userData.chest as { x?: number; z?: number } | undefined)?.z === z,
     );
-    if (chest) {
-      this.group.remove(chest);
-      if (chest instanceof THREE.Mesh) {
-        chest.geometry.dispose();
-        const materials = Array.isArray(chest.material) ? chest.material : [chest.material];
-        materials.forEach((material) => material.dispose());
-      }
-    }
+    if (chest) openChestVisual(chest, immediate);
+    if (chest) this.shadowDirty = true;
   }
 
   update(dt: number, elapsed: number): void {
@@ -244,8 +241,10 @@ export class World {
       material.opacity = 0.5 + Math.sin(elapsed * 4) * 0.1;
     }
     this.group.children.forEach((child) => {
+      if (child.name === 'ruins-kit') updateRuinsFirelight(child,elapsed);
       if (child.name === 'chest') {
-        child.rotation.y += dt * 0.8;
+        if (child.userData.opened && child.userData.openProgress < 1) this.shadowDirty = true;
+        updateChestVisual(child, dt);
       }
     });
   }
@@ -266,7 +265,8 @@ export class World {
     if (!room) return false;
     for (const c of ruinsSupplyCells(room)) this.floorData.grid[c.z][c.x] = BlockKind.Floor;
     const mesh = this.supplyMeshes.get(roomId);
-    if (mesh) { mesh.removeFromParent(); mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); this.supplyMeshes.delete(roomId); }
+    if (mesh) { mesh.removeFromParent(); disposeInteractionProp(mesh); this.supplyMeshes.delete(roomId); }
+    this.shadowDirty = true;
     invalidateNavigation(this.floorData);
     return true;
   }
@@ -279,6 +279,11 @@ export class World {
     while (this.group.children.length > 0) {
       const child = this.group.children[0];
       this.group.remove(child);
+      if (child.name === 'ruins-kit') disposeRuinsKit(child);
+      if (child.userData.interactionProp) { disposeInteractionProp(child); continue; }
+      if(child.name==='merchant')child.traverse(part=>{
+        if(part instanceof THREE.Mesh && !part.userData.interactionProp){part.geometry.dispose();for(const m of Array.isArray(part.material)?part.material:[part.material]){m.map?.dispose();m.dispose();}}
+      });
       if (child.name === 'chapter-landmarks') child.traverse(part => {
         if (part instanceof THREE.Mesh) { part.geometry.dispose(); const materials = Array.isArray(part.material) ? part.material : [part.material]; materials.forEach(m => m.dispose()); }
       });

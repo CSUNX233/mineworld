@@ -1,0 +1,296 @@
+[
+  {
+    "floor": 1,
+    "rooms": [
+      {
+        "id": "room-7",
+        "template": "pillar-court",
+        "kind": "start",
+        "prop": "shield_barricade",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-0",
+        "template": "ruins-court",
+        "kind": "battle",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-4",
+        "template": "ruins-double-path",
+        "kind": "battle",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-1",
+        "template": "pillar-court",
+        "kind": "exit",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-3",
+        "template": "pillar-court",
+        "kind": "sanctuary",
+        "prop": "reliquary",
+        "landmarks": 3,
+        "gate": false
+      },
+      {
+        "id": "room-5",
+        "template": "ruins-supply",
+        "kind": "treasure",
+        "prop": "supply_crate",
+        "landmarks": 4,
+        "gate": false
+      }
+    ],
+    "terraces": 39
+  },
+  {
+    "floor": 2,
+    "rooms": [
+      {
+        "id": "room-7",
+        "template": "pillar-court",
+        "kind": "start",
+        "prop": "shield_barricade",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-0",
+        "template": "ruins-bulwark",
+        "kind": "battle",
+        "prop": "shield_barricade",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-4",
+        "template": "ruins-barracks",
+        "kind": "elite",
+        "prop": "weapon_rack",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-1",
+        "template": "pillar-court",
+        "kind": "exit",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-3",
+        "template": "split-gallery",
+        "kind": "sanctuary",
+        "prop": "reliquary",
+        "landmarks": 3,
+        "gate": false
+      },
+      {
+        "id": "room-5",
+        "template": "ruins-supply",
+        "kind": "treasure",
+        "prop": "supply_crate",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-2",
+        "template": "ruins-court",
+        "kind": "battle",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      }
+    ],
+    "terraces": 30
+  },
+  {
+    "floor": 3,
+    "rooms": [
+      {
+        "id": "room-7",
+        "template": "pillar-court",
+        "kind": "start",
+        "prop": "shield_barricade",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-0",
+        "template": "ruins-chapel",
+        "kind": "battle",
+        "prop": "reliquary",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-4",
+        "template": "ruins-barracks",
+        "kind": "elite",
+        "prop": "weapon_rack",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-1",
+        "template": "pillar-court",
+        "kind": "exit",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-3",
+        "template": "split-gallery",
+        "kind": "sanctuary",
+        "prop": "reliquary",
+        "landmarks": 2,
+        "gate": false
+      },
+      {
+        "id": "room-5",
+        "template": "ruins-supply",
+        "kind": "treasure",
+        "prop": "supply_crate",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-2",
+        "template": "ruins-double-path",
+        "kind": "battle",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      }
+    ],
+    "terraces": 33
+  },
+  {
+    "floor": 4,
+    "rooms": [
+      {
+        "id": "room-7",
+        "template": "pillar-court",
+        "kind": "start",
+        "prop": "shield_barricade",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-0",
+        "template": "ruins-court",
+        "kind": "battle",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-4",
+        "template": "ruins-ring",
+        "kind": "elite",
+        "prop": "reliquary",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-1",
+        "template": "pillar-court",
+        "kind": "exit",
+        "prop": "broken_pier",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-3",
+        "template": "split-gallery",
+        "kind": "sanctuary",
+        "prop": "reliquary",
+        "landmarks": 2,
+        "gate": false
+      },
+      {
+        "id": "room-5",
+        "template": "split-gallery",
+        "kind": "treasure",
+        "prop": "supply_crate",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-2",
+        "template": "ruins-armory",
+        "kind": "battle",
+        "prop": "weapon_rack",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-6",
+        "template": "ruins-trial",
+        "kind": "battle",
+        "prop": "guardian_statue",
+        "landmarks": 4,
+        "gate": false
+      }
+    ],
+    "terraces": 30
+  },
+  {
+    "floor": 5,
+    "rooms": [
+      {
+        "id": "room-7",
+        "template": "pillar-court",
+        "kind": "start",
+        "prop": "shield_barricade",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-3",
+        "template": "split-gallery",
+        "kind": "sanctuary",
+        "prop": "reliquary",
+        "landmarks": 1,
+        "gate": false
+      },
+      {
+        "id": "room-4",
+        "template": "ruins-bulwark",
+        "kind": "battle",
+        "prop": "shield_barricade",
+        "landmarks": 4,
+        "gate": false
+      },
+      {
+        "id": "room-1",
+        "template": "ruins-gate-arena",
+        "kind": "exit",
+        "prop": "guardian_statue",
+        "landmarks": 4,
+        "gate": true
+      },
+      {
+        "id": "room-5",
+        "template": "split-gallery",
+        "kind": "treasure",
+        "prop": "supply_crate",
+        "landmarks": 4,
+        "gate": false
+      }
+    ],
+    "terraces": 48
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "triangles": {
+    "chest_body": 648,
+    "chest_lid": 328,
+    "rack_frame": 524,
+    "rack_supplies": 640,
+    "supply_crate": 156,
+    "merchant_stall": 1496
+  },
+  "total": 3792,
+  "palette": [
+    128,
+    64
+  ],
+  "chestHinge": [
+    0,
+    0.52,
+    -0.4
+  ]
+}

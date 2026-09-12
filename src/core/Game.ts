@@ -1,3 +1,4 @@
+import { preloadInteractionProps } from '../world/InteractionProps';
 import { cloneData } from '../utils/cloneData';
 import { createSaveCandidate } from './SaveCandidate';
 import { MonsterSpatialIndex } from '../combat/MonsterSpatialIndex';
@@ -24,6 +25,8 @@ import { createReforgePanel } from '../ui/ReforgePanel';
 import type { ReforgeOptions } from '../items/CraftingSystem';
 import { meleeSwingAngle } from '../combat/MeleeSwing';
 import { preloadChapterTextures } from '../world/ChapterTextures';
+import { preloadRuinsKit, updateRuinsCutaway } from '../world/RuinsKit';
+import { configureChapterLighting } from '../world/ChapterLighting';
 import { FoundryBossController } from '../monsters/FoundryBossController';
 import { prepareFoundryPanels, foundryPanels } from '../world/FoundryPanels';
 import { FoundryPractice } from '../world/FoundryPractice';
@@ -426,6 +429,7 @@ export class Game {
     this.renderer.domElement.addEventListener('webglcontextrestored', () => {
       this.graphicsLost = false;
       this.renderer.resetState();
+      this.renderer.shadowMap.needsUpdate = true;
       this.onResize();
       this.lastTime = performance.now();
       this.input.reset();
@@ -441,8 +445,10 @@ export class Game {
     this.firstPersonView = new FirstPersonViewModel(this.camera);
 
     const hemi = new THREE.HemisphereLight(0xd8e8ff, 0x2a2f36, 0.9);
+    hemi.name = 'chapter-hemi';
     this.scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xfff0d0, 1.4);
+    sun.name = 'chapter-sun';
     sun.position.set(12, 22, 8);
     sun.castShadow = false;
     this.scene.add(sun);
@@ -1215,7 +1221,9 @@ export class Game {
     this.hudTimer = 0;
     await loading.step(25, '加载章节材质');
     await Promise.all([
-      preloadChapterTextures(this.floor),
+      this.floor > 5 ? preloadChapterTextures(this.floor) : Promise.resolve(),
+      preloadRuinsKit(this.floor),
+      preloadInteractionProps(),
       preloadGameImages((done, total) => loading.report(25 + Math.floor(done / Math.max(1, total) * 30), `加载贴图 ${done}/${total}`), {
         items: [...this.equipment.getEquippedItems(), ...this.inventory.items, ...(resume?.runtime?.relicDrops?.map(drop => drop.item) ?? [])],
         iconIds: [
@@ -1229,6 +1237,7 @@ export class Game {
     prepareFoundryPanels(data, resume?.runtime?.brokenFoundryPanels);
     this.setRuntime.clearTargets();
     this.world.generate(data);
+    configureChapterLighting(this.scene, this.renderer, data);
     await loading.step(65, '安置角色与遭遇');
     this.audio.startAmbient(data.theme.id);
     this.audio.startBGM(data.theme.id);
@@ -1275,7 +1284,7 @@ export class Game {
     for (const key of resume?.openedChests ?? []) {
       this.openedChests.add(key);
       const [x,z] = key.split(',').map(Number);
-      this.world.removeChest(x,z);
+      this.world.removeChest(x,z,true);
       const supplyRoom = data.rooms.find(r => r.template === 'ruins-supply' && roomContainsPoint(r, x + .5, z + .5));
       if (supplyRoom) this.world.openRuinsSupply(supplyRoom.id!);
     }
@@ -1681,7 +1690,12 @@ export class Game {
       this.updateSkills(rawDt);
     }
 
+    updateRuinsCutaway(this.player.position, this.controller.isFirstPerson);
     this.world.update(rawDt, this.elapsed);
+    if (this.world.shadowDirty) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.world.shadowDirty = false;
+    }
     this.foundryPractice.update(dt, this.player.position, (title, text) => this.hud.showCenterMessage(title, text, 3));
     this.effects.update(rawDt);
     this.hud.update(rawDt);

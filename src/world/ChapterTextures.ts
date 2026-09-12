@@ -4,7 +4,7 @@ import { loadImage } from '../core/AssetLoading';
 type Surface = 'floor' | 'wall';
 const textures = new Map<string, THREE.Texture>();
 const pending = new Map<string, Promise<void>>();
-const chapter = (floor: number): string | null => floor >= 1 && floor <= 5 ? 'ruins' : floor >= 6 && floor <= 10 ? 'foundry' : null;
+const chapter = (floor: number): string | null => floor >= 6 && floor <= 10 ? 'foundry' : null;
 
 /** Load only the current chapter, before the loading screen releases the scene. */
 export async function preloadChapterTextures(floor: number): Promise<void> {
