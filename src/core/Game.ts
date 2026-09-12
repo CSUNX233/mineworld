@@ -1,3 +1,4 @@
+import { preloadGameImages, prepareTrackedTextures } from './AssetLoading';
 import type { EquipmentMechanismTag } from '../items/RewardPreference';
 import { SetRuntime } from '../items/SetRuntime';
 import { setDefinition } from '../data/sets';
@@ -1098,8 +1099,11 @@ export class Game {
     this.encounters = new EncounterDirector(data, resume?.floorProgress);
     this.hudTimer = 0;
     await loading.step(25, '加载章节材质');
-    await preloadChapterTextures(this.floor);
-    await loading.step(30, '构建场景');
+    await Promise.all([
+      preloadChapterTextures(this.floor),
+      preloadGameImages((done, total) => loading.report(25 + Math.floor(done / Math.max(1, total) * 30), `加载贴图 ${done}/${total}`)),
+    ]);
+    await loading.step(55, '构建场景');
     prepareFoundryPanels(data, resume?.runtime?.brokenFoundryPanels);
     this.setRuntime.clearTargets();
     this.world.generate(data);
@@ -1159,6 +1163,8 @@ export class Game {
     if (resume?.runtime?.summonSquad) this.summonSystem.restore(resume.runtime.summonSquad, data, this.player, this.summonConfig());
     this.reconcileSummons();
     await loading.step(85, '准备画面');
+    await prepareTrackedTextures(this.renderer);
+    await loading.step(95, '编译场景');
     await this.renderer.compileAsync(this.scene, this.camera);
     this.renderer.render(this.scene, this.camera);
     await loading.step(100, '准备完成');

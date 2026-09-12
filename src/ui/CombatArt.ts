@@ -1,3 +1,4 @@
+import { trackedTexture } from '../core/AssetLoading';
 import * as THREE from 'three';
 
 export const combatArtUrl = (group: string, name: string): string =>
@@ -22,7 +23,7 @@ export function combatTexture(group: string, name: string): THREE.Texture {
   const key = `${group}/${name}`;
   let texture = textures.get(key);
   if (!texture) {
-    texture = new THREE.TextureLoader().load(combatArtUrl(group, name));
+    texture = trackedTexture(combatArtUrl(group, name));
     texture.magFilter = texture.minFilter = THREE.NearestFilter;
     texture.generateMipmaps = false;
     texture.colorSpace = THREE.SRGBColorSpace;

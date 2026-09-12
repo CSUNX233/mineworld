@@ -1,3 +1,4 @@
+import { trackedTexture } from '../core/AssetLoading';
 import { HealthBarBreak } from './HealthBarBreak';
 import { BurnVisual } from './BurnVisual';
 import { combatTexture, decorateTelegraph } from '../ui/CombatArt';
@@ -11,7 +12,7 @@ let nextMonsterId = 1;
 
 // Shared UI textures stay alive across rooms; individual monsters only own materials.
 function overlayTexture(name: string): THREE.Texture {
-  const texture = new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'assets/ui/sunlit/' + name + '.webp');
+  const texture = trackedTexture(import.meta.env.BASE_URL + 'assets/ui/sunlit/' + name + '.webp');
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.colorSpace = THREE.SRGBColorSpace;

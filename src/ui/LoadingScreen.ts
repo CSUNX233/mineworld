@@ -50,9 +50,12 @@ export class LoadingScreen {
     this.element.appendChild(panel);
     root.appendChild(this.element);
   }
-  async step(value: number, text: string): Promise<void> {
+  report(value: number, text: string): void {
     this.label.textContent = `${text} · ${value}%`;
     this.progress.value = value;
+  }
+  async step(value: number, text: string): Promise<void> {
+    this.report(value, text);
     // Two frames allow the previous stage to paint before synchronous generation.
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   }

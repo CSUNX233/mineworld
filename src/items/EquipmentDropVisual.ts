@@ -1,3 +1,4 @@
+import { trackedTexture } from '../core/AssetLoading';
 import * as THREE from 'three';
 import type { Item, Rarity } from '../types';
 import { equipmentArtPath } from '../ui/EquipmentArt';
@@ -21,7 +22,7 @@ function iconTexture(item: Item): THREE.Texture {
   const key = path ?? `atlas-${atlasIndex}`;
   let texture = textures.get(key);
   if (!texture) {
-    texture = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}${path ?? 'assets/ui/sunlit/icons-atlas.webp'}`);
+    texture = trackedTexture(`${import.meta.env.BASE_URL}${path ?? 'assets/ui/sunlit/icons-atlas.webp'}`);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.magFilter = texture.minFilter = THREE.NearestFilter;
     texture.generateMipmaps = false;
