@@ -70,9 +70,11 @@ export class BossController {
     }
 
     if (!this.warnings.length && this.dashTime <= 0) boss.faceToward(player.position.x, player.position.z);
-    this.attackTimer -= dt * 2 * monsterAggression(boss);
-    this.dashTimer -= dt * 2 * monsterAggression(boss);
-    this.summonTimer -= dt * 2 * monsterAggression(boss);
+    // One 20% cadence reduction, shared by casts, charges and summons (not compounded).
+    const cadence = boss.def.id === 'boss' ? 1.6 : 2;
+    this.attackTimer -= dt * cadence * monsterAggression(boss);
+    this.dashTimer -= dt * cadence * monsterAggression(boss);
+    this.summonTimer -= dt * cadence * monsterAggression(boss);
     this.dashTime -= dt;
 
     if (this.warnings.some(warning => warning.kind === 'dash')) {

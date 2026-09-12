@@ -63,6 +63,8 @@ export const MATERIALS: Record<MaterialId, MaterialDefinition> = {
 export const MATERIAL_ORDER: MaterialId[] = ['iron', 'silver', 'gold', 'mithril', 'element_shard', 'void_essence'];
 
 export function materialForItem(rarity: string, slot: string): MaterialId | null {
+  if (rarity === 'mythic') return 'void_essence';
+  if (slot === 'ring2') slot = 'ring';
   for (const id of MATERIAL_ORDER) {
     const def = MATERIALS[id];
     if (def.sourceRarity.includes(rarity) && def.sourceSlot.includes(slot)) return id;

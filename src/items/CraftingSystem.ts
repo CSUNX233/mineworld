@@ -133,6 +133,7 @@ export class CraftingSystem {
     const count = (ordinary.length || RARITY_AFFIX_COUNT[item.rarity][0]) - (locked ? 1 : 0);
     const rolled = AffixSystem.generateAffixes(item.slot, item.rarity, item.itemLevel, rng, count, {
       tag: options.tag,
+      guaranteeTag: Boolean(options.tag),
       excludeAffixIds: lockedDefinition ? [lockedDefinition] : [],
       includeSpecial: false,
     });
@@ -146,7 +147,7 @@ export class CraftingSystem {
     const prefix = affixes.length > 0 ? `${affixes[0].name}` : '';
     return {
       ...item,
-      name: prefix ? `${prefix}${item.name.replace(/^(.*?之|.*?的)?/, '')}` : item.name,
+      name: item.contentId || item.setId ? item.name : prefix ? `${prefix}${item.name.replace(/^(.*?之|.*?的)?/, '')}` : item.name,
       affixes,
       reforgeCount: (item.reforgeCount ?? 0) + 1,
     };

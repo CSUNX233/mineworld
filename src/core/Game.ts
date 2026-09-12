@@ -97,7 +97,9 @@ import type { ArchetypeId, RunOutcome, SaveEnvelopeV3, SettlementRecord } from '
 import { buildNewAdventureView, buildMetaProgressionView, buildMigrationView, buildSettlementView } from '../ui/RunScreens';
 import { starterWeapon } from '../items/StarterEquipment';
 import { createUiIcon, UI_RARITY_COLORS } from '../ui/UiAssets';
+import { playUiFeedback } from '../ui/InterfaceKit';
 import { EquipmentDropVisual } from '../items/EquipmentDropVisual';
+import { materialOffers } from '../items/MaterialEconomy';
 
 interface DropEntity {
   mesh: THREE.Object3D;
@@ -109,6 +111,7 @@ interface DropEntity {
   kind: LootDrop['kind'];
   amount?: number;
   item?: Item;
+  materialId?: MaterialId;
   bobPhase: number;
   life: number;
 }
@@ -323,6 +326,7 @@ export class Game {
   private pendingPortalActive: boolean | null = null;
   private shopStock: ShopStockEntry[] = [];
   private shopFloor = 0;
+  private shopMaterialPurchases = new Set<string>();
   private shopRefreshes = 0;
   private shopGambles = 0;
   private shopHeals = 0;
@@ -769,6 +773,7 @@ export class Game {
       try {
         const candidate = change(),result = SaveManager.saveSharedProgression(candidate);
         this.showMetaTalentScreen(result.ok ? success : result.error);
+        if (result.ok) playUiFeedback('unlock', this.uiRoot.querySelector('.meta-tree-node.is-selected'));
       } catch(error) { this.showMetaTalentScreen(error instanceof Error ? error.message : '营地天赋无法保存。'); }
     };
     panel.append(buildMetaProgressionView(envelope, {
@@ -1014,6 +1019,7 @@ export class Game {
     this.pendingPortalActive = null;
     this.shopStock = [];
     this.shopFloor = 0;
+    this.shopMaterialPurchases.clear();
     this.shopRefreshes = this.shopGambles = this.shopHeals = 0;
     this.equipment.equipment = { weapon: starterWeapon(archetype) };
     this.skillLoadout = archetype === 'vanguard' ? ['whirlwind', 'dash', 'guard_counter', 'seismic_slam']
@@ -1077,6 +1083,7 @@ export class Game {
     this.skillLoadout = [...new Set(save.skillLoadout ?? DEFAULT_SKILL_LOADOUT)].slice(0, 4);
     this.shopStock = Array.isArray(save.shopStock) ? [...save.shopStock] : [];
     this.shopFloor = save.shopFloor ?? 0;
+    this.shopMaterialPurchases = new Set(save.shopMaterialPurchases ?? []);
     this.shopRefreshes = save.shopRefreshes ?? 0;
     this.shopGambles = save.shopGambles ?? 0;
     this.shopHeals = save.shopHeals ?? 0;
@@ -1181,7 +1188,7 @@ export class Game {
     try {
     await loading.step(5, '准备关卡');
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
-    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 5;
+    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 6;
     const data = generateFloor(this.currentFloorSeed, this.floor, generationVersion);
     data.generationVersion = generationVersion;
     this.floorData = data;
@@ -1280,7 +1287,12 @@ export class Game {
     await loading.step(85, '准备画面');
     await prepareTrackedTextures(this.renderer);
     await loading.step(95, '编译场景');
-    await this.renderer.compileAsync(this.scene, this.camera);
+    try { await this.renderer.compileAsync(this.scene, this.camera); }
+    catch (error) {
+      if (this.renderer.getContext().isContextLost()) throw error;
+      // Older mobile drivers can fail the parallel compilation path on a cold launch.
+      this.renderer.compile(this.scene, this.camera);
+    }
     this.renderer.render(this.scene, this.camera);
     await loading.step(100, '准备完成');
     loading.close();
@@ -1860,13 +1872,20 @@ export class Game {
     panel.appendChild(lookLabel);
     const lookSensitivity = document.createElement('input');
     lookSensitivity.type = 'range';
-    lookSensitivity.min = '0.5';
-    lookSensitivity.max = '2.5';
-    lookSensitivity.step = '0.1';
-    lookSensitivity.value = String(SettingsManager.getLookSensitivity());
+    const defaultSensitivity = SettingsManager.defaultLookSensitivity();
+    const sensitivityPercent = 50 + 50 * Math.log2(SettingsManager.getLookSensitivity() / defaultSensitivity);
+    lookSensitivity.min = String(Math.min(0, Math.floor(sensitivityPercent)));
+    lookSensitivity.max = String(Math.max(100, Math.ceil(sensitivityPercent)));
+    lookSensitivity.step = '1';
+    lookSensitivity.value = String(sensitivityPercent);
     lookSensitivity.className = 'sunlit-range';
     lookSensitivity.setAttribute('aria-label', '视角灵敏度');
-    lookSensitivity.oninput = () => SettingsManager.setLookSensitivity(Number(lookSensitivity.value));
+    const showSensitivity = () => { lookLabel.textContent = `视角灵敏度 ${Math.round(Number(lookSensitivity.value))}% · ${(SettingsManager.getLookSensitivity() / defaultSensitivity).toFixed(2)} 倍（默认 50%）`; };
+    lookSensitivity.oninput = () => {
+      SettingsManager.setLookSensitivity(defaultSensitivity * 2 ** ((Number(lookSensitivity.value) - 50) / 50));
+      showSensitivity();
+    };
+    showSensitivity();
     panel.appendChild(lookSensitivity);
 
     const followRow = document.createElement('label');
@@ -1994,6 +2013,11 @@ export class Game {
         floor: this.floor, gold: this.gold, stock: this.shopStock, inventory: this.inventory.items,
         materials: this.materialCounts, full: !this.inventory.hasSpace(), refreshes: this.shopRefreshes,
         gambles: this.shopGambles, heals: this.shopHeals,
+        materialOffers: materialOffers(this.seed,this.floor,this.shopRefreshes).map(offer => ({...offer,
+          price: Math.ceil(ShopSystem.materialPrice(offer.materialId,this.floor) * offer.amount * 1.6),
+          sold: this.shopMaterialPurchases.has(offer.id),
+        })),
+        buyMaterial: id => this.buyShopMaterial(id),
         commission: this.equipmentRulesVersion >= 2 ? missingSetCommission(this.equipment.getEquippedItems()) : undefined,
         buyShard: this.equipmentRulesVersion >= 2 ? () => this.buyCraftingShard() : undefined,
         needsHealing: this.player.health < this.player.maxHealth || this.player.mana < this.player.maxMana,
@@ -2014,7 +2038,7 @@ export class Game {
       const run = this.envelope?.activeRun;
       if (run && canExtract(run)) {
         const checkpoint = document.createElement('p');
-        checkpoint.textContent = `阶段 Boss 已击败。现在提前结算可获得 ${extractionResearchXp(run)} 研究经验；继续深入可争取完整通关奖励。进入下一层后，要到下一场 Boss 战后才能再次提前结算。`;
+        checkpoint.textContent = `阶段 Boss 已击败。现在提前结算可获得 ${extractionResearchXp(run) / 100} 个局外天赋点；完整通关获得 500 点。进入下一层后，要到下一场 Boss 战后才能再次提前结算。`;
         panel.appendChild(checkpoint);
         const extract = this.makeMenuButton('提前结算，返回营地');
         extract.onclick = () => this.confirmExtraction();
@@ -2087,7 +2111,7 @@ export class Game {
     const run = this.envelope?.activeRun;
     if (!run || !canExtract(run) || this.failedSaveCandidate) return;
     this.showCraftOverlay('确认提前结算',
-      `在第 ${this.floor} 层结束本局，获得 ${extractionResearchXp(run)} 研究经验。<br>这是阶段撤离，不算完整通关。装备、金币和材料不会带出。`,
+      `在第 ${this.floor} 层结束本局，获得 ${extractionResearchXp(run) / 100} 个局外天赋点。<br>这是阶段撤离，不算完整通关。装备、金币和材料不会带出。`,
       () => {
         if (this.envelope?.activeRun && canExtract(this.envelope.activeRun)) this.finishRun('extracted');
       });
@@ -2236,6 +2260,7 @@ export class Game {
   private allocateRunTalent(id: string): void {
     if (!this.canEditRunTalents() || !canUnlockTalent(this.runTalents, id, this.currentTalentBudget())) return;
     this.runTalents = unlockRunTalent(this.runTalents, id, this.currentTalentBudget());
+    playUiFeedback('unlock', this.uiRoot.querySelector(`[data-talent-id="${id}"]`));
     this.migratedRunTalents = false;
     if (id === 'consuming_flame' && !this.skillLoadout.includes('detonate') && this.skillLoadout.length < 4) this.skillLoadout.push('detonate');
     this.refreshTalentEffects();
@@ -3390,7 +3415,7 @@ export class Game {
       return;
     }
     const color =
-      drop.kind === 'gold'
+      drop.kind === 'material' ? parseInt(MATERIALS[drop.materialId].color.slice(1),16) : drop.kind === 'gold'
         ? 0xffd24a
         : drop.kind === 'health'
           ? 0xff4b4b
@@ -3418,6 +3443,7 @@ export class Game {
       position: pos,
       kind: drop.kind,
       amount: drop.amount,
+      materialId: drop.kind === 'material' ? drop.materialId : undefined,
       age: 0, pickupDelay: 0, retryIn: 0,
       bobPhase: Math.random() * Math.PI * 2,
       life: 30,
@@ -3481,6 +3507,11 @@ export class Game {
       this.player.addMana(amount);
       this.hud.showCenterMessage(`法力药水 +${amount}`, '', 0.8);
       this.audio.pickup();
+      return true;
+    } else if (drop.kind === 'material' && drop.materialId) {
+      this.addMaterials([{materialId:drop.materialId,amount:drop.amount ?? 1}]);
+      this.audio.pickup();
+      this.hud.showLootMessage(`获得${MATERIALS[drop.materialId].name} ×${drop.amount ?? 1}`,parseInt(MATERIALS[drop.materialId].color.slice(1),16));
       return true;
     } else if (drop.kind === 'reforgeTicket') {
       this.addMaterials([{ materialId: 'element_shard', amount: drop.amount ?? 1 }]);
@@ -3961,6 +3992,7 @@ export class Game {
     this.updateWeaponVisual();
     this.inventoryUI.show(this.equipment, this.inventory);
     this.skills = this.buildSkillStates();
+    playUiFeedback('equip', this.uiRoot.querySelector('.inventory-equipment'));
   }
 
   private unequipSlot(slot: Slot): void {
@@ -4059,6 +4091,19 @@ export class Game {
   private materialStatusText(): string {
     const materials = MATERIAL_ORDER.map((id) => `${this.materialLabel(id)} ${this.materialCount(id)}`).join(' · ');
     return materials;
+  }
+
+  private buyShopMaterial(id: string): void {
+    if (!this.shopOpen || this.shopMaterialPurchases.has(id)) return;
+    const offer = materialOffers(this.seed,this.floor,this.shopRefreshes).find(entry => entry.id === id);
+    if (!offer) return;
+    const price = Math.ceil(ShopSystem.materialPrice(offer.materialId,this.floor) * offer.amount * 1.6);
+    if (this.gold < price) return;
+    this.shopMaterialPurchases.add(id);
+    this.changeGold(-price,'shop_crafting_supply');
+    this.addMaterials([{materialId:offer.materialId,amount:offer.amount}]);
+    this.saveGame();
+    this.showShopMenu(`获得${MATERIALS[offer.materialId].name} ×${offer.amount}`);
   }
 
   private showCraftOverlay(title: string, infoHTML: string, onConfirm: () => void, confirmDisabled = false): void {
@@ -4341,6 +4386,7 @@ export class Game {
       skillLoadout: [...this.skillLoadout],
       shopStock: [...this.shopStock],
       shopFloor: this.shopFloor,
+      shopMaterialPurchases: [...this.shopMaterialPurchases],
       shopRefreshes: this.shopRefreshes,
       shopGambles: this.shopGambles,
       shopHeals: this.shopHeals,

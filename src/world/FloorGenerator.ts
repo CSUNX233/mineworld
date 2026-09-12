@@ -71,14 +71,14 @@ function nearestRoomCell(cells: { x: number; z: number }[], x: number, z: number
   });
 }
 
-function buildRoom(node: LayoutNode, rng: RNG, chapterFloor?: number, modern = false): SpatialRoom {
+function buildRoom(node: LayoutNode, rng: RNG, chapterFloor?: number, modern = false, spaciousBoss = false): SpatialRoom {
   const spec: ChapterRoomSpec | undefined = chapterFloor === undefined ? undefined :
     (modern && isRuinsChapter(chapterFloor) ? ruinsRoomSpec(chapterFloor,node.id) :
       modern && isSanctumChapter(chapterFloor) ? sanctumRoomSpec(chapterFloor,node.id) : foundryRoomSpec(chapterFloor,node.id));
   const dimensions = spec?.width !== undefined && spec.depth !== undefined
     ? { width: spec.width, depth: spec.depth }
     : roomDimensions(node, rng);
-  const { width, depth } = dimensions;
+  const { width, depth } = spaciousBoss && node.kind === 'exit' ? { width: 18, depth: 18 } : dimensions;
   const x = Math.max(2, Math.round(node.cx - width / 2));
   const z = Math.max(2, Math.round(node.cz - depth / 2));
   const shape = spec?.shape ?? node.shape;
@@ -188,13 +188,19 @@ function openCellNear(
   throw new Error(`No separated open cell remains in room ${room.id}.`);
 }
 
-/** Versions 2–4 retain their maps; version 5 adds the ruins and sanctum chapters. */
-function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 | 5 = 2): FloorData {
+/** Versions 2–5 retain their maps; version 6 expands the lord arena without moving saved floors. */
+function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 | 5 | 6 = 2): FloorData {
   const rng = new RNG(seed);
   const foundry = (version === 3 && floor === 6) || (version >= 4 && isFoundrySlice(floor));
   const ruins = version >= 5 && isRuinsChapter(floor), sanctum = version >= 5 && isSanctumChapter(floor);
   const layout = foundry ? createFoundryLayout(rng, floor) : ruins || sanctum ? createChapterMapLayout(rng,floor) : createMapLayout(rng);
-  const rooms = layout.nodes.map(node => buildRoom(node, rng, foundry || ruins || sanctum ? floor : undefined,version >= 5));
+  const spaciousBoss = version >= 6 && floor === 20;
+  if (spaciousBoss) {
+    const exit = layout.nodes.find(node => node.kind === 'exit')!;
+    exit.cx = Math.max(...layout.nodes.filter(node => node !== exit).map(node => node.cx)) + 18;
+    exit.shape = 'rect';
+  }
+  const rooms = layout.nodes.map(node => buildRoom(node, rng, foundry || ruins || sanctum ? floor : undefined,version >= 5,spaciousBoss));
   const size = Math.max(48, ...rooms.map(room => Math.max(room.x + room.width, room.z + room.depth) + 3));
   const grid = Array.from({ length: size }, () => Array<number>(size).fill(BlockKind.Wall));
   const protectedCells = new Set<string>();
@@ -299,9 +305,9 @@ export function generateLegacyFloor(seed: number, floor: number): FloorData {
     theme: themes[Math.min(themes.length - 1, Math.floor(Math.max(0, floor - 1) / 5))], seed, floor };
 }
 
-export function generateFloor(seed: number, floor: number, generationVersion: number = 5): FloorData {
+export function generateFloor(seed: number, floor: number, generationVersion: number = 6): FloorData {
   if (generationVersion === 1) return generateLegacyFloor(seed, floor);
-  const spatialVersion = generationVersion === 3 ? 3 : generationVersion === 4 ? 4 : generationVersion === 5 ? 5 : 2;
+  const spatialVersion = generationVersion === 6 ? 6 : generationVersion === 3 ? 3 : generationVersion === 4 ? 4 : generationVersion === 5 ? 5 : 2;
   return generateSpatialFloor(seed, floor, spatialVersion);
 }
 

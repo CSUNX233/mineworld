@@ -3,6 +3,7 @@ import {
   BASIC_RUN_DEFINITION,
   REQUIRED_OBJECTIVE_IDS,
   RUN_REWARDS,
+  talentPointsForFloor,
 } from '../data/runProgression';
 import { XP_PER_POINT } from './MetaProgression';
 import {
@@ -90,19 +91,12 @@ export function settleRun(
   }
 
   const completedObjectives = requiredObjectiveCount(run);
-  const rewardedDeathObjectives = Math.min(
-    completedObjectives,
-    RUN_REWARDS.maxDeathObjectives,
-  );
   const baseXp = outcome === 'victory'
     ? RUN_REWARDS.victoryResearchXp
     : outcome === 'extracted'
       ? extractionResearchXp(run)
     : outcome === 'death'
-      ? Math.floor(
-        RUN_REWARDS.maxDeathResearchXp
-          * (rewardedDeathObjectives / RUN_REWARDS.deathObjectiveDenominator) ** 2,
-      )
+      ? talentPointsForFloor(finalFloor(run, outcome)) * XP_PER_POINT
       : 0;
   const totalXp = baseXp;
   const xpPool = Math.max(0, Math.floor(currentResearchXp)) + totalXp;

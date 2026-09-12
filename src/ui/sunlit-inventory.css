@@ -677,10 +677,27 @@
   padding: 5px;
   gap: 4px !important;
   grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)) !important;
-  grid-auto-rows: 48px !important;
+  grid-auto-rows: max-content !important;
   border-width: 5px;
   border-image-width: 5px;
   overscroll-behavior: contain;
+}
+#ui-root .mobile-inventory .inventory-grid > .inventory-item-slot,
+#ui-root .mobile-inventory .inventory-equipment > .inventory-item-slot {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+  align-self: start;
+}
+#ui-root .mobile-inventory .inventory-item-slot .sunlit-icon {
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+}
+#ui-root .mobile-inventory .inventory-equipment > .inventory-item-slot {
+  width: min(100%, 56px) !important;
+  justify-self: center;
 }
 #ui-root .mobile-inventory .inventory-bulk {
   display: grid !important;

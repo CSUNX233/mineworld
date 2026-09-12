@@ -4,6 +4,8 @@ import type { Monster } from '../monsters/Monster';
 import { isWalkable } from '../world/FloorGenerator';
 import { directionToPlayer } from '../world/Navigation';
 import { worldRayDistance } from '../world/SpatialQueries';
+import { getEncounterBarriers, encounterBarrierBlocksCylinder, findEncounterRoomPosition } from '../world/EncounterBarriers';
+import { roomContainsPoint } from '../world/RoomGeometry';
 import { SummonUnit } from './SummonUnit';
 import { validateSnapshot } from './validation';
 import {
@@ -72,6 +74,7 @@ export class SummonSystem {
   private lastConfig = normalizedConfig({ attack: 0, maxHealth: 1, direction: 'legion' });
   private signals: Signal[] = [];
   private focusLine: THREE.Line | null = null;
+  private readonly brains = new WeakMap<SummonUnit, { target: Monster | null; blocked: number }>();
 
   constructor(private readonly scene: THREE.Scene) {}
 
@@ -213,13 +216,24 @@ export class SummonSystem {
     }
     this.updateFocusLine(player.position);
 
+    const barriers = getEncounterBarriers(floor);
+    const room = floor.rooms.find(room => roomContainsPoint(room, player.position.x, player.position.z)
+      && barriers.some(barrier => barrier.roomId === room.id));
+    const living = monsters.filter(monster => !monster.dead
+      && (!room || roomContainsPoint(room, monster.position.x, monster.position.z)));
     for (const unit of [...this.units]) {
       unit.owner = player;
+      // Closing doors must not strand allies outside, including restored doorway positions.
+      if ((room && !roomContainsPoint(room, unit.position.x, unit.position.z))
+        || encounterBarrierBlocksCylinder(floor, unit.position.x, unit.position.z, 0.3)) {
+        this.regroup(unit, floor);
+      }
       unit.tick(delta, this.elapsed, this.derivedMaxHealth(unit.role, unit.elite, rules));
       if (unit.life <= 0) { this.removeUnit(unit, 'expired', host); continue; }
-      this.applyIncomingAttack(unit, monsters, floor);
+      this.applyIncomingAttack(unit, living, floor);
       if (unit.health <= 0) { this.removeUnit(unit, 'death', host); continue; }
-      this.updateRole(unit, floor, player, monsters, rules, host, delta);
+      this.updateRole(unit, floor, player, living, rules, host, delta);
+      unit.visual.update(unit.position, unit.yaw, unit.health / unit.maxHealth, this.elapsed);
     }
     this.updateSignals(delta);
   }
@@ -345,22 +359,47 @@ export class SummonSystem {
     host: SummonHost,
     dt: number,
   ): void {
-    const living = monsters.filter(monster => !monster.dead);
-    const target = this.mode === 'recall' ? null : this.selectTarget(unit, living);
+    const target = this.mode === 'recall' ? null : this.selectTarget(unit, monsters, floor);
     if (unit.role === 'warrior') this.updateWarrior(unit, target, floor, player, rules, host, dt);
     else if (unit.role === 'guardian') this.updateGuardian(unit, target, floor, player, rules, host, dt);
     else this.updateArcher(unit, target, floor, player, rules, host, dt);
   }
 
-  private selectTarget(unit: SummonUnit, monsters: Monster[]): Monster | null {
-    if (this.focusTarget && !this.focusTarget.dead && unit.position.distanceTo(this.focusTarget.position) <= 16) return this.focusTarget;
+  private selectTarget(unit: SummonUnit, monsters: Monster[], floor: FloorData): Monster | null {
+    if (unit.position.distanceTo(unit.owner.position) > 14) return null;
+    const brain = this.brain(unit);
+    const reachable = (monster: Monster) => !monster.dead && monster.position.distanceTo(unit.owner.position) <= 16
+      && (this.hasLineOfSight(floor, unit.position, monster.position)
+        || directionToPlayer(floor, unit.position.x, unit.position.z, monster.position.x, monster.position.z) !== null);
+    if (this.focusTarget && monsters.includes(this.focusTarget) && reachable(this.focusTarget)) return this.focusTarget;
     let target: Monster | null = null;
     let best = 12;
     for (const monster of monsters) {
       const distance = unit.position.distanceTo(monster.position);
-      if (distance < best) { best = distance; target = monster; }
+      const score = distance * (brain.target === monster ? 0.75 : 1)
+        + (unit.role === 'guardian' ? monster.position.distanceTo(unit.owner.position) * 0.35 : 0);
+      if (score < best && reachable(monster)) { best = score; target = monster; }
     }
+    brain.target = target;
     return target;
+  }
+
+  private brain(unit: SummonUnit): { target: Monster | null; blocked: number } {
+    let brain = this.brains.get(unit);
+    if (!brain) { brain = { target: null, blocked: 0 }; this.brains.set(unit, brain); }
+    return brain;
+  }
+
+  private regroup(unit: SummonUnit, floor: FloorData): void {
+    const owner = unit.owner.position;
+    const room = floor.rooms.find(room => roomContainsPoint(room, owner.x, owner.z));
+    const angle = unit.createdOrder * 2.4;
+    const safe = room && findEncounterRoomPosition(floor, room, owner.x + Math.cos(angle) * 1.5, owner.z + Math.sin(angle) * 1.5);
+    const position = this.planSpawnPositions(floor, owner, 1)?.[0]
+      ?? (safe ? new THREE.Vector3(safe.x, 0, safe.z) : null);
+    if (!position) return;
+    unit.position.copy(position);
+    this.brain(unit).blocked = 0;
   }
 
   private updateWarrior(
@@ -369,7 +408,7 @@ export class SummonSystem {
   ): void {
     if (!target) { this.follow(unit, floor, player.position, 1.45, dt); return; }
     const distance = unit.position.distanceTo(target.position);
-    if (distance > 1.35) this.moveTowards(unit, floor, target.position, ROLE_SPEED.warrior, dt);
+    if (distance > 1.35 || !this.hasLineOfSight(floor, unit.position, target.position)) this.moveTowards(unit, floor, target.position, ROLE_SPEED.warrior, dt);
     else if (unit.cooldowns.attack <= 0 && this.hasLineOfSight(floor, unit.position, target.position)) {
       unit.cooldowns.attack = unit.elite ? 0.9 : 1.12;
       this.deal(unit, target, this.attackDamage('warrior', unit.elite, rules), host);
@@ -386,6 +425,7 @@ export class SummonSystem {
     unit: SummonUnit, target: Monster | null, floor: FloorData, player: SummonOwner,
     rules: Required<SummonConfig>, host: SummonHost, dt: number,
   ): void {
+    if (!target) { this.follow(unit, floor, player.position, 1.8, dt); return; }
     const archer = this.nearestUnit('archer', unit.position);
     const protectedPosition = archer?.position ?? player.position;
     const anchor = protectedPosition.clone();
@@ -420,7 +460,8 @@ export class SummonSystem {
     const hasLos = this.hasLineOfSight(floor, unit.position, target.position);
     if (distance < 3.8) this.moveAway(unit, floor, target.position, ROLE_SPEED.archer, dt);
     else if (distance > 7.2 || !hasLos) this.moveTowards(unit, floor, target.position, ROLE_SPEED.archer, dt);
-    else if (unit.cooldowns.attack <= 0) {
+    if (unit.cooldowns.attack <= 0 && unit.position.distanceTo(target.position) <= 7.2
+      && this.hasLineOfSight(floor, unit.position, target.position)) {
       unit.cooldowns.attack = unit.elite ? 1.0 : 1.3;
       let damage = this.attackDamage('archer', unit.elite, rules);
       if (guardian && this.focusTarget === target && this.coverSynergyBudget > 0 && unit.coverCharges > 0) {
@@ -464,7 +505,12 @@ export class SummonSystem {
   }
 
   private follow(unit: SummonUnit, floor: FloorData, ownerPosition: THREE.Vector3, desired: number, dt: number): void {
-    if (unit.position.distanceTo(ownerPosition) > desired) this.moveTowards(unit, floor, ownerPosition, ROLE_SPEED[unit.role], dt);
+    const distance = unit.position.distanceTo(ownerPosition);
+    if (distance > 22) { this.regroup(unit, floor); return; }
+    const angle = unit.createdOrder * 2.4;
+    const anchor = ownerPosition.clone().add(new THREE.Vector3(Math.cos(angle) * desired, 0, Math.sin(angle) * desired));
+    const target = this.positionIsWalkable(floor, anchor) && this.hasLineOfSight(floor, ownerPosition, anchor) ? anchor : ownerPosition;
+    if (unit.position.distanceTo(target) > 0.65) this.moveTowards(unit, floor, target, ROLE_SPEED[unit.role] * (distance > 5 ? 1.8 : 1), dt);
   }
 
   private moveTowards(unit: SummonUnit, floor: FloorData, target: THREE.Vector3, speed: number, dt: number): void {
@@ -475,7 +521,7 @@ export class SummonSystem {
     const probe = Math.max(0.4, speed * dt + 0.08);
     if (worldRayDistance(floor, unit.position.clone().setY(0.8), direct, probe, 0.3) < probe - 0.01) {
       const routed = directionToPlayer(floor, unit.position.x, unit.position.z, target.x, target.z);
-      if (!routed) return;
+      if (!routed) { this.onBlocked(unit, floor, dt); return; }
       direction = new THREE.Vector3(routed.x, 0, routed.z).normalize();
     }
     const avoidance = new THREE.Vector3();
@@ -486,7 +532,16 @@ export class SummonSystem {
       if (distance > 0.01 && distance < 0.72) avoidance.addScaledVector(offset.normalize(), (0.72 - distance) * 0.55);
     }
     direction.add(avoidance).normalize();
-    this.tryMove(unit, floor, direction, speed * dt);
+    if (this.tryMove(unit, floor, direction, speed * dt)
+      || (Math.abs(direction.x) > 0.1 && this.tryMove(unit, floor, new THREE.Vector3(Math.sign(direction.x), 0, 0), speed * dt))
+      || (Math.abs(direction.z) > 0.1 && this.tryMove(unit, floor, new THREE.Vector3(0, 0, Math.sign(direction.z)), speed * dt))) this.brain(unit).blocked = 0;
+    else this.onBlocked(unit, floor, dt);
+  }
+
+  private onBlocked(unit: SummonUnit, floor: FloorData, dt: number): void {
+    const brain = this.brain(unit);
+    brain.blocked += dt;
+    if (brain.blocked >= 1.5 && unit.position.distanceTo(unit.owner.position) > 3) this.regroup(unit, floor);
   }
 
   private moveAway(unit: SummonUnit, floor: FloorData, threat: THREE.Vector3, speed: number, dt: number): void {

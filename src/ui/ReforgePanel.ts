@@ -127,7 +127,7 @@ export function createReforgePanel(
   const update = (): void => {
     const selection = options();
     const tag = selection.tag && craftingTagDefinition(selection.tag);
-    help.textContent = tag ? `${tag.description} 此方向候选的抽取权重提高至 3 倍，其他词条仍可能出现，也不保证最高数值。` : '从本底材普通词条池重抽，不保证结果更强。';
+    help.textContent = tag ? `${tag.description} 至少重抽出 1 个此方向的普通词条，其余候选权重提高至 3 倍；不保证最高数值。红装的专属机制和基础属性保持不变。` : '从本底材普通词条池重抽，不保证结果更强。';
     const ordinaryCount = item.affixes.filter(affix => !affix.special).length || RARITY_AFFIX_COUNT[item.rarity][0];
     result.textContent = `结果保留 ${selection.lockedAffixId ? 1 : 0} 个普通词条，重抽 ${Math.max(0, ordinaryCount - (selection.lockedAffixId ? 1 : 0))} 个；特殊机制保持原样。`;
     candidateTitle.textContent = tag ? '提高权重的真实候选与数值范围' : '本底材真实候选与数值范围';

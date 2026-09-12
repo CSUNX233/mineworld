@@ -132,7 +132,7 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
     abandonArea.append(showAbandon);
     root.append(abandonArea, paragraph('进行中的对局保留出发时配置；结束后可解锁其他起始流派。'));
   } else {
-    root.append(paragraph('一大局 25 层，每 5 层一场 Boss 战。完成第 5、10、15、20 层主线后可低收益提前结算，也可保留本局构筑继续深入；第 25 层完成才是完整通关。死亡结束本局，按进度获得少量研究经验。'));
+    root.append(paragraph('一大局 25 层，每 5 层一场 Boss 战。第 5、10、15、20 层可提前结算，分别获得 50、100、200、350 个局外天赋点；25 层通关获得 500 点。死亡按所在楼层足额结算，中间楼层按进度插值。主动放弃不发奖励。'));
     const mechanism = element('select');
     mechanism.setAttribute('aria-label', '本局辅助机制偏好');
     const any = element('option', '不限制辅助机制'); any.value = ''; mechanism.append(any);
@@ -240,14 +240,14 @@ export function buildSettlementView(
   rewardHeading.className = 'sunlit-reward-heading';
   rewardHeading.append(createUiIcon('gem', 'sunlit-inline-icon'), document.createTextNode('研究结算'));
   totals.append(rewardHeading);
-  totals.append(element('div', `${victory ? '通关基础奖励' : extracted ? '提前结算奖励' : '进度奖励'}：${record.baseXp} 研究经验`));
+  totals.append(element('div', `${victory ? '通关基础奖励' : extracted ? '提前结算奖励' : '进度奖励'}：${record.baseXp / XP_PER_POINT} 个局外天赋点`));
   if (record.challengeXp) totals.append(element('div', `挑战奖励：${record.challengeXp} 研究经验`));
   if (record.growthXp) totals.append(element('div', `成长补偿：${record.growthXp} 研究经验`));
   if (record.masteryXp) totals.append(element('div', `首次掌握：${record.masteryXp} 研究经验`));
   if (record.masteredBranches?.length) {
     totals.append(element('div', `本局达成掌握：${record.masteredBranches.map((id) => BUILD_BRANCH_NAMES[id]).join('、')}（记录成就，不额外发放研究经验）`));
   }
-  totals.append(element('strong', `总计 ${record.totalXp} 研究经验 · ${saved ? '获得' : '保存后获得'} ${record.pointsEarned} 天赋点`));
+  totals.append(element('strong', `${saved ? '获得' : '保存后获得'} ${record.pointsEarned} 个局外天赋点`));
   root.append(totals);
   notice(root, message);
   root.append(paragraph(saved ? '奖励已保存。再次打开这份结算不会重复发放。' : '结算尚未保存，奖励未确认到账。请重试保存后再离开。'));

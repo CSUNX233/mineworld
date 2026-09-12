@@ -17,17 +17,24 @@ export const REQUIRED_OBJECTIVE_IDS = Object.freeze(
     .flatMap((floor) => BASIC_REQUIRED_ROOM_IDS.map((roomId) => requiredObjectiveId(floor, roomId))),
 );
 
-// P1 values are deliberately centralized here. They establish the reward flow,
-// but are not presented as final balance values before playtesting.
+// Keep persisted research XP units unchanged (100 XP = one camp talent point).
 export const RUN_REWARDS = {
-  victoryResearchXp: 1000,
+  victoryResearchXp: 50000,
   extractionResearchXpByFloor: {
-    5: 60,
-    10: 150,
-    15: 270,
-    20: 420,
+    5: 5000,
+    10: 10000,
+    15: 20000,
+    20: 35000,
   },
-  maxDeathResearchXp: 200,
-  maxDeathObjectives: REQUIRED_OBJECTIVE_IDS.length - 1,
-  deathObjectiveDenominator: REQUIRED_OBJECTIVE_IDS.length,
 } as const;
+
+/** Awards are talent points; retain the existing 100 research XP per point save format. */
+export function talentPointsForFloor(floor: number): number {
+  const depth = Number.isFinite(floor) ? Math.max(0, Math.min(25, floor)) : 0;
+  const anchors = [[0,0],[5,50],[10,100],[15,200],[20,350],[25,500]];
+  for (let i = 1; i < anchors.length; i++) {
+    const [end, reward] = anchors[i], [start, previous] = anchors[i-1];
+    if (depth <= end) return Math.floor(previous + (reward-previous) * (depth-start)/(end-start));
+  }
+  return 500;
+}

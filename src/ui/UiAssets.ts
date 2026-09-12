@@ -1,5 +1,6 @@
 import { P4_ICON_IDS } from './P4Icons';
 import { equipmentArtPath, type ItemArtSource } from './EquipmentArt';
+import { kitUrl } from './InterfaceKit';
 /** Generated Sunlit Quest atlas; positions are shared by every inventory and skill view. */
 export const UI_RARITY_COLORS: Record<string, string> = {
   common: '#55bd69', magic: '#4b9fff', rare: '#f2d14b',
@@ -23,6 +24,13 @@ export function createUiIcon(id: string, className = ''): HTMLSpanElement {
   const icon = document.createElement('span');
   const index = indexOf(id);
   icon.className = `sunlit-icon ${className}`.trim();
+  if (['attributes', 'equipment-set', 'talent-tree', 'skill-loadout', 'shop', 'crafting', 'sort', 'dismantle'].includes(id)) {
+    icon.style.backgroundImage = `url("${kitUrl(`navigation/${id}`)}")`;
+    icon.style.backgroundSize = 'contain';
+    icon.style.backgroundPosition = 'center';
+    icon.setAttribute('aria-hidden', 'true');
+    return icon;
+  }
   if (P4_ICON_IDS.has(id)) {
     icon.style.backgroundImage = `url(${import.meta.env.BASE_URL}assets/ui/sunlit/p4/${id}.webp)`;
     icon.style.backgroundSize = 'contain';

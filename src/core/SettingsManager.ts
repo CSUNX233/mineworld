@@ -15,12 +15,13 @@ const DEFAULT_SETTINGS: GameSettings = {
 };
 
 export class SettingsManager {
+  static defaultLookSensitivity(): number { return isMobileDevice() ? 1.8 : 1; }
   private static cached: GameSettings | null = null;
   static load(): GameSettings {
     if (this.cached) return { ...this.cached };
     const defaultSettings: GameSettings = {
       ...DEFAULT_SETTINGS,
-      lookSensitivity: isMobileDevice() ? 1.8 : 1,
+      lookSensitivity: this.defaultLookSensitivity(),
       shakeStrength: isMobileDevice() ? 0.6 : 1,
     };
     try {
@@ -29,7 +30,7 @@ export class SettingsManager {
       const parsed = JSON.parse(raw) as Partial<GameSettings>;
       return this.cached = {
         lookSensitivity:
-          typeof parsed.lookSensitivity === 'number' && parsed.lookSensitivity > 0
+          typeof parsed.lookSensitivity === 'number' && Number.isFinite(parsed.lookSensitivity) && parsed.lookSensitivity > 0
             ? parsed.lookSensitivity
             : defaultSettings.lookSensitivity,
         cameraFollow: parsed.cameraFollow === true,
@@ -54,6 +55,7 @@ export class SettingsManager {
   }
 
   static setLookSensitivity(value: number): void {
+    if (!Number.isFinite(value) || value <= 0) return;
     const settings = SettingsManager.load();
     settings.lookSensitivity = value;
     SettingsManager.save(settings);

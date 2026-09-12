@@ -138,3 +138,35 @@ test('active encounter barriers block archer LOS and movement until opened', () 
   assert.equal(events.damage.length, 1);
   summons.clear();
 });
+
+test('closing a room regroups outside and overlapping allies without refreshing their resources', () => {
+  for (const x of [1.5, 2]) {
+    const room = { id: 'locked', kind: 'battle', x: 2, z: 2, width: 7, depth: 7 };
+    const floor = floorFixture(room), owner = player(), summons = new SummonSystem(new Scene());
+    summons.raiseTemporary(floor, owner, config(), { role: 'warrior', position: new Vector3(x, 0, 3.5), life: 20 });
+    const saved = summons.snapshot();
+    saved.units[0].health = 10;
+    saved.units[0].cooldowns.attack = 1;
+    summons.restore(saved, floor, owner, config());
+    setEncounterBarrierRooms(floor, ['locked']);
+    summons.update(0.1, floor, owner, [], config(), host().api);
+    const unit = summons.snapshot().units[0];
+    assert.ok(unit.position.x > 2.4 && unit.position.x < 8.6);
+    assert.ok(unit.position.z > 2.4 && unit.position.z < 8.6);
+    assert.equal(unit.health, 10);
+    assert.equal(unit.life, 19.9);
+    assert.equal(unit.cooldowns.attack, 0.9);
+    assert.equal(unit.id, saved.units[0].id);
+    summons.clear();
+  }
+});
+
+test('archer retreats and fires on the same update without shooting through walls', () => {
+  const floor = floorFixture(), owner = player(), summons = new SummonSystem(new Scene()), events = host();
+  summons.raiseTemporary(floor, owner, config(), { role: 'archer', position: new Vector3(4.5, 0, 4.5), life: 20 });
+  const enemy = monster(77, 6.5, 4.5);
+  summons.update(0.1, floor, owner, [enemy], config(), events.api);
+  assert.ok(summons.snapshot().units[0].position.x < 4.5);
+  assert.equal(events.damage.length, 1);
+  summons.clear();
+});

@@ -25,6 +25,7 @@ export interface AffixGenerationOptions {
   tag?: CraftingTag;
   excludeAffixIds?: readonly string[];
   includeSpecial?: boolean;
+  guaranteeTag?: boolean;
 }
 
 const INTEGER_STATS = new Set<Stat>([
@@ -152,7 +153,10 @@ export class AffixSystem {
     const used = new Set(options.excludeAffixIds ?? []);
 
     for (let i = 0; i < count && available.length > 0; i++) {
-      const candidates = available.filter((def) => !used.has(def.id));
+      let candidates = available.filter((def) => !used.has(def.id));
+      if (i === 0 && options.tag && options.guaranteeTag) {
+        candidates = candidates.filter(def => def.tags.includes(options.tag!));
+      }
       if (candidates.length === 0) break;
       // A direction increases odds, never guarantees a target or its best roll.
       const def = rng.weighted(candidates.map((candidate) => ({

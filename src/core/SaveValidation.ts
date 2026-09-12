@@ -66,6 +66,8 @@ function validSetState(value: unknown): boolean {
 }
 
 function validP5SnapshotFields(value: Record<string, unknown>): boolean {
+  if (value.shopMaterialPurchases !== undefined && (!isStringArray(value.shopMaterialPurchases)
+    || value.shopMaterialPurchases.length > 256)) return false;
   if (!validEquipmentRulesVersion(value.equipmentRulesVersion)
     || !validSetPreference(value.setPreference)
     || (value.craftingSequence !== undefined && (!Number.isSafeInteger(value.craftingSequence) || (value.craftingSequence as number) < 0))) return false;
@@ -174,7 +176,7 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
     || !['elapsed', 'shield', 'invulnerable', 'attackTimer', 'comboCount', 'comboTimer', 'lowHealthShieldCooldown']
       .every(field => isNonNegativeNumber(runtime[field]))
     || !isNumericRecord(runtime.skillCooldowns))) return false;
-  if (snapshot.mapGenerationVersion !== undefined && snapshot.mapGenerationVersion !== 1 && snapshot.mapGenerationVersion !== 2 && snapshot.mapGenerationVersion !== 3 && snapshot.mapGenerationVersion !== 4 && snapshot.mapGenerationVersion !== 5) return false;
+  if (snapshot.mapGenerationVersion !== undefined && ![1,2,3,4,5,6].includes(snapshot.mapGenerationVersion)) return false;
   if (snapshot.runtime?.usedRituals !== undefined && (!Array.isArray(snapshot.runtime.usedRituals) || snapshot.runtime.usedRituals.length > 8 || snapshot.runtime.usedRituals.some(id => typeof id !== 'string'))) return false;
   if (snapshot.runtime?.oathGatekeeper !== undefined) {
     const boss = snapshot.runtime.oathGatekeeper;

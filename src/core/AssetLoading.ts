@@ -7,24 +7,53 @@ const textures = new Map<THREE.Texture, { url: string; ready: Promise<void>; upl
 let foregroundLoads = 0;
 const trackedRenderers = new WeakSet<THREE.WebGLRenderer>();
 
-/** Decode before reporting readiness; failed requests are evicted so retry can recover. */
-function loadImage(url: string, background = false, timeout = 30000): Promise<HTMLImageElement> {
+let activeImages = 0;
+const imageQueue: Array<() => void> = [];
+async function imageSlot<T>(work: () => Promise<T>): Promise<T> {
+  if (activeImages >= 4) await new Promise<void>(resolve => imageQueue.push(resolve));
+  else activeImages++;
+  try { return await work(); }
+  finally { const next = imageQueue.shift(); if (next) next(); else activeImages--; }
+}
+
+/** Bound cold-cache concurrency and recover transient mobile transport/decode failures. */
+export function loadImage(url: string, background = false, timeout = 30000): Promise<HTMLImageElement> {
   const cached = images.get(url);
   if (cached) return cached;
-  const pending = new Promise<HTMLImageElement>((resolve, reject) => {
+  const attempt = () => imageSlot(() => new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
+    let finished = false;
     image.fetchPriority = background ? 'low' : 'high';
     const timer = setTimeout(() => finish(new Error(`Image timeout: ${url}`)), timeout);
     const finish = (error?: unknown) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
       image.onload = image.onerror = null;
-      if (error) reject(error);
+      if (error) { image.src = ''; reject(error); }
       else resolve(image);
     };
-    image.onload = () => image.decode().then(() => finish(), finish);
+    image.onload = async () => {
+      try {
+        if (typeof image.decode === 'function') await image.decode();
+      } catch (error) {
+        // Some Android WebViews reject decode after a successful onload.
+        if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) { finish(error); return; }
+      }
+      finish(image.naturalWidth > 0 && image.naturalHeight > 0 ? undefined : new Error(`Empty image: ${url}`));
+    };
     image.onerror = () => finish(new Error(`Image failed: ${url}`));
     image.src = url;
-  }).catch(error => { images.delete(url); throw error; });
+  }));
+  const pending = (async () => {
+    for (let retry = 0; ; retry++) {
+      try { return await attempt(); }
+      catch (error) {
+        if (background || retry >= 2) throw error;
+        await new Promise(resolve => setTimeout(resolve, 300 * (retry + 1)));
+      }
+    }
+  })().catch(error => { images.delete(url); throw error; });
   images.set(url, pending);
   return pending;
 }

@@ -114,7 +114,7 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
-  generationVersion?: 1 | 2 | 3 | 4 | 5;
+  generationVersion?: 1 | 2 | 3 | 4 | 5 | 6;
   layoutKind?: string;
   merchant?: { x: number; z: number };
   connections?: [string, string][];
@@ -184,8 +184,9 @@ export interface FloorProgress {
 export interface SaveData {
   equipmentRulesVersion?: number;
   craftingSequence?: number;
+  shopMaterialPurchases?: string[];
   setPreference?: string;
-  mapGenerationVersion?: 1 | 2 | 3 | 4 | 5;
+  mapGenerationVersion?: 1 | 2 | 3 | 4 | 5 | 6;
   mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {

@@ -3,8 +3,8 @@ import './mobile-meta-tree.css';
 import { META_NODES, completedBasicVictoryCount, metaBonusDescription, metaUnlockReason, permanentMetaBonuses, type MetaNode } from '../progression/MetaProgression';
 import type { SaveEnvelopeV3 } from '../progression/types';
 import { DEATH_REAPER_ITEMS } from '../data/DeathReaperItems';
+import { kitUrl } from './InterfaceKit';
 
-const NS = 'http://www.w3.org/2000/svg';
 const WIDTH = 900, HEIGHT = 1480;
 let selectedId = 'camp_trunk_1';
 let savedScroll: { left: number; top: number } | null = null;
@@ -47,15 +47,17 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
   const viewport = document.createElement('div');viewport.className='meta-tree-viewport';viewport.tabIndex=0;
   viewport.setAttribute('aria-label','天赋连线图，可双向拖动、滚动或用方向键移动；点击节点查看详情');
   const board = document.createElement('div');board.className='meta-tree-board';board.style.width=`${WIDTH}px`;board.style.height=`${HEIGHT}px`;
-  const svg = document.createElementNS(NS,'svg');svg.setAttribute('width',String(WIDTH));svg.setAttribute('height',String(HEIGHT));svg.setAttribute('aria-hidden','true');
+  const links = document.createElement('div');links.setAttribute('aria-hidden','true');
   for (const node of META_NODES) {
     if (!node.requiresNode) continue;
     const parent = META_NODES.find(n=>n.id===node.requiresNode);if(!parent)continue;
-    const a = position(parent),b = position(node),line = document.createElementNS(NS,'line');
-    line.setAttribute('x1',String(a.x));line.setAttribute('y1',String(a.y));line.setAttribute('x2',String(b.x));line.setAttribute('y2',String(b.y));
-    line.setAttribute('class',envelope.profile.unlockedNodes.includes(node.id) ? 'is-unlocked' : envelope.profile.unlockedNodes.includes(parent.id) ? 'is-reachable' : '');svg.append(line);
+    const a = position(parent),b = position(node),line = document.createElement('span');
+    const state = envelope.profile.unlockedNodes.includes(node.id) ? 'learned' : envelope.profile.unlockedNodes.includes(parent.id) ? 'available' : 'locked';
+    line.className = 'kit-talent-link';
+    Object.assign(line.style, { left: `${a.x}px`, top: `${a.y}px`, width: `${Math.hypot(b.x-a.x,b.y-a.y)}px`, transform: `rotate(${Math.atan2(b.y-a.y,b.x-a.x)}rad)`, borderImageSource: `url("${kitUrl(`talents/link-${state}`)}")` });
+    links.append(line);
   }
-  board.append(svg);
+  board.append(links);
   const detail = document.createElement('aside');detail.className='meta-tree-detail';detail.setAttribute('aria-live','polite');
   const buttons = new Map<string,HTMLButtonElement>();
   const closeDetail = () => {root.classList.remove('is-detail-open');detail.hidden=true;};
@@ -78,6 +80,9 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
     const p = position(node),button = document.createElement('button');button.type='button';button.className='meta-tree-node';
     const unlocked = envelope.profile.unlockedNodes.includes(node.id),ready = metaUnlockReason(envelope,node)===null;
     button.classList.toggle('is-unlocked',unlocked);button.classList.toggle('is-ready',ready);button.classList.toggle('is-notable',node.kind==='mastery'||node.kind==='permanent'&&node.notable);
+    const tier = node.kind === 'mastery' ? 'core' : node.kind !== 'permanent' || node.notable ? 'major' : 'minor';
+    button.dataset.kitTier = tier;
+    button.style.setProperty('--kit-node', `url("${kitUrl(`talents/${tier}-${unlocked ? 'learned' : ready ? 'available' : 'locked'}`)}")`);
     button.style.left=`${p.x}px`;button.style.top=`${p.y}px`;button.setAttribute('aria-label',`${node.name}，${unlocked?'已解锁':ready?'可修习':'待解锁'}`);button.title=node.name;
     button.append(text('span',node.kind==='permanent' ? node.notable ? '◆' : node.id.slice(node.id.lastIndexOf('_')+1) : node.kind==='mastery' ? '★' : node.id==='vanguard' ? '剑' : node.id==='arcanist' ? '术' : '契','meta-tree-node-symbol'));
     const label = text('span',node.name,'meta-tree-node-label');button.append(label);button.onclick=()=>select(node);board.append(button);buttons.set(node.id,button);

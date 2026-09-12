@@ -1,0 +1,155 @@
+/* P0/P1: raster ornamentation is separate from layout and hit targets. */
+:root {
+  --kit-primary: url('/assets/ui/sunlit/interface-kit/panels/panel-primary.webp');
+  --kit-inset: url('/assets/ui/sunlit/interface-kit/panels/panel-inset.webp');
+  --kit-reading: url('/assets/ui/sunlit/interface-kit/panels/panel-reading.webp');
+  --kit-button: url('/assets/ui/sunlit/interface-kit/buttons/button-normal.webp');
+  --sunlit-paper: #f7e6bd;
+}
+#ui-root .panel, #ui-root .merchant-panel, #ui-root .item-details,
+.sunlit-fixed-overlay .panel {
+  background: linear-gradient(#f7e6bdbb,#f7e6bdbb), #f7e6bd url('/assets/ui/sunlit/interface-kit/panels/surface-reading.webp') center / 256px 256px no-repeat !important;
+  border-image: var(--kit-primary) 24 / 10px / 0 stretch !important;
+}
+#ui-root .sunlit-inset {
+  background: #182e48 url('/assets/ui/sunlit/interface-kit/panels/surface-primary.webp') center / cover;
+  border-image: var(--kit-inset) 24 / 7px / 0 stretch;
+}
+#ui-root .item-details, #ui-root .inventory-set-dialog,
+#ui-root .controls-guide, #ui-root .meta-tree-detail {
+  border-image-source: var(--kit-reading) !important;
+}
+#ui-root .sunlit-resource-banner, #ui-root .sunlit-settlement-totals {
+  background-image: url('/assets/ui/sunlit/interface-kit/panels/surface-inset.webp');
+}
+#ui-root :is(.run-talent-node,.sunlit-skill-row,.sunlit-choice-card) {
+  border-image: var(--kit-inset) 24 fill / 6px / 0 stretch;
+}
+.run-talent-icon { position: relative; }
+.run-talent-icon::after {
+  content: ''; position: absolute; inset: -4px; pointer-events: none;
+  background: url('/assets/ui/sunlit/interface-kit/talents/major-locked.webp') center / contain no-repeat;
+}
+.run-talent-node.is-available .run-talent-icon::after { background-image: url('/assets/ui/sunlit/interface-kit/talents/major-available.webp'); }
+.run-talent-node.is-unlocked .run-talent-icon::after { background-image: url('/assets/ui/sunlit/interface-kit/talents/major-learned.webp'); }
+#ui-root :is(.panel,.merchant-panel) button:not(:is(.meta-tree-node,.inventory-item-slot,.equipment-slot,.panel-close-button)),
+.sunlit-fixed-overlay .sunlit-menu-button,
+#ui-root :is(.panel,.merchant-panel) select {
+  border-image: var(--kit-button) 16 32 fill / 6px 10px / 0 stretch !important;
+}
+#ui-root :is(.panel,.merchant-panel) button:is(.is-danger,.sunlit-delete-button,.inventory-salvage-all,.context-action-danger),
+.sunlit-fixed-overlay .sunlit-menu-button.is-danger {
+  --kit-button: url('/assets/ui/sunlit/interface-kit/buttons/button-danger.webp');
+}
+#ui-root :is(.panel,.merchant-panel) button:is([aria-pressed='true'],[aria-selected='true'],.is-selected,.is-active),
+.sunlit-fixed-overlay .sunlit-menu-button[aria-pressed='true'] {
+  --kit-button: url('/assets/ui/sunlit/interface-kit/buttons/button-selected.webp');
+}
+#ui-root :is(.panel,.merchant-panel) button:active:not(:disabled),
+.sunlit-fixed-overlay .sunlit-menu-button:active:not(:disabled) {
+  --kit-button: url('/assets/ui/sunlit/interface-kit/buttons/button-pressed.webp');
+  filter: none;
+}
+#ui-root :is(.panel,.merchant-panel) button:disabled,
+.sunlit-fixed-overlay .sunlit-menu-button:disabled {
+  --kit-button: url('/assets/ui/sunlit/interface-kit/buttons/button-disabled.webp');
+  opacity: .75;
+}
+.kit-navigation::before {
+  content: ''; display: inline-block; width: 24px; height: 24px; margin-right: 6px;
+  vertical-align: middle; background: var(--kit-navigation) center / contain no-repeat;
+  image-rendering: pixelated; pointer-events: none;
+}
+.sunlit-screen-title, .sunlit-menu-title { position: relative; }
+.sunlit-screen-title::before, .sunlit-menu-title::before,
+.sunlit-screen-title::after, .sunlit-menu-title::after {
+  content: ''; display: inline-block; width: 40px; height: 24px; vertical-align: middle;
+  background: url('/assets/ui/sunlit/interface-kit/ornaments/title-left.webp') center / contain no-repeat;
+  margin: 0 8px; image-rendering: pixelated; pointer-events: none;
+}
+.sunlit-screen-title::after, .sunlit-menu-title::after {
+  background-image: url('/assets/ui/sunlit/interface-kit/ornaments/title-right.webp');
+}
+.sunlit-brand-title::before {
+  content: ''; display: block; height: 56px; margin: 0 auto 8px;
+  background: url('/assets/ui/sunlit/interface-kit/ornaments/chapter-seal.webp') center / contain no-repeat;
+  image-rendering: pixelated;
+}
+.sunlit-menu-help::before {
+  content: ''; display: block; height: 16px; margin: 12px auto;
+  background: url('/assets/ui/sunlit/interface-kit/ornaments/divider.webp') center / contain no-repeat;
+  image-rendering: pixelated;
+}
+.sunlit-menu-overlay {
+  background-image:
+    url('/assets/ui/sunlit/interface-kit/ornaments/corner-tl.webp'),
+    url('/assets/ui/sunlit/interface-kit/ornaments/corner-tr.webp'),
+    url('/assets/ui/sunlit/interface-kit/ornaments/corner-bl.webp'),
+    url('/assets/ui/sunlit/interface-kit/ornaments/corner-br.webp'),
+    radial-gradient(ellipse at 50% 35%, #244e60, #0b1829 75%);
+  background-position: left 16px top 16px, right 16px top 16px, left 16px bottom 16px, right 16px bottom 16px, center;
+  background-size: 42px 42px,42px 42px,42px 42px,42px 42px,cover;
+  background-repeat: no-repeat;
+}
+.meta-tree-board { background: radial-gradient(ellipse at 49% 44%, #315565, #14273b 80%); }
+#ui-root .sunlit-meta-screen { height: min(850px, calc(100dvh - 24px)); overflow: hidden; box-sizing: border-box; }
+.meta-screen-content { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.meta-screen-content > .meta-tree { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.meta-screen-content .meta-tree-layout { flex: 1; min-height: 0; }
+.meta-screen-content .meta-tree-viewport { height: 100%; min-height: 0; }
+.meta-screen-content .meta-tree-detail { overflow-y: auto; min-height: 0; }
+.meta-screen-content :is(.meta-screen-header,.meta-screen-points,.meta-tree-controls,.meta-tree-toolbar,.meta-tree-help,.meta-tree-gesture-hint,.meta-relic-collection,.meta-screen-more) { flex-shrink: 0; }
+.meta-screen-content :is(.meta-screen-more,.meta-relic-collection,.meta-tree-help)[open] { max-height: 150px; overflow-y: auto; }
+@media (min-width: 901px) {
+  .meta-screen-content .meta-tree { margin: 8px 0; }
+  .meta-screen-content .meta-tree-title { display: none; }
+  #ui-root .meta-tree-toolbar .sunlit-menu-button { min-width: 112px; min-height: 40px; margin: 0; padding: 6px 12px; font-size: 13px; }
+}
+@media (max-width: 900px) and (orientation: landscape), (pointer: coarse) and (max-height: 600px) and (orientation: landscape) {
+  .meta-screen-content > .meta-tree { display: grid; }
+  .meta-screen-header .sunlit-screen-title::before, .meta-screen-header .sunlit-screen-title::after { display: none; }
+}
+.kit-talent-link {
+  position: absolute; height: 8px; margin-top: -4px; box-sizing: border-box;
+  border: 0 solid transparent; border-image-slice: 0 32 fill;
+  border-image-width: 0 8px; transform-origin: left center;
+  image-rendering: pixelated; pointer-events: none;
+}
+#ui-root .meta-tree-node {
+  border: 0 !important; border-image: none !important; border-radius: 0 !important;
+  background: var(--kit-node) center / contain no-repeat !important;
+  box-shadow: none; color: #f7e6bd !important; isolation: isolate;
+}
+#ui-root .meta-tree-node[data-kit-tier='core'] { width: 60px; height: 60px; }
+#ui-root .meta-tree-node.is-selected { outline: 2px solid #7de0d1; outline-offset: 3px; }
+.meta-tree-node-symbol {
+  display: grid; place-items: center; position: absolute; inset: 25%;
+  background: #14273b; z-index: -1; font-size: 12px;
+}
+.meta-tree-node-label { color: #eadcbf; text-shadow: 0 1px 2px #071323; }
+.meta-tree-node.is-selected::after {
+  content: ''; position: absolute; inset: -9px; pointer-events: none;
+  background: url('/assets/ui/sunlit/interface-kit/feedback/selection-strip.webp') 0 0 / 400% 100%;
+  animation: kit-selection 2.4s steps(1,end) infinite; image-rendering: pixelated;
+}
+.kit-feedback {
+  position: fixed; z-index: 30000; width: 80px; height: 80px; transform: translate(-50%,-50%);
+  pointer-events: none; background-size: 400% 100%; image-rendering: pixelated;
+  animation: kit-burst .32s steps(1,end) forwards;
+}
+@keyframes kit-burst { 0% {background-position:0 0} 25% {background-position:33.333% 0} 50% {background-position:66.667% 0} 75%,100% {background-position:100% 0} }
+@keyframes kit-selection { 0%,80% {background-position:0 0} 85% {background-position:33.333% 0} 90% {background-position:66.667% 0} 95%,100% {background-position:100% 0} }
+@media (max-width: 600px), (max-height: 500px) {
+  .sunlit-screen-title::before,.sunlit-menu-title::before,.sunlit-screen-title::after,.sunlit-menu-title::after { width: 22px; height: 16px; margin: 0 4px; }
+  .kit-navigation::before { width: 18px; height: 18px; margin-right: 3px; }
+  .sunlit-brand-title::before { height: 36px; margin-bottom: 4px; }
+  .sunlit-menu-overlay { background-size: 24px 24px,24px 24px,24px 24px,24px 24px,cover; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .meta-tree-node.is-selected::after { animation: none; }
+  .kit-feedback { display: none; }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  #ui-root .mobile-inventory .inventory-equipment-actions button { padding: 2px !important; font-size: 11px !important; white-space: nowrap; }
+  .mobile-inventory .inventory-equipment-actions .kit-navigation::before { width: 14px; height: 14px; margin-right: 2px; }
+}

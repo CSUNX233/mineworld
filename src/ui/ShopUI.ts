@@ -6,6 +6,7 @@ import { MATERIALS, MATERIAL_ORDER } from '../data/materials';
 import { SHOP_SLOTS, ShopSystem } from '../items/ShopSystem';
 import { itemTooltipHTML } from './ItemTooltip';
 import { createItemIcon, createUiIcon } from './UiAssets';
+import type { MaterialOffer } from '../items/MaterialEconomy';
 
 export interface ShopView {
   floor: number; gold: number; stock: ShopStockEntry[]; inventory: Item[];
@@ -13,6 +14,8 @@ export interface ShopView {
   gambles: number; heals: number; needsHealing: boolean; message: string;
   commission?: { name: string; slots: Slot[] };
   buyShard?(): void;
+  materialOffers?: (MaterialOffer & { price: number; sold: boolean })[];
+  buyMaterial?(id: string): void;
   buy(uid: string): void; refresh(): void; gamble(slot: Slot): void; heal(): void;
   sell(index: number): void; sellAll(rarity: Rarity): void; sellMaterial(id: MaterialId): void;
 }
@@ -32,7 +35,7 @@ export function buildShopView(view: ShopView): HTMLElement {
   const content = document.createElement('div');
   const buyPanel = document.createElement('div');
   const sellPanel = document.createElement('div');
-  for (const [label, icon, panel] of [['购买与服务', 'anvil', buyPanel], ['出售装备与材料', 'bag', sellPanel]] as const) {
+  for (const [label, icon, panel] of [['购买与服务', 'shop', buyPanel], ['出售装备与材料', 'bag', sellPanel]] as const) {
     const tab = document.createElement('button');
     tab.append(createUiIcon(icon, 'shop-tab-icon'), document.createTextNode(label));
     tab.setAttribute('role', 'tab');
@@ -109,6 +112,13 @@ export function buildShopView(view: ShopView): HTMLElement {
     const shardCost = Math.ceil(ShopSystem.materialPrice('element_shard', view.floor) * 1.5);
     action(buyPanel, `元素碎片 ×1 · ${shardCost} 金币（占1次委托额度）`, view.buyShard,
       view.gambles >= 3 || view.gold < shardCost, 'gem');
+  }
+  if (view.materialOffers?.length) {
+    heading(buyPanel, '游商材料 · 每批限量', 'crafting');
+    for (const offer of view.materialOffers) {
+      action(buyPanel, `${MATERIALS[offer.materialId].name} ×${offer.amount} · ${offer.sold ? '售罄' : `${offer.price} 金币`}`,
+        () => view.buyMaterial?.(offer.id), offer.sold || view.gold < offer.price, 'gem');
+    }
   }
   heading(buyPanel, '旅途补给', 'heal');
   const healCost = ShopSystem.healPrice(view.floor);

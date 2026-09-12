@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadImage } from '../core/AssetLoading';
 
 type Surface = 'floor' | 'wall';
 const textures = new Map<string, THREE.Texture>();
@@ -13,7 +14,9 @@ export async function preloadChapterTextures(floor: number): Promise<void> {
     const key = `${id}-${surface}`;
     if (textures.has(key)) return Promise.resolve();
     if (!pending.has(key)) {
-      pending.set(key, new THREE.TextureLoader().loadAsync(`${import.meta.env.BASE_URL}assets/world/chapters/${key}.webp`).then(texture => {
+      pending.set(key, loadImage(`${import.meta.env.BASE_URL}assets/world/chapters/${key}.webp`).then(image => {
+        const texture = new THREE.Texture(image);
+        texture.needsUpdate = true;
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.magFilter = THREE.NearestFilter;
         texture.minFilter = THREE.NearestMipmapLinearFilter;
