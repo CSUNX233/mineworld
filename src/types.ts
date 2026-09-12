@@ -114,7 +114,7 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
-  generationVersion?: 1 | 2 | 3 | 4;
+  generationVersion?: 1 | 2 | 3 | 4 | 5;
   layoutKind?: string;
   merchant?: { x: number; z: number };
   connections?: [string, string][];
@@ -157,6 +157,8 @@ export interface ShopStockEntry {
 }
 
 export interface SavedMonster {
+  sanctumState?: import('./monsters/SanctumController').SanctumState;
+  chapterReinforcement?: boolean;
   mechanicState?: import('./monsters/EncounterMechanics').SerializedMechanicState;
   statuses?: ActorStatus[];
   roomId?: string;
@@ -180,10 +182,12 @@ export interface SaveData {
   equipmentRulesVersion?: number;
   craftingSequence?: number;
   setPreference?: string;
-  mapGenerationVersion?: 1 | 2 | 3 | 4;
+  mapGenerationVersion?: 1 | 2 | 3 | 4 | 5;
   mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {
+    oathGatekeeper?: import('./monsters/OathGatekeeperController').OathGatekeeperState;
+    usedRituals?: string[];
     setState?: import('./items/SetRuntime').SetSnapshot;
     summonSquad?: import('./summons/types').SummonSnapshot;
     brokenFoundryPanels?: string[];

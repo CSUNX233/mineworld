@@ -15,6 +15,10 @@ export const ROOM_TEMPLATES = {
 } satisfies Record<string, number[][]>;
 
 export type TacticalRoomTemplateId =
+  | 'ruins-court' | 'ruins-double-path' | 'ruins-bulwark' | 'ruins-barracks'
+  | 'ruins-chapel' | 'ruins-armory' | 'ruins-ring' | 'ruins-gate-arena' | 'ruins-supply' | 'ruins-trial'
+  | 'sanctum-echo' | 'sanctum-inscription' | 'sanctum-procession' | 'sanctum-blade'
+  | 'sanctum-ritual' | 'sanctum-trial' | 'sanctum-throne'
   | 'pressure-ring'
   | 'impact-yard'
   | 'resonance-workshop'
@@ -52,11 +56,32 @@ function lineZ(x: number, from: number, to: number): [number, number][] {
   return cells;
 }
 
+function chapterTemplate(id: TacticalRoomTemplateId, gameplay: string, landmark: string, obstacles: TacticalRoomTemplate['obstacles'] = () => []): TacticalRoomTemplate {
+  return { id, gameplay, landmark, sightlines: 'Open center and two broad side approaches.', objective: 'Clear learned threats; optional devices require interaction.', reward: 'Existing chapter reward budget.', enemyFit: 'Floor-specific chapter encounter only.', forbidden: 'No blocked entrances, narrow traps or mandatory facility use.', obstacles };
+}
+
 /**
  * Greybox layouts with different movement decisions. Coordinates are derived
  * from each room's dimensions, so these are reusable modules rather than 10x10 skins.
  */
 export const TACTICAL_ROOM_TEMPLATES: Record<TacticalRoomTemplateId, TacticalRoomTemplate> = {
+  'ruins-court': chapterTemplate('ruins-court', 'Open sweeping combat.', 'Broken arch and moss-edged courtyard.'),
+  'ruins-double-path': chapterTemplate('ruins-double-path', 'Either broad side of a ruined arch rejoins.', 'Offset collapsed arch.', (w,d) => [[Math.floor(w/2),3],[Math.floor(w/2),4],[Math.floor(w/2)+1,3]]),
+  'ruins-bulwark': chapterTemplate('ruins-bulwark', 'Circle either end of a short shield defense.', 'Short broken flag defense.', (w,d) => lineX(Math.floor(d/2)-2, Math.floor(w/2)-2, Math.floor(w/2)+2)),
+  'ruins-barracks': chapterTemplate('ruins-barracks', 'Staggered cover leaves two approaches to ranged enemies.', 'Offset abandoned bunk blocks.', (w,d) => [[4,3],[5,3],[w-5,d-4],[w-6,d-4]]),
+  'ruins-chapel': chapterTemplate('ruins-chapel', 'Two communicating shrine halls reveal healing links.', 'Paired broken shrine foundations.', (w,d) => [[3,3],[w-4,d-4]]),
+  'ruins-armory': chapterTemplate('ruins-armory', 'A wide U courtyard retains the central crossing.', 'Old weapons racks.', (w,d) => [[3,3],[w-4,3]]),
+  'ruins-ring': chapterTemplate('ruins-ring', 'Wide asymmetric loop has an open cross shortcut.', 'Two split reliquary remnants.', (w,d) => [[Math.floor(w/2)-2,Math.floor(d/2)-2],[Math.floor(w/2)-2,Math.floor(d/2)-1],[Math.floor(w/2)+2,Math.floor(d/2)+1],[Math.floor(w/2)+2,Math.floor(d/2)+2]]),
+  'ruins-gate-arena': chapterTemplate('ruins-gate-arena', 'Circle the gatekeeper and punish committed recovery.', 'Iron royal gate with a small furnace glow.', (w,d) => [[3,3],[w-4,3],[3,d-4],[w-4,d-4]]),
+  'ruins-supply': chapterTemplate('ruins-supply', 'Open the rack to expose the existing reward and local shortcut.', 'Collapsed supply shelf.', (w,d) => lineZ(Math.floor(w/2),4,d-5)),
+  'ruins-trial': chapterTemplate('ruins-trial', 'Voluntary one-wave shield and archer challenge.', 'Old armory challenge standard.', (w,d) => [[3,3],[w-4,3]]),
+  'sanctum-echo': chapterTemplate('sanctum-echo', 'Move off the first strike and avoid returning before the echo.', 'Paired bell scars in an open hall.'),
+  'sanctum-inscription': chapterTemplate('sanctum-inscription', 'Leave a tracking inscription in a wide outer pocket.', 'Three leaf inscription court.'),
+  'sanctum-procession': chapterTemplate('sanctum-procession', 'Sweep weak mourners across a broad funeral court.', 'Low staggered tomb beds.', (w,d) => [[3,3],[4,3],[w-5,d-4],[w-4,d-4]]),
+  'sanctum-blade': chapterTemplate('sanctum-blade', 'Inner chord and outer arc both reach the blade keeper.', 'Crescent bone gallery with a broad inner chord.'),
+  'sanctum-ritual': chapterTemplate('sanctum-ritual', 'Two optional funeral platforms harm enemies after a marked delay.', 'Two opposed funeral platforms.'),
+  'sanctum-trial': chapterTemplate('sanctum-trial', 'Voluntary burial trial with familiar echo and mark threats.', 'Asymmetric four leaf burial court.'),
+  'sanctum-throne': chapterTemplate('sanctum-throne', 'An open octagon joins three optional outer inscription slots.', 'Sunken bell throne and three outer slots.'),
   'pressure-ring': {
     id: 'pressure-ring', gameplay: 'Switch between two broad pressure lanes or interrupt the overseer.',
     sightlines: 'Open crossings at both ends.', landmark: 'Offset boiler island.',

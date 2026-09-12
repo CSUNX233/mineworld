@@ -22,9 +22,9 @@ const result = buildSync({ stdin: {
 const { generateFloor,isWalkable,EncounterDirector,BuildSystem,EquipmentManager,migrateSave,directionToPlayer,ShopSystem,SHOP_SLOTS,CraftingSystem,Inventory,RNG } =
   await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
 
-test('800 maps remain bounded, connected and have a short route with optional loops', () => {
+test('800 legacy spatial maps remain bounded, connected and have a short route with optional loops', () => {
   for (let seed=0;seed<200;seed++) for (const depth of [1,5,25,100]) {
-    const floor=generateFloor(seed,depth);
+    const floor=generateFloor(seed,depth,2);
     assert.ok(floor.size >= 48 && floor.size <= 64);
     assert.ok(floor.rooms.length >= 6 && floor.rooms.length <= 8);
     assert.equal(floor.rooms.filter(room=>room.required).length,2);

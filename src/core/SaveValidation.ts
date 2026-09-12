@@ -1,3 +1,4 @@
+import { validSanctumState } from '../monsters/SanctumController';
 import { isValidRunTalentState, spentTalentPoints, talentBudget } from '../progression/RunTalents';
 import type {
   EncounterInvestment,
@@ -156,7 +157,13 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
     || !['elapsed', 'shield', 'invulnerable', 'attackTimer', 'comboCount', 'comboTimer', 'lowHealthShieldCooldown']
       .every(field => isNonNegativeNumber(runtime[field]))
     || !isNumericRecord(runtime.skillCooldowns))) return false;
-  if (snapshot.mapGenerationVersion !== undefined && snapshot.mapGenerationVersion !== 1 && snapshot.mapGenerationVersion !== 2 && snapshot.mapGenerationVersion !== 3 && snapshot.mapGenerationVersion !== 4) return false;
+  if (snapshot.mapGenerationVersion !== undefined && snapshot.mapGenerationVersion !== 1 && snapshot.mapGenerationVersion !== 2 && snapshot.mapGenerationVersion !== 3 && snapshot.mapGenerationVersion !== 4 && snapshot.mapGenerationVersion !== 5) return false;
+  if (snapshot.runtime?.usedRituals !== undefined && (!Array.isArray(snapshot.runtime.usedRituals) || snapshot.runtime.usedRituals.length > 8 || snapshot.runtime.usedRituals.some(id => typeof id !== 'string'))) return false;
+  if (snapshot.runtime?.oathGatekeeper !== undefined) {
+    const boss = snapshot.runtime.oathGatekeeper;
+    if (!isRecord(boss) || ![1, 2].includes(boss.phase) || !isFiniteNumber(boss.angle)
+      || !isNonNegativeNumber(boss.cycle) || !isFiniteNumber(boss.cooldown) || typeof boss.reinforcementUsed !== 'boolean') return false;
+  }
   if (snapshot.runtime?.brokenFoundryPanels !== undefined && (!Array.isArray(snapshot.runtime.brokenFoundryPanels) || snapshot.runtime.brokenFoundryPanels.length > 8 || snapshot.runtime.brokenFoundryPanels.some(id => typeof id !== 'string'))) return false;
   if (snapshot.runtime?.foundryTrialClaimed !== undefined && typeof snapshot.runtime.foundryTrialClaimed !== 'boolean') return false;
   if (snapshot.mapLayoutKind !== undefined && typeof snapshot.mapLayoutKind !== 'string') return false;
@@ -165,6 +172,8 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
   if (snapshot.runtime?.shieldRechargeElapsed !== undefined && !isNonNegativeNumber(snapshot.runtime.shieldRechargeElapsed)) return false;
   if (snapshot.runTalents !== undefined && !isValidRunTalentState(snapshot.runTalents)) return false;
   if (snapshot.monsters !== undefined && (!Array.isArray(snapshot.monsters) || snapshot.monsters.some(monster => !isRecord(monster) || (monster.mechanicState !== undefined && !validMechanicState(monster.mechanicState))))) return false;
+  if (snapshot.monsters?.some(monster => (monster.sanctumState !== undefined && !validSanctumState(monster.sanctumState))
+    || (monster.chapterReinforcement !== undefined && typeof monster.chapterReinforcement !== 'boolean'))) return false;
   if (snapshot.monsters?.some(monster => monster.statuses !== undefined && (!Array.isArray(monster.statuses) || monster.statuses.some(status =>
     !isRecord(status) || !['burning', 'frozen', 'shocked', 'poisoned', 'bleeding'].includes(status.type)
     || (status.sourceElement !== undefined && !['physical', 'fire', 'frost', 'lightning', 'poison', 'shadow'].includes(status.sourceElement))

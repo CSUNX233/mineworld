@@ -2,6 +2,9 @@ import { getChapterTexture } from './ChapterTextures';
 import { foundryPanels, breakFoundryPanel } from './FoundryPanels';
 import { createFoundryPipes } from './FoundryGeometry';
 import { roomCenter } from './RoomGeometry';
+import { createChapterLandmarks } from './ChapterGeometry';
+import { ruinsSupplyCells } from '../data/RuinsChapter';
+import { invalidateNavigation } from './Navigation';
 import * as THREE from 'three';
 import type { FloorData } from '../types';
 import { BlockKind } from './Block';
@@ -16,6 +19,7 @@ import {
 export class World {
   readonly group = new THREE.Group();
   private panelMeshes = new Map<string, THREE.InstancedMesh>();
+  private supplyMeshes = new Map<string, THREE.InstancedMesh>();
   private floorData: FloorData | null = null;
   private portalMesh: THREE.Mesh | null = null;
   private encounterBarrierMesh: THREE.InstancedMesh | null = null;
@@ -48,7 +52,8 @@ export class World {
     floorTexture.wrapS = chapterFloor ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
     floorTexture.wrapT = floorTexture.wrapS;
     floorTexture.needsUpdate = true;
-    const floorMaterial = new THREE.MeshLambertMaterial({ map: floorTexture });
+    const floorTint = (data.generationVersion ?? 1) >= 5 ? data.theme.id === 'sanctum' ? 0xaaa99c : data.floor === 1 ? 0xd3d3b8 : data.floor === 2 ? 0xbfa486 : data.floor === 3 ? 0xaaa985 : data.floor === 4 ? 0xbeb9a3 : 0xffffff : 0xffffff;
+    const floorMaterial = new THREE.MeshLambertMaterial({ map: floorTexture, color: floorTint });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(size, size), floorMaterial);
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(size / 2, 0, size / 2);
@@ -56,6 +61,19 @@ export class World {
     this.group.add(floor);
     const pipes = createFoundryPipes(data);
     if (pipes) this.group.add(pipes);
+    const landmarks = createChapterLandmarks(data);
+    if (landmarks) this.group.add(landmarks);
+
+    const supplyCells = new Set<string>();
+    for (const room of data.rooms.filter(r => r.template === 'ruins-supply')) {
+      const cells = ruinsSupplyCells(room).filter(c => data.grid[c.z]?.[c.x] === BlockKind.Obstacle);
+      for (const c of cells) supplyCells.add(`${c.x},${c.z}`);
+      if (!cells.length) continue;
+      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(.95,1.05,.95),new THREE.MeshLambertMaterial({color:0x8e6745}),cells.length);
+      const matrix = new THREE.Matrix4(); cells.forEach((c,i) => mesh.setMatrixAt(i,matrix.makeTranslation(c.x+.5,.525,c.z+.5)));
+      mesh.instanceMatrix.needsUpdate = true; mesh.name = 'ruins-supply-rack';
+      this.supplyMeshes.set(room.id!,mesh); this.group.add(mesh);
+    }
 
     const panelCells = new Set(foundryPanels(data).flatMap(p => p.cells.map(c => `${c.x},${c.z}`)));
     for (const panel of foundryPanels(data).filter(p => !p.broken)) {
@@ -77,7 +95,7 @@ export class World {
       for (let x = 0; x < size; x++) {
         const kind = data.grid[z][x];
         if (kind === BlockKind.Wall || kind === BlockKind.Obstacle) {
-          if (!panelCells.has(`${x},${z}`)) wallCells.push({ x, z });
+          if (!panelCells.has(`${x},${z}`) && !supplyCells.has(`${x},${z}`)) wallCells.push({ x, z });
         }
       }
     }
@@ -87,7 +105,7 @@ export class World {
       const wallTexture = (getChapterTexture(data.floor, 'wall') ?? wallDef.texture).clone();
       wallTexture.repeat.set(1, 1);
       wallTexture.needsUpdate = true;
-      const wallMaterial = new THREE.MeshLambertMaterial({ map: wallTexture });
+      const wallMaterial = new THREE.MeshLambertMaterial({ map: wallTexture, color: data.theme.id === 'sanctum' ? 0xaaa38e : 0xffffff });
       const geometry = new THREE.BoxGeometry(1, 2, 1);
       const walls = new THREE.InstancedMesh(geometry, wallMaterial, wallCells.length);
       walls.name = 'walls';
@@ -241,13 +259,29 @@ export class World {
     return true;
   }
 
+  /** Opening is idempotent and updates collision, flow fields and its separate rack mesh. */
+  openRuinsSupply(roomId: string): boolean {
+    if (!this.floorData) return false;
+    const room = this.floorData.rooms.find(r => r.id === roomId && r.template === 'ruins-supply');
+    if (!room) return false;
+    for (const c of ruinsSupplyCells(room)) this.floorData.grid[c.z][c.x] = BlockKind.Floor;
+    const mesh = this.supplyMeshes.get(roomId);
+    if (mesh) { mesh.removeFromParent(); mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); this.supplyMeshes.delete(roomId); }
+    invalidateNavigation(this.floorData);
+    return true;
+  }
+
   private clear(): void {
     this.panelMeshes.clear();
+    this.supplyMeshes.clear();
     if (this.floorData) clearEncounterBarriers(this.floorData);
     this.encounterBarrierMesh = null;
     while (this.group.children.length > 0) {
       const child = this.group.children[0];
       this.group.remove(child);
+      if (child.name === 'chapter-landmarks') child.traverse(part => {
+        if (part instanceof THREE.Mesh) { part.geometry.dispose(); const materials = Array.isArray(part.material) ? part.material : [part.material]; materials.forEach(m => m.dispose()); }
+      });
       if(child.name === 'cracked-panel') child.children.forEach(line=>{if(line instanceof THREE.LineSegments){line.geometry.dispose();(line.material as THREE.Material).dispose();}});
       if (child instanceof THREE.Mesh || child instanceof THREE.InstancedMesh) {
         child.geometry.dispose();

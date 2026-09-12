@@ -1,3 +1,7 @@
+import { RUINS_MONSTERS } from '../data/RuinsMonsters';
+import { SANCTUM_MONSTERS } from '../data/SanctumMonsters';
+import { ruinsEncounterForRoom } from '../data/RuinsChapter';
+import { sanctumEncounterForRoom } from '../data/SanctumChapter';
 import type { FloorData, MonsterDefinition, SavedMonster, Room } from '../types';
 import monsterData from '../data/monsters.json';
 import { ENCOUNTERS, encounterById, type EncounterDefinition, type EncounterRole } from '../data/encounters';
@@ -7,44 +11,45 @@ import { BlockKind } from '../world/Block';
 import { Monster } from './Monster';
 import { attachMechanicVisual } from './MechanicVisual';
 
-const MONSTER_DEFS = monsterData as unknown as MonsterDefinition[];
+const MONSTER_DEFS = [...monsterData as unknown as MonsterDefinition[], ...RUINS_MONSTERS, ...SANCTUM_MONSTERS];
 
 export class MonsterSpawner {
   static spawnEncounter(floor: FloorData, room: Room, player: { x: number; z: number }, rng: RNG): Monster[] {
     const teaching = (floor.generationVersion ?? 0) >= 3 && room.template === 'pressure-ring';
-    const chapter = floor.generationVersion === 4 ? ENCOUNTERS.find(e => e.template === room.template && e.minFloor <= floor.floor) : undefined;
+    const revised = (floor.generationVersion ?? 0) >= 5 ? (ruinsEncounterForRoom(floor.floor, room.id!) ?? sanctumEncounterForRoom(floor.floor, room.id!)) : undefined;
+    const chapter = (floor.generationVersion ?? 0) >= 4 ? ENCOUNTERS.find(e => e.template === room.template && e.minFloor <= floor.floor) : undefined;
     if (chapter) room.encounterId = chapter.id;
     if (teaching) room.encounterId = 'pressure_lesson';
     const pool = this.availableForFloor(floor.floor);
     const roomCells = this.roomWalkableCells(floor, room);
     const candidates = roomCells.filter(cell => Math.hypot(cell.x + .5 - player.x, cell.z + .5 - player.z) > 3);
     const bossRoom = room.kind === 'exit' && floor.floor % 5 === 0;
-    const desiredCount = chapter?.monsterIds?.length ?? (teaching ? 1 : bossRoom
+    const desiredCount = revised?.monsterIds.length ?? chapter?.monsterIds?.length ?? (teaching ? 1 : bossRoom
       ? Math.min(3, Math.max(1, Math.floor(roomCells.length / 14)))
       : this.encounterSize(roomCells.length, floor.floor, room.kind === 'elite', rng));
     const count = Math.min(desiredCount, Math.max(1, candidates.length));
     const spawnPool = candidates.length ? candidates : roomCells;
     const spots = this.pickSpacedSpots(spawnPool, count, rng);
-    const encounter = bossRoom ? undefined : this.pickEncounter(room, floor.floor, rng);
+    const encounter = bossRoom || revised || chapter ? undefined : this.pickEncounter(room, floor.floor, rng);
     if (encounter) room.encounterId = encounter.id;
     const roles = encounter ? this.rolesForEncounter(encounter, spots.length, roomCells.length, rng)
       : this.fallbackRoles(spots.length, floor.floor);
 
     return spots.map((spot, i) => {
       const choices = pool.filter(def => this.roleForDefinition(def) === roles[i]);
-      const def = chapter?.monsterIds?.[i] ? this.definitionById(chapter.monsterIds[i])! : teaching ? this.definitionById('valve_overseer')! : bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
+      const def = revised?.monsterIds[i] ? this.definitionById(revised.monsterIds[i])! : chapter?.monsterIds?.[i] ? this.definitionById(chapter.monsterIds[i])! : teaching ? this.definitionById('valve_overseer')! : bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
       const monster = new Monster(def, spot.x + .5, spot.z + .5);
       attachMechanicVisual(monster);
       monster.roomId = room.id!;
       monster.maxHealth = monsterHealth(def.health, floor.floor, def.behavior === 'boss');
       monster.health = monster.maxHealth;
-      if (room.kind === 'elite' && i === 0) { monster.setElite(['extraHealth']); monster.maxHealth *= 1.6; monster.health=monster.maxHealth; }
+      if (room.kind === 'elite' && i === 0 && def.behavior !== 'boss') { monster.setElite(['extraHealth']); monster.maxHealth *= 1.6; monster.health=monster.maxHealth; }
       monster.state = 'chase';
       return monster;
     });
   }
   static availableForFloor(floor: number): MonsterDefinition[] {
-    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss' && !['valve_overseer','ram_beast','chain_smith','prism_sentry'].includes(def.id));
+    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss' && !['valve_overseer','ram_beast','chain_smith','prism_sentry'].includes(def.id) && !SANCTUM_MONSTERS.some(s => s.id === def.id));
   }
 
   static bossForFloor(floor: number): MonsterDefinition | null {

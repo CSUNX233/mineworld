@@ -1,22 +1,19 @@
 import { createFoundryLayout } from './FoundryLayout';
 import { foundryRoomSpec, foundryThemeForFloor, isFoundrySlice } from '../data/FoundryChapter';
+import { ruinsRoomSpec, ruinsThemeForFloor, isRuinsChapter, type ChapterRoomSpec } from '../data/RuinsChapter';
+import { sanctumRoomSpec, sanctumThemeForFloor, isSanctumChapter } from '../data/SanctumChapter';
 import type { FloorData, FloorTheme, Room, RoomKind } from '../types';
 import { BlockKind } from './Block';
 import { RNG } from '../utils/RNG';
 import floors from '../data/floors.json';
 import { ROOM_TEMPLATES, TACTICAL_ROOM_TEMPLATES, type TacticalRoomTemplateId } from '../data/rooms';
-import { createMapLayout, type LayoutNode, type RoomShape } from './MapLayout';
+import { createMapLayout, createChapterMapLayout, type LayoutNode, type RoomShape } from './MapLayout';
 
 const RUINS_THEME: FloorTheme = {
   id: 'stone-ruins', name: '石卫遗迹', wallType: 'brick', floorType: 'dungeon', accentType: 'mossy',
 };
-const CHAPTER_TEMPLATE_IDS = new Set<TacticalRoomTemplateId>([
-  'pressure-ring', 'impact-yard', 'resonance-workshop', 'prism-gallery',
-  'foundry-combination', 'overload-trial', 'furnace-arena',
-]);
 // Keep this pool and its order stable for generation versions two and three.
-const TACTICAL_TEMPLATE_IDS = Object.keys(TACTICAL_ROOM_TEMPLATES)
-  .filter((id): id is TacticalRoomTemplateId => !CHAPTER_TEMPLATE_IDS.has(id as TacticalRoomTemplateId));
+const TACTICAL_TEMPLATE_IDS: TacticalRoomTemplateId[] = ['pillar-court','broken-bulwark','split-gallery','flanking-ring'];
 
 interface SpatialRoom extends Room {
   id: string;
@@ -51,6 +48,15 @@ function roomCells(x: number, z: number, width: number, depth: number, shape: Ro
         if (cornerDistance < 2) continue;
       }
       if (shape === 'l-shape' && localX >= Math.ceil(width * 0.65) && localZ < Math.floor(depth * 0.38)) continue;
+      const edgeX = Math.min(localX, width - 1 - localX), edgeZ = Math.min(localZ, depth - 1 - localZ);
+      if (shape === 'octagon' && edgeX + edgeZ < 4) continue;
+      if (shape === 'twin-hall' && Math.abs(localX - (width-1)/2) < 2 && edgeZ < 3) continue;
+      if (shape === 'u-shape' && localX >= 5 && localX < width-5 && localZ < 3) continue;
+      if (shape === 'cross-hall' && edgeX < 3 && edgeZ < 3) continue;
+      if (shape === 'three-leaf' && ((localX < 3 && localZ < 3) || (localX >= width-3 && localZ < 3) || (edgeX < 4 && localZ >= depth-3))) continue;
+      if (shape === 'four-leaf' && ((edgeX < 2 && edgeZ < 2) || (Math.abs(localX-(width-1)/2)<2 && edgeZ<2) || (Math.abs(localZ-(depth-1)/2)<2 && edgeX<2))) continue;
+      // A shallow crescent indentation preserves a broad inner chord and an open outer arc.
+      if (shape === 'crescent' && (edgeX + edgeZ < 2 || (localX < 4 && Math.abs(localZ-(depth-1)/2)<2))) continue;
       cells.push({ x: x + localX, z: z + localZ });
     }
   }
@@ -65,15 +71,18 @@ function nearestRoomCell(cells: { x: number; z: number }[], x: number, z: number
   });
 }
 
-function buildRoom(node: LayoutNode, rng: RNG, foundryFloor?: number): SpatialRoom {
-  const spec = foundryFloor === undefined ? undefined : foundryRoomSpec(foundryFloor, node.id);
+function buildRoom(node: LayoutNode, rng: RNG, chapterFloor?: number, modern = false): SpatialRoom {
+  const spec: ChapterRoomSpec | undefined = chapterFloor === undefined ? undefined :
+    (modern && isRuinsChapter(chapterFloor) ? ruinsRoomSpec(chapterFloor,node.id) :
+      modern && isSanctumChapter(chapterFloor) ? sanctumRoomSpec(chapterFloor,node.id) : foundryRoomSpec(chapterFloor,node.id));
   const dimensions = spec?.width !== undefined && spec.depth !== undefined
     ? { width: spec.width, depth: spec.depth }
     : roomDimensions(node, rng);
   const { width, depth } = dimensions;
   const x = Math.max(2, Math.round(node.cx - width / 2));
   const z = Math.max(2, Math.round(node.cz - depth / 2));
-  const cells = roomCells(x, z, width, depth, node.shape);
+  const shape = spec?.shape ?? node.shape;
+  const cells = roomCells(x, z, width, depth, shape);
   const centerCell = nearestRoomCell(cells, Math.floor(node.cx) + (spec?.centerOffsetX ?? 0), Math.floor(node.cz));
   let template = rng.pick(TACTICAL_TEMPLATE_IDS);
   if (node.kind === 'start' || node.kind === 'sanctuary' || node.kind === 'treasure')
@@ -85,7 +94,7 @@ function buildRoom(node: LayoutNode, rng: RNG, foundryFloor?: number): SpatialRo
     id: node.id, kind: node.kind, required: node.required,
     x, z, width, depth, cells,
     center: { x: centerCell.x + 0.5, z: centerCell.z + 0.5 },
-    entrances: [], shape: node.shape, template,
+    entrances: [], shape, template,
   };
 }
 
@@ -149,7 +158,7 @@ function addRoomObstacles(room: SpatialRoom, grid: number[][], protectedCells: S
   const mask = new Set(room.cells.map(cell => cellKey(cell.x, cell.z)));
   for (const [localX, localZ] of localObstacles) {
     const x = room.x + localX, z = room.z + localZ;
-    if (!mask.has(cellKey(x, z)) || (room.template !== 'pressure-ring' && protectedCells.has(cellKey(x, z)))) continue;
+    if (!mask.has(cellKey(x, z)) || (!['pressure-ring','ruins-supply'].includes(room.template) && protectedCells.has(cellKey(x, z)))) continue;
     if (Math.abs(x - center.x) + Math.abs(z - center.z) <= 1) continue;
     grid[z][x] = BlockKind.Obstacle;
   }
@@ -179,12 +188,13 @@ function openCellNear(
   throw new Error(`No separated open cell remains in room ${room.id}.`);
 }
 
-/** Version 2 preserves the ruins, version 3 the floor-six slice, and version 4 the full chapter. */
-function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 = 2): FloorData {
+/** Versions 2–4 retain their maps; version 5 adds the ruins and sanctum chapters. */
+function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 | 5 = 2): FloorData {
   const rng = new RNG(seed);
-  const foundry = (version === 3 && floor === 6) || (version === 4 && isFoundrySlice(floor));
-  const layout = foundry ? createFoundryLayout(rng, floor) : createMapLayout(rng);
-  const rooms = layout.nodes.map(node => buildRoom(node, rng, foundry ? floor : undefined));
+  const foundry = (version === 3 && floor === 6) || (version >= 4 && isFoundrySlice(floor));
+  const ruins = version >= 5 && isRuinsChapter(floor), sanctum = version >= 5 && isSanctumChapter(floor);
+  const layout = foundry ? createFoundryLayout(rng, floor) : ruins || sanctum ? createChapterMapLayout(rng,floor) : createMapLayout(rng);
+  const rooms = layout.nodes.map(node => buildRoom(node, rng, foundry || ruins || sanctum ? floor : undefined,version >= 5));
   const size = Math.max(48, ...rooms.map(room => Math.max(room.x + room.width, room.z + room.depth) + 3));
   const grid = Array.from({ length: size }, () => Array<number>(size).fill(BlockKind.Wall));
   const protectedCells = new Set<string>();
@@ -214,7 +224,9 @@ function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 = 
   const portal = roomCenterCell(exitRoom);
   grid[portal.z][portal.x] = BlockKind.Portal;
 
-  const chests = rooms.filter(room => room.kind === 'treasure').map(room => openCellNear(room, grid, rng));
+  const chests = rooms.filter(room => room.kind === 'treasure').map(room => room.template === 'ruins-supply'
+    ? { x: room.x + Math.floor(room.width / 2) - 1, z: room.z + Math.floor(room.depth / 2) }
+    : openCellNear(room, grid, rng));
   const merchantRng = new RNG((seed ^ 0x5a17cafe ^ Math.imul(floor, 0x45d9f3b)) >>> 0);
   const safeRooms = rooms.filter(room =>
     room.kind === 'treasure' || room.kind === 'sanctuary' || (foundry && floor === 10 && room.kind === 'start'),
@@ -226,7 +238,7 @@ function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 = 
   return {
     generationVersion: version, layoutKind: layout.kind,
     size, grid, rooms, spawn, portal, chests, merchant,
-    connections: layout.edges, theme: foundry ? foundryThemeForFloor(floor) : RUINS_THEME, seed, floor,
+    connections: layout.edges, theme: foundry ? foundryThemeForFloor(floor) : ruins ? ruinsThemeForFloor(floor) : sanctum ? sanctumThemeForFloor(floor) : RUINS_THEME, seed, floor,
   };
 }
 
@@ -287,9 +299,9 @@ export function generateLegacyFloor(seed: number, floor: number): FloorData {
     theme: themes[Math.min(themes.length - 1, Math.floor(Math.max(0, floor - 1) / 5))], seed, floor };
 }
 
-export function generateFloor(seed: number, floor: number, generationVersion: number = 4): FloorData {
+export function generateFloor(seed: number, floor: number, generationVersion: number = 5): FloorData {
   if (generationVersion === 1) return generateLegacyFloor(seed, floor);
-  const spatialVersion = generationVersion === 3 ? 3 : generationVersion === 4 ? 4 : 2;
+  const spatialVersion = generationVersion === 3 ? 3 : generationVersion === 4 ? 4 : generationVersion === 5 ? 5 : 2;
   return generateSpatialFloor(seed, floor, spatialVersion);
 }
 

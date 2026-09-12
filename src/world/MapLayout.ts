@@ -1,8 +1,8 @@
 import type { RoomKind } from '../types';
 import type { RNG } from '../utils/RNG';
 
-export type MapLayoutKind = 'foundry-double-loop' | 'foundry-hub' | 'foundry-parallel' | 'branch-rejoin' | 'loop-shortcut' | 'asymmetric-cluster';
-export type RoomShape = 'rect' | 'cut-corners' | 'l-shape';
+export type MapLayoutKind = 'foundry-double-loop' | 'foundry-hub' | 'foundry-parallel' | 'branch-rejoin' | 'loop-shortcut' | 'asymmetric-cluster' | 'ruins-short-axis' | 'sanctum-beaded' | 'sanctum-fan' | 'sanctum-cathedral';
+export type RoomShape = 'rect' | 'cut-corners' | 'l-shape' | 'twin-hall' | 'u-shape' | 'three-leaf' | 'four-leaf' | 'crescent' | 'cross-hall' | 'octagon';
 
 export interface LayoutNode {
   id: string;
@@ -113,4 +113,59 @@ export function createMapLayout(rng: RNG): MapLayout {
   if (kind === 'branch-rejoin') return branchRejoin(roomCount);
   if (kind === 'loop-shortcut') return loopShortcut(roomCount);
   return asymmetricCluster(roomCount);
+}
+
+/** Compact chapter graphs; shape and reward connections vary independently of rotation. */
+export function createChapterMapLayout(rng: RNG, floor: number): MapLayout {
+  const sanctum = floor >= 11;
+  if (floor === 5 || floor === 15) {
+    return {
+      kind: sanctum ? 'sanctum-cathedral' : 'ruins-short-axis',
+      nodes: [
+        { ...COMMON.start, cx: 7, cz: 27, shape: 'cut-corners' },
+        { ...COMMON.respite, cx: 20, cz: 27, shape: 'cut-corners' },
+        { ...COMMON.objective, kind: 'battle', cx: 33, cz: 27, shape: 'cut-corners' },
+        { ...COMMON.exit, cx: 51, cz: 27, shape: 'octagon' },
+        { ...COMMON.reward, cx: 20, cz: 42, shape: 'cut-corners' },
+      ],
+      edges: [['room-7','room-3'],['room-3','room-4'],['room-4','room-1'],['room-3','room-5']],
+    };
+  }
+  const kind: MapLayoutKind = sanctum
+    ? rng.pick(['sanctum-beaded','sanctum-fan','sanctum-cathedral'] as const)
+    : floor === 1 ? 'branch-rejoin' : floor === 2 ? 'asymmetric-cluster' : floor === 3 ? 'branch-rejoin' : 'loop-shortcut';
+  const nodes: LayoutNode[] = [
+    { ...COMMON.start, cx: 7, cz: 27, shape: rng.pick(['rect','cut-corners'] as const) },
+    { ...COMMON.approach, cx: 22, cz: 27, shape: 'cut-corners' },
+    { ...COMMON.objective, kind: floor === 1 ? 'battle' : 'elite', cx: 42, cz: 10, shape: 'cut-corners' },
+    { ...COMMON.exit, cx: 54, cz: 27, shape: 'cut-corners' },
+    { ...COMMON.respite, cx: 22, cz: 44, shape: 'cut-corners' },
+    { ...COMMON.reward, cx: 36, cz: 44, shape: 'rect' },
+  ];
+  const edges: [string,string][] = [['room-7','room-0'],['room-4','room-1'],['room-0','room-3'],['room-3','room-5']];
+  if (floor === 1) {
+    nodes.find(n => n.id === 'room-4')!.cx = rng.pick([40,42]);
+    nodes.find(n => n.id === 'room-1')!.cz = rng.pick([24,30]);
+    edges.push(['room-0','room-4'],['room-5','room-4']);
+  } else {
+    nodes.push({ ...COMMON.skirmish, cx: 23, cz: 9, shape: 'l-shape' });
+    edges.push(['room-0','room-2'],['room-2','room-4'],['room-5','room-2']);
+    if (kind === 'sanctum-fan' || kind === 'loop-shortcut') edges.push(['room-3','room-2']);
+    if (kind === 'sanctum-cathedral') {
+      nodes.find(n => n.id === 'room-2')!.cx = 25;
+      nodes.find(n => n.id === 'room-4')!.cz = 12;
+      nodes.find(n => n.id === 'room-5')!.cx = 36;
+    }
+    if (kind === 'asymmetric-cluster' || kind === 'sanctum-fan') {
+      nodes.find(n => n.id === 'room-1')!.cz = 30;
+      nodes.find(n => n.id === 'room-3')!.cx = 19;
+    }
+  }
+  if (floor === 4 || floor === 14) {
+    nodes.push({ ...COMMON.optionalFight, cx: 51, cz: 45, shape: sanctum ? 'four-leaf' : 'u-shape' });
+    edges.push(['room-5','room-6'],['room-6','room-1']);
+  }
+  // Safe rewards reconnect downstream without making any optional challenge compulsory.
+  if (sanctum && kind === 'sanctum-beaded') edges.push(['room-5','room-4']);
+  return { kind, nodes, edges };
 }

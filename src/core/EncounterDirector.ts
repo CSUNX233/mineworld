@@ -1,3 +1,4 @@
+import { isOptionalTrial } from '../world/ChapterEvents';
 import { roomContainsPoint } from '../world/RoomGeometry';
 import type { FloorData, FloorProgress, Room } from '../types';
 
@@ -21,7 +22,7 @@ export class EncounterDirector {
     if (!room?.id) return null;
     if (!this.state.visited.includes(room.id)) this.state.visited.push(room.id);
     if (!['battle', 'elite', 'exit'].includes(room.kind!) || this.state.started.includes(room.id)) return null;
-    if (room.template === 'overload-trial' && !activateOptional) return null;
+    if (isOptionalTrial(room.template) && !activateOptional) return null;
     this.state.started.push(room.id);
     return room;
   }

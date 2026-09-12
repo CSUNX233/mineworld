@@ -7,7 +7,7 @@ const panels = new WeakMap<FloorData, FoundryPanel[]>();
 export function foundryPanels(floor: FloorData): FoundryPanel[] { return panels.get(floor) ?? []; }
 export function prepareFoundryPanels(floor: FloorData, broken: string[] = []): void {
   const result: FoundryPanel[] = [];
-  if (floor.generationVersion !== 4) return;
+  if ((floor.generationVersion ?? 1) < 4) return;
   for (const room of floor.rooms.filter(r => r.template === 'impact-yard')) {
     for (const [index, x] of [room.x+4, room.x+room.width-5].entries()) {
       const id = `${room.id}-panel-${index}`;

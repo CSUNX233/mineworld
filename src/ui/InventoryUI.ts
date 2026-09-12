@@ -435,13 +435,15 @@ export class InventoryUI {
 
         const setDef = setDefinition(set.setId, set.version);
         if (!setDef) return;
-        if (set.version >= 2 && setDef.runtimeHint) {
-          const budgetHint = document.createElement('p');
-          budgetHint.className = 'inventory-set-bonus';
-          budgetHint.style.margin = '4px 0';
-          budgetHint.style.fontSize = '11px';
-          budgetHint.textContent = setDef.runtimeHint;
-          setPanel.appendChild(budgetHint);
+        if (set.version >= 2 && setDef.lore) {
+          const loreText = document.createElement('p');
+          loreText.className = 'inventory-set-bonus';
+          loreText.style.margin = '4px 0';
+          loreText.style.fontSize = '12px';
+          loreText.style.lineHeight = '1.6';
+          loreText.style.color = '#bca98d';
+          loreText.textContent = setDef.lore;
+          setPanel.appendChild(loreText);
         }
         Object.keys(setDef.bonuses)
           .map(Number)

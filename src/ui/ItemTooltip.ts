@@ -99,8 +99,8 @@ export function itemTooltipHTML(item: Item, equipped?: Item | null): string {
   const mechanisms = set && version >= 2 ? Object.entries(set.bonuses)
     .map(([threshold, bonus]) => `<div class="item-tooltip-set">${threshold}件：${escapeHTML(bonus.description ?? '')}</div>`)
     .join('') : '';
-  const budgetHint = set?.runtimeHint && version >= 2
-    ? `<div class="item-tooltip-level">${escapeHTML(set.runtimeHint)}</div>` : '';
+  const loreText = set?.lore && version >= 2
+    ? `<div class="item-tooltip-flavor">${escapeHTML(set.lore)}</div>` : '';
   return `
     <div class="item-tooltip-card">
       <div class="item-tooltip-heading">
@@ -110,7 +110,7 @@ export function itemTooltipHTML(item: Item, equipped?: Item | null): string {
           <div class="item-tooltip-level">等级需求 ${item.requiredLevel}</div>
         </div>
       </div>
-      ${setHTML}${mechanisms}${budgetHint}
+      ${setHTML}${loreText}${mechanisms}
       <div class="item-tooltip-stats">${baseStats}${affixes}</div>
       <div class="item-tooltip-level">剩余重铸 ${CraftingSystem.remainingReforges(item)}/${MAX_REFORGES} 次</div>
       ${item.flavor ? `<div class="item-tooltip-flavor">「${escapeHTML(item.flavor)}」</div>` : ''}

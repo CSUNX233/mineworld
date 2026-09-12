@@ -1,3 +1,8 @@
+import { ruinsEncounterForRoom } from '../data/RuinsChapter';
+import { sanctumEncounterForRoom } from '../data/SanctumChapter';
+import { ChapterRituals, isOptionalTrial, trialTitle } from '../world/ChapterEvents';
+import { OathGatekeeperController } from '../monsters/OathGatekeeperController';
+import { SanctumController, type SanctumHost } from '../monsters/SanctumController';
 import { preloadGameImages, prepareTrackedTextures } from './AssetLoading';
 import type { EquipmentMechanismTag } from '../items/RewardPreference';
 import { SetRuntime } from '../items/SetRuntime';
@@ -14,7 +19,7 @@ import { SoftAim } from '../combat/SoftAim';
 import { buildControlsGuide } from '../ui/ControlsGuide';
 import { DAMAGE_COLORS } from '../ui/DamageStyle';
 import { EncounterMechanics } from '../monsters/EncounterMechanics';
-import { roomCenter } from '../world/RoomGeometry';
+import { roomCenter, roomContainsPoint } from '../world/RoomGeometry';
 import { FinalBossController } from '../monsters/FinalBossController';
 import { deriveFireModifiers, createBurn, consumeBurn, type FireModifiers } from '../combat/FireBuild';
 import { createRunTalents, talentBudget, spentTalentPoints, canUnlockTalent, unlockRunTalent, resetRunTalents, resetTalentCost, talentStats, type RunTalentState } from '../progression/RunTalents';
@@ -47,7 +52,7 @@ import { generateFloor } from '../world/FloorGenerator';
 import { World } from '../world/World';
 import { worldRayDistance } from '../world/SpatialQueries';
 import { RNG } from '../utils/RNG';
-import { RARITY_COLORS, RARITY_ORDER, xpToNext } from '../data/recipes';
+import { RARITY_COLORS, RARITY_ORDER, xpToNext, monsterHealth, monsterXp } from '../data/recipes';
 import type { ActorStatus, ElementType, Item, MaterialId, Rarity, SaveData, SavedMonster, ShopStockEntry, Slot, StatMap } from '../types';
 import { DEFAULT_SKILL_LOADOUT, SKILLS, skillById } from '../data/skills';
 import { MATERIALS, MATERIAL_ORDER } from '../data/materials';
@@ -136,7 +141,23 @@ export class Game {
   private effects: Effects;
   private bossController: BossController;
   private foundryBossController = new FoundryBossController(this.scene);
+  private oathGatekeeper = new OathGatekeeperController(this.scene);
+  private sanctumRng = new RNG(1);
+  private sanctumController = new SanctumController(this.scene, () => this.sanctumRng.float());
+  private chapterRituals = new ChapterRituals(this.scene);
   private finalBossController = new FinalBossController(this.scene);
+  private readonly sanctumHost: SanctumHost = {
+    damageMelee: (amount, source) => this.damagePlayerWithElement(amount, 'physical', 0, 'monster_melee', source),
+    damagePlayer: (amount, element, chance, source) => this.damagePlayerWithElement(amount, element, chance, 'boss_skill', source),
+    summonMourner: (position, source) => this.spawnChapterMourner(position, source),
+    dismissOwnedMinions: source => {
+      for (const target of this.monsters) if (target !== source && target.roomId === source.roomId && !target.dead) {
+        target.dead = true; target.health = 0; target.state = 'death'; target.velocity.set(0, 0, 0);
+        this.sanctumController.onDeath(target, this.sanctumHost);
+      }
+    },
+    showMessage: (title, subtitle) => this.hud.showCenterMessage(title, subtitle, 2.5),
+  };
   private encounterMechanics = new EncounterMechanics();
   private readonly mechanicHost = {
     breakPanel: (x: number, z: number) => { const broken = this.world.breakPanel(x, z); if (broken) this.minimap.invalidate(); return broken; },
@@ -1081,7 +1102,7 @@ export class Game {
     try {
     await loading.step(5, '准备关卡');
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
-    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 4;
+    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 5;
     const data = generateFloor(this.currentFloorSeed, this.floor, generationVersion);
     data.generationVersion = generationVersion;
     this.floorData = data;
@@ -1125,6 +1146,8 @@ export class Game {
     this.portalActive = false;
     this.clearEntities();
     this.foundryPractice.setup(data, this.scene);
+    this.sanctumRng = new RNG(this.currentFloorSeed ^ 0x71bc3);
+    this.chapterRituals.setup(data, resume?.runtime?.usedRituals);
     if (resume?.floorProgress && savedMonsters) {
       this.restoreMonsters(savedMonsters);
       const resumedRooms = new Map<string, number>();
@@ -1149,6 +1172,8 @@ export class Game {
       this.openedChests.add(key);
       const [x,z] = key.split(',').map(Number);
       this.world.removeChest(x,z);
+      const supplyRoom = data.rooms.find(r => r.template === 'ruins-supply' && roomContainsPoint(r, x + .5, z + .5));
+      if (supplyRoom) this.world.openRuinsSupply(supplyRoom.id!);
     }
     if (resume?.floorProgress) {
       const spot = MonsterSpawner.findNearestWalkable(data, resume.player.position.x, resume.player.position.z);
@@ -1161,6 +1186,7 @@ export class Game {
     this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     this.world.setPortalActive(this.portalActive);
     if (resume?.runtime?.summonSquad) this.summonSystem.restore(resume.runtime.summonSquad, data, this.player, this.summonConfig());
+    if (resume?.runtime?.oathGatekeeper) this.oathGatekeeper.restore(resume.runtime.oathGatekeeper);
     this.reconcileSummons();
     await loading.step(85, '准备画面');
     await prepareTrackedTextures(this.renderer);
@@ -1229,14 +1255,17 @@ export class Game {
         monsterCount: wave.length,
       });
       const encounter = encounterById(room.encounterId);
-      this.hud.showCenterMessage(encounter?.name ?? ROOM_LABELS[room.kind!], encounter
+      const chapter = ((this.floorData?.generationVersion ?? 1) >= 5) ? (ruinsEncounterForRoom(this.floor, room.id!) ?? sanctumEncounterForRoom(this.floor, room.id!)) : undefined;
+      this.hud.showCenterMessage(encounter?.name ?? ROOM_LABELS[room.kind!], chapter ? `屏障已封闭 · ${chapter.intent}` : encounter
         ? `屏障已封闭 · ${encounter.intent}`
         : room.required ? '屏障已封闭 · 清除本房守卫后解锁' : '屏障已封闭 · 清除后解锁并获得奖励', encounter ? 3 : 1.5);
     }
     const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
     if (room || completedRooms.length) this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     for (const cleared of completedRooms) {
-      const rewardGold = cleared.template === 'overload-trial' ? 0 : cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
+      const chapterReward = (this.floorData.generationVersion ?? 1) >= 5 ? (ruinsEncounterForRoom(this.floor, cleared.id!) ?? sanctumEncounterForRoom(this.floor, cleared.id!)) : undefined;
+      if (chapterReward?.clearXp) this.addXp(monsterXp(chapterReward.clearXp, this.floor));
+      const rewardGold = isOptionalTrial(cleared.template) ? 0 : cleared.kind === 'elite' ? 30 + this.floor * 5 : 10 + this.floor * 2;
       this.changeGold(rewardGold, 'encounter_reward', { encounterId: cleared.id ?? 'unknown', kind: cleared.kind ?? 'unknown' });
       this.player.heal(this.player.maxHealth * 0.08);
       if (cleared.kind === 'elite') {
@@ -1267,7 +1296,7 @@ export class Game {
       if (cleared.required && cleared.id && this.envelope?.activeRun) {
         RunManager.completeObjective(this.envelope.activeRun, `${this.floor}-${cleared.id}`, this.investmentSample());
       }
-      this.hud.showCenterMessage('房间已清理', cleared.template === 'overload-trial' ? '屏障已解除 · 到金色装置选择奖励' : cleared.required ? '屏障已解除 · 主线推进' : '屏障已解除 · 获得额外金币与奖励', 1.4);
+      this.hud.showCenterMessage('房间已清理', isOptionalTrial(cleared.template) ? '屏障已解除 · 到金色装置选择奖励' : cleared.required ? '屏障已解除 · 主线推进' : '屏障已解除 · 获得额外金币与奖励', 1.4);
     }
     if (this.floor === BASIC_RUN_DEFINITION.floorCount && this.envelope?.activeRun && hasVictoryObjectives(this.envelope.activeRun)) {
       this.finishRun('victory');
@@ -1313,6 +1342,8 @@ export class Game {
       const monster = MonsterSpawner.spawnSaved(saved, this.floorData!);
       if (monster) {
         this.encounterMechanics.restore(monster, saved.mechanicState);
+        if (saved.sanctumState) this.sanctumController.restore(monster, saved.sanctumState);
+        monster.group.userData.chapterReinforcement = saved.chapterReinforcement ?? false;
         this.monsters.push(monster);
         this.scene.add(monster.group);
       }
@@ -1333,11 +1364,16 @@ export class Game {
         eliteModifiers: [...monster.eliteModifiers],
         statuses: structuredClone(monster.statuses),
         mechanicState: this.encounterMechanics.serialize(monster),
+        sanctumState: this.sanctumController.snapshot(monster),
+        chapterReinforcement: Boolean(monster.group.userData.chapterReinforcement),
       }));
   }
 
   private clearEntities(): void {
     this.foundryPractice.clear();
+    this.oathGatekeeper.clear();
+    this.sanctumController.clear();
+    this.chapterRituals.clear();
     this.bossController.clearWarnings();
     this.foundryBossController.clear();
     this.finalBossController.clear();
@@ -1499,6 +1535,12 @@ export class Game {
       if (this.updateEncounters()) return;
       this.observeCombatInvestment();
       this.updateMonsters(dt);
+      if (!this.isGameplayPaused() && this.player.alive) this.chapterRituals.update(dt, this.encounters?.lockedRoomIds ?? [], (position, roomId) => {
+        const targets = this.monsters.filter(m => !m.dead && m.roomId === roomId && m.position.distanceTo(position) < 4 && this.hasLineOfSight(position, m.position));
+        const budget = this.monsters.filter(m => m.roomId === roomId).reduce((sum, m) => sum + m.maxHealth, 0) * .12;
+        this.effects.explosion(position.clone(), 0x72c6c3);
+        for (const target of targets) this.applyMonsterDamage(target, elementalDamage(Math.min(target.maxHealth * .45, budget / targets.length), 'shadow', target.def.resistances, target.statuses), false, .3, undefined, 'shadow', false);
+      });
       if (this.isGameplayPaused()) return;
       this.updateProjectiles(dt);
       if (this.isGameplayPaused()) return;
@@ -1880,13 +1922,13 @@ export class Game {
 
   private showFoundryReward(): void {
     const room=this.encounters?.roomAt(this.player.position.x,this.player.position.z);
-    if(room?.template!=='overload-trial'||!this.encounters?.state.cleared.includes(room.id!)||this.foundryTrialClaimed) return;
+    if(!room || !isOptionalTrial(room.template)||!this.encounters?.state.cleared.includes(room.id!)||this.foundryTrialClaimed) return;
     this.removeFloorRestMenu();this.restOpen=true;this.shopOpen=false;this.input.reset();
     this.player.moving=false;this.player.sprinting=false;
     if(document.pointerLockElement) document.exitPointerLock();
     const overlay=document.createElement('div');overlay.className='merchant-overlay';
     const panel=document.createElement('div');panel.className='panel merchant-panel mobile-scroll sunlit-rest-panel';
-    const title=document.createElement('h2');title.textContent='过载试炼完成 · 选择一项奖励';panel.appendChild(title);
+    const title=document.createElement('h2');title.textContent=`${trialTitle(room?.template)}完成 · 选择一项奖励`;panel.appendChild(title);
     const claim=(materials:boolean)=>{
       if(this.foundryTrialClaimed) return;
       this.foundryTrialClaimed=true;
@@ -2716,6 +2758,14 @@ export class Game {
         continue;
       }
 
+      if (this.sanctumController.handles(monster)) {
+        monster.update(dt, this.elapsed);
+        if (monster.dead) { this.onMonsterKilled(monster, false, false); continue; }
+        this.sanctumController.update(dt, monster, this.player, this.floorData, this.sanctumHost, MonsterSpawner.baseAttack(monster, this.floor));
+        this.keepMonsterInBounds(monster);
+        continue;
+      }
+
       const wasAttackState = monster.state === 'attack';
       const wasAliveBeforeUpdate = !monster.dead;
       if (monster.def.behavior === 'boss') {
@@ -2724,7 +2774,8 @@ export class Game {
           summonMinion: (position) => this.spawnBossMinion(position),
           showMessage: (title, subtitle) => this.hud.showCenterMessage(title, subtitle, 1.8),
         };
-        if (monster.def.id === 'furnace_regent') this.foundryBossController.update(dt, monster, this.player, this.floorData, host, MonsterSpawner.baseAttack(monster, this.floor));
+        if (monster.def.id === 'oath_gatekeeper') this.oathGatekeeper.update(dt, monster, this.player, this.floorData, { ...host, damageMelee: amount => this.damagePlayerWithElement(amount, 'physical', 0, 'monster_melee', monster) }, MonsterSpawner.baseAttack(monster, this.floor));
+        else if (monster.def.id === 'furnace_regent') this.foundryBossController.update(dt, monster, this.player, this.floorData, host, MonsterSpawner.baseAttack(monster, this.floor));
         else if (monster.def.id === 'ruins_warden') this.finalBossController.update(dt, monster, this.player, this.floorData, {
           ...host,
           livingMinions: () => this.monsters.filter(other => !other.dead && other.roomId === monster.roomId && other !== monster).length,
@@ -2752,7 +2803,7 @@ export class Game {
       const dz = this.player.position.z - monster.position.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
 
-      if (monster.dead || this.encounterMechanics.handles(monster)) continue;
+      if (monster.dead || monster.def.behavior === 'boss' || this.encounterMechanics.handles(monster)) continue;
       if (MonsterAI.shouldDealMelee(monster) && distance <= monster.def.attackRange + 0.5) {
         const damage = Math.max(1, MonsterSpawner.baseAttack(monster, this.floor));
         this.damagePlayerWithElement(damage, monster.def.element ?? 'physical', monster.def.statusChance, 'monster_melee', monster);
@@ -2835,6 +2886,20 @@ export class Game {
     this.hud.showCenterMessage('受到攻击', '', 0.35);
   }
 
+  private spawnChapterMourner(position: THREE.Vector3, source: Monster): void {
+    if (!this.floorData || source.dead) return;
+    const room = this.floorData.rooms.find(r => r.id === source.roomId);
+    if (!room || this.monsters.filter(m => !m.dead && m.roomId === source.roomId).length >= 12) return;
+    const spot = findEncounterRoomPosition(this.floorData, room, position.x, position.z);
+    const def = MonsterSpawner.definitionById('sanctum_mourner');
+    if (!spot || !def) return;
+    const minion = new Monster(def, spot.x, spot.z);
+    minion.maxHealth = monsterHealth(def.health, this.floor); minion.health = minion.maxHealth;
+    minion.roomId = source.roomId; minion.group.userData.chapterReinforcement = true;
+    minion.state = 'chase'; minion.attackCooldown = 1.5;
+    this.monsters.push(minion); this.scene.add(minion.group);
+  }
+
   private spawnBossMinion(position: THREE.Vector3): void {
     if (!this.floorData) return;
     const rng = new RNG(((this.currentFloorSeed ^ Math.floor(position.x * 7919) ^ Math.floor(position.z * 7919)) >>> 0));
@@ -2843,11 +2908,12 @@ export class Game {
     const room = this.floorData.rooms.find(candidate => candidate.id === boss?.roomId);
     const spawnPosition = room ? findEncounterRoomPosition(this.floorData, room, position.x, position.z) : position;
     if (!spawnPosition) return;
-    const minion = MonsterSpawner.spawnMinionAt(this.floorData, spawnPosition, rng, boss?.def.id === 'furnace_regent');
+    const minion = MonsterSpawner.spawnMinionAt(this.floorData, spawnPosition, rng, ['furnace_regent', 'oath_gatekeeper'].includes(boss?.def.id ?? ''));
     if (!minion) return;
     minion.maxHealth = Math.round(minion.maxHealth * 0.7);
     minion.health = minion.maxHealth;
     minion.roomId = boss?.roomId ?? '';
+    if (boss?.def.id === 'oath_gatekeeper') minion.group.userData.chapterReinforcement = true;
     minion.attackCooldown = 1.5;
     this.monsters.push(minion);
     this.scene.add(minion.group);
@@ -2937,6 +3003,8 @@ export class Game {
     if (monster.dead) return;
     if (canLeech && this.equipment.hasSpecial('executeFullHealth') && this.player.health >= this.player.maxHealth) damage *= 1.25;
     if (directSource) damage = this.encounterMechanics.onDirectHit(monster, directSource, damage);
+    if (monster.def.id === 'oath_gatekeeper') damage *= this.oathGatekeeper.damageMultiplier(monster, directSource);
+    if (this.sanctumController.handles(monster)) damage *= this.sanctumController.damageMultiplier(monster);
     if (monster.def.id === 'furnace_regent') damage *= this.foundryBossController.damageMultiplier;
     if (monster.def.id === 'ruins_warden') damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
     damage = Math.max(1, Math.round(damage));
@@ -2964,7 +3032,9 @@ export class Game {
   }
 
   private onMonsterKilled(monster: Monster, crit: boolean, allowEquipmentProcs = true): void {
-    if (monster.def.id === 'furnace_regent') {
+    if (monster.def.id === 'oath_gatekeeper') this.oathGatekeeper.clear();
+    if (this.sanctumController.handles(monster)) this.sanctumController.onDeath(monster, this.sanctumHost);
+    if (['furnace_regent', 'oath_gatekeeper', 'bellkeeper'].includes(monster.def.id)) {
       this.foundryBossController.clear();
       // End the encounter immediately; cleanup is not an extra rewarded kill.
       for (const other of this.monsters) if(other!==monster&&other.roomId===monster.roomId&&!other.dead) {
@@ -3020,8 +3090,9 @@ export class Game {
     this.comboTimer = 1.8;
     this.hud.setCombo(this.comboCount);
 
-    const xp = MonsterSpawner.baseXp(monster, this.floor);
+    const xp = Math.round(MonsterSpawner.baseXp(monster, this.floor) * (monster.group.userData.chapterReinforcement ? .5 : 1));
     this.addXp(xp);
+    if ((monster.def.id === 'sanctum_mourner' || monster.group.userData.chapterReinforcement) && this.sanctumRng.float() > .5) return;
     const drops = LootSystem.rollLoot(
       monster.def,
       this.floor,
@@ -3276,16 +3347,18 @@ export class Game {
     if (!this.floorData) return null;
     const p = this.player.position;
     const candidates: { label: string; distance: number }[] = [];
+    const altar = this.chapterRituals.nearby(p, this.encounters?.lockedRoomIds ?? []);
+    if (altar) candidates.push({ label: '开启葬仪', distance: altar.position.distanceTo(p) });
     const merchant = this.floorData.merchant;
     if (merchant) {
       const distance = Math.hypot(p.x - merchant.x - .5, p.z - merchant.z - .5);
       if (distance <= 2) candidates.push({ label: '进入商店', distance });
     }
     const room = this.encounters?.roomAt(p.x,p.z);
-    if (room?.template === 'overload-trial' && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
+    if ((room && isOptionalTrial(room.template)) && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
       const cleared=this.encounters!.state.cleared.includes(room.id!);
       const started=this.encounters!.state.started.includes(room.id!);
-      if (!started || (cleared && !this.foundryTrialClaimed)) candidates.push({label:cleared?'选择试炼奖励':'启动过载试炼',distance:Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)});
+      if (!started || (cleared && !this.foundryTrialClaimed)) candidates.push({label:cleared?'选择试炼奖励':`启动${trialTitle(room.template)}`,distance:Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)});
     }
     if (room?.kind === 'sanctuary' && !this.encounters!.state.usedSanctuaries.includes(room.id!)
       && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
@@ -3298,7 +3371,8 @@ export class Game {
     for (const chest of this.floorData.chests) {
       const distance = Math.hypot(p.x - chest.x - .5, p.z - chest.z - .5);
       if (!this.openedChests.has(`${chest.x},${chest.z}`) && distance <= 1.8) {
-        candidates.push({ label: '打开宝箱', distance });
+        const supply = this.floorData.rooms.some(r => r.template === 'ruins-supply' && roomContainsPoint(r, chest.x + .5, chest.z + .5));
+        candidates.push({ label: supply ? '开启补给架' : '打开宝箱', distance });
       }
     }
     // Nearby merchants must not capture every interaction with an adjacent exit.
@@ -3308,7 +3382,15 @@ export class Game {
   private tryInteract(): boolean {
     if (!this.floorData || this.isGameplayPaused() || !this.player.alive) return false;
     const label = this.interactionLabel();
-    if (label === '启动过载试炼') {
+    if (label === '开启葬仪') {
+      if (this.chapterRituals.activate(this.player.position, this.encounters?.lockedRoomIds ?? [])) {
+        this.hud.showCenterMessage('葬仪已开启', '青色范围只伤敌人 · 每台仅一次', 1.2);
+        this.saveGame();
+        return true;
+      }
+      return false;
+    }
+    if (label?.startsWith('启动') && ['启动过载试炼', '启动旧军械挑战', '启动无名者安葬'].includes(label)) {
       this.trialActivationRequested=true;
       this.updateEncounters();
       this.saveGame();
@@ -3340,7 +3422,7 @@ export class Game {
       }
     }
 
-    if (label !== '打开宝箱') return false;
+    if (label !== '打开宝箱' && label !== '开启补给架') return false;
     const nearbyChests = [...this.floorData.chests].sort((a, b) =>
       Math.hypot(this.player.position.x-a.x-.5,this.player.position.z-a.z-.5)
       - Math.hypot(this.player.position.x-b.x-.5,this.player.position.z-b.z-.5));
@@ -3351,6 +3433,8 @@ export class Game {
       const dz = this.player.position.z - (chest.z + 0.5);
       if (Math.hypot(dx, dz) <= 1.8) {
         this.openedChests.add(key);
+        const supplyRoom = this.floorData.rooms.find(r => r.template === 'ruins-supply' && roomContainsPoint(r, chest.x + .5, chest.z + .5));
+        if (supplyRoom && this.world.openRuinsSupply(supplyRoom.id!)) this.minimap.invalidate();
         this.addMaterials([{ materialId: 'element_shard', amount: 1 }]);
         this.world.removeChest(chest.x, chest.z);
         const item = ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference, false, this.equipmentRulesVersion, this.mechanismPreference);
@@ -4093,6 +4177,8 @@ export class Game {
       equipmentRulesVersion: this.equipmentRulesVersion,
       craftingSequence: this.craftingSequence,
       runtime: {
+        oathGatekeeper: this.monsters.some(m => m.def.id === 'oath_gatekeeper' && !m.dead) ? this.oathGatekeeper.snapshot() : undefined,
+        usedRituals: this.chapterRituals.snapshot(),
         setState: this.setRuntime.snapshot(),
         summonSquad: this.summonSystem.snapshot(),
         brokenFoundryPanels: this.floorData ? foundryPanels(this.floorData).filter(p => p.broken).map(p => p.id) : [],

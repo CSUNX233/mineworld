@@ -1,6 +1,14 @@
 export type MonsterDifficultyStat = 'health' | 'attack';
 export type MonsterDifficultyTier = 'normal' | 'boss';
 
+/** Combined health × attack pressure relative to the previous depth curve. */
+export const CHAPTER_PRESSURE = [1.05, 1.10, 1.15, 1.20, 1.25] as const;
+
+export function chapterPressure(floor: number): number {
+  const chapter = Math.floor((balancedFloor(floor) - 1) / 5);
+  return CHAPTER_PRESSURE[chapter];
+}
+
 /**
  * Monster templates and elite modifiers remain responsible for differences
  * between enemy types. This table is the single depth-based multiplier layer.
@@ -38,5 +46,5 @@ export function monsterDifficultyMultiplier(
   const rampSpan = MONSTER_DIFFICULTY.maxFloor - MONSTER_DIFFICULTY.lateRampStartFloor;
   const rampProgress = smoothstep((depth - MONSTER_DIFFICULTY.lateRampStartFloor) / rampSpan);
   const lateGameBonus = MONSTER_DIFFICULTY.lateGameBonusAtMaxFloor[tier][stat] * rampProgress;
-  return baseMultiplier * (1 + lateGameBonus);
+  return baseMultiplier * (1 + lateGameBonus) * Math.sqrt(chapterPressure(depth));
 }
