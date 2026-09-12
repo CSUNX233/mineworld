@@ -1,3 +1,7 @@
+import { AdaptiveAggression } from './AdaptiveAggression';
+import { EnemyTactics } from '../monsters/EnemyTactics';
+import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
+import { foundryOpeningEncounter } from '../data/FoundryChapter';
 import { ruinsEncounterForRoom } from '../data/RuinsChapter';
 import { sanctumEncounterForRoom } from '../data/SanctumChapter';
 import { ChapterRituals, isOptionalTrial, trialTitle } from '../world/ChapterEvents';
@@ -334,6 +338,7 @@ export class Game {
   private comboTimer = 0;
   private lowHealthShieldCooldown = 0;
   private elapsed = 0;
+  private aggression = new AdaptiveAggression();
   private running = false;
   private paused = false;
   private lastTime = performance.now();
@@ -967,6 +972,7 @@ export class Game {
     this.comboTimer = 0;
     this.lowHealthShieldCooldown = 0;
     this.elapsed = 0;
+    this.aggression.restore();
     this.saveTimer = 0;
     this.upgradeCount = 0;
     this.input.reset();
@@ -1035,6 +1041,7 @@ export class Game {
     this.comboTimer = Math.max(0, runtime?.comboTimer ?? 0);
     this.lowHealthShieldCooldown = Math.max(0, runtime?.lowHealthShieldCooldown ?? 0);
     this.elapsed = Math.max(0, runtime?.elapsed ?? 0);
+    this.aggression.restore(runtime?.aggression);
     this.saveTimer = 0;
     this.input.reset();
     this.startPlaytestSession('continue');
@@ -1090,7 +1097,7 @@ export class Game {
     this.player.mana = Math.min(this.player.maxMana, this.player.mana);
     this.recordResourceSnapshot('session_ready');
     if (!this.saveGame()) return;
-    this.hud.showCenterMessage(`第 ${this.floor} 层`, this.floorData?.theme.name ?? '', 3);
+    this.hud.showCenterMessage(`第 ${this.floor} 层`, `${this.floorData?.theme.name ?? ''} · 敌人攻势：${this.aggression.label}`, 3);
     this.requestPointerLock();
   }
 
@@ -1244,6 +1251,7 @@ export class Game {
     if (room) {
       const wave = MonsterSpawner.spawnEncounter(this.floorData, room, this.player.position,
         new RNG(this.currentFloorSeed ^ Number(room.id!.split('-')[1]) * 7919));
+      this.aggression.encounter(wave.length, wave.some(m => m.def.behavior === 'boss'), room.kind === 'elite');
       this.monsters.push(...wave);
       wave.forEach(monster => this.scene.add(monster.group));
       this.playtestRecorder.record('encounter_started', {
@@ -1255,7 +1263,7 @@ export class Game {
         monsterCount: wave.length,
       });
       const encounter = encounterById(room.encounterId);
-      const chapter = ((this.floorData?.generationVersion ?? 1) >= 5) ? (ruinsEncounterForRoom(this.floor, room.id!) ?? sanctumEncounterForRoom(this.floor, room.id!)) : undefined;
+      const chapter = ((this.floorData?.generationVersion ?? 1) >= 5) ? (ruinsEncounterForRoom(this.floor, room.id!) ?? sanctumEncounterForRoom(this.floor, room.id!) ?? foundryOpeningEncounter(this.floor, room.id!)) : undefined;
       this.hud.showCenterMessage(encounter?.name ?? ROOM_LABELS[room.kind!], chapter ? `屏障已封闭 · ${chapter.intent}` : encounter
         ? `屏障已封闭 · ${encounter.intent}`
         : room.required ? '屏障已封闭 · 清除本房守卫后解锁' : '屏障已封闭 · 清除后解锁并获得奖励', encounter ? 3 : 1.5);
@@ -1363,6 +1371,7 @@ export class Game {
         elite: monster.elite,
         eliteModifiers: [...monster.eliteModifiers],
         statuses: structuredClone(monster.statuses),
+        difficultyStatMultiplier: GLOBAL_MONSTER_STAT_MULTIPLIER,
         mechanicState: this.encounterMechanics.serialize(monster),
         sanctumState: this.sanctumController.snapshot(monster),
         chapterReinforcement: Boolean(monster.group.userData.chapterReinforcement),
@@ -1533,6 +1542,9 @@ export class Game {
 
     if (this.player.alive && !this.inventoryUI.open && !this.skillOpen) {
       if (this.updateEncounters()) return;
+      if (this.encounters?.lockedRoomIds.length && this.monsters.some(m => !m.dead && this.encounters!.lockedRoomIds.includes(m.roomId))) {
+        this.aggression.sample(rawDt, this.player.health / Math.max(1, this.player.maxHealth));
+      }
       this.observeCombatInvestment();
       this.updateMonsters(dt);
       if (!this.isGameplayPaused() && this.player.alive) this.chapterRituals.update(dt, this.encounters?.lockedRoomIds ?? [], (position, roomId) => {
@@ -1721,7 +1733,7 @@ export class Game {
     panel.appendChild(title);
 
     const seedInfo = document.createElement('div');
-    seedInfo.textContent = `本局种子 ${this.seed}（地图/遭遇可复现，掉落不保证一致）`;
+    seedInfo.textContent = `敌人攻势：${this.aggression.label} · 本局种子 ${this.seed}（地图/遭遇可复现，掉落不保证一致）`;
     seedInfo.className = 'sunlit-menu-help';
     panel.appendChild(seedInfo);
 
@@ -2744,6 +2756,8 @@ export class Game {
 
   private updateMonsters(dt: number): void {
     if (!this.floorData) return;
+    for (const monster of this.monsters) monster.group.userData.aggression = this.aggression.multiplier;
+    EnemyTactics.beginFrame(this.monsters, this.player, this.floorData, this.projectiles, dt);
     this.encounterMechanics.update(dt, this.monsters, this.player, this.floorData, this.mechanicHost);
     if (this.isGameplayPaused() || !this.player.alive) return;
     for (let i = this.monsters.length - 1; i >= 0; i--) {
@@ -2842,7 +2856,7 @@ export class Game {
 
   private spawnEnemyProjectile(monster: Monster): void {
     const start = monster.position.clone().add(new THREE.Vector3(0, 1.1, 0));
-    const target = this.player.position.clone().add(new THREE.Vector3(0, 1.15, 0));
+    const target = (monster.lastKnownPlayer ?? this.player.position).clone().add(new THREE.Vector3(0, 1.15, 0));
     const direction = target.sub(start).normalize();
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.16, 6, 6),
@@ -3461,11 +3475,12 @@ export class Game {
       this.finishRun('victory');
       return;
     }
+    this.aggression.advance();
     this.floor++;
     this.player.heal(this.player.maxHealth * 0.25);
     this.player.addMana(this.player.maxMana * 0.5);
     if (!await this.generateCurrentFloor()) return;
-    this.hud.showCenterMessage(`第 ${this.floor} 层`, this.floorData?.theme.name ?? '', 3);
+    this.hud.showCenterMessage(`第 ${this.floor} 层`, `${this.floorData?.theme.name ?? ''} · 敌人攻势：${this.aggression.label}`, 3);
     this.audio.portal();
     this.saveGame();
   }
@@ -4177,6 +4192,7 @@ export class Game {
       equipmentRulesVersion: this.equipmentRulesVersion,
       craftingSequence: this.craftingSequence,
       runtime: {
+        aggression: this.aggression.snapshot(),
         oathGatekeeper: this.monsters.some(m => m.def.id === 'oath_gatekeeper' && !m.dead) ? this.oathGatekeeper.snapshot() : undefined,
         usedRituals: this.chapterRituals.snapshot(),
         setState: this.setRuntime.snapshot(),

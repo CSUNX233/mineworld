@@ -1,3 +1,4 @@
+import { monsterAggression } from './EnemyIntent';
 import * as THREE from 'three';
 import type { FloorData, Room } from '../types';
 import type { Player } from '../player/Player';
@@ -181,7 +182,7 @@ export class FoundryBossController {
       );
     }
 
-    this.state.cooldown = Math.max(0, this.state.cooldown - dt);
+    this.state.cooldown = Math.max(0, this.state.cooldown - dt * monsterAggression(boss));
     this.state.stagger = Math.max(0, this.state.stagger - dt);
     this.state.exposed = Math.max(0, this.state.exposed - dt);
     this.state.pillar1Cooldown = Math.max(0, this.state.pillar1Cooldown - dt);

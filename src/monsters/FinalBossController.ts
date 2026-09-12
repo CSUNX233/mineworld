@@ -1,3 +1,4 @@
+import { monsterAggression } from './EnemyIntent';
 import * as THREE from 'three';
 import { decorateTelegraph, disposeTelegraphArt } from '../ui/CombatArt';
 import type { FloorData } from '../types';
@@ -51,7 +52,7 @@ export class FinalBossController {
     (core.material as THREE.MeshBasicMaterial).color.setHex(this.state.recovery > 0 ? 0xff9b39 : 0x74bad8);
     core.rotation.y += dt;
     this.state.recovery = Math.max(0, this.state.recovery - dt);
-    this.state.cooldown = Math.max(0, this.state.cooldown - dt);
+    this.state.cooldown = Math.max(0, this.state.cooldown - dt * monsterAggression(boss));
     let resolved = false;
     for (const warning of [...this.state.warnings]) {
       warning.remaining = Math.max(0, warning.remaining - dt);

@@ -1,3 +1,4 @@
+import { monsterAggression } from './EnemyIntent';
 import { trackedTexture } from '../core/AssetLoading';
 import { HealthBarBreak } from './HealthBarBreak';
 import { BurnVisual } from './BurnVisual';
@@ -386,7 +387,7 @@ export class Monster {
 
   update(dt: number, elapsed: number): void {
     this.healthBarBreak.update(dt);
-    this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt * monsterAggression(this));
     this.attackWindup = Math.max(0, this.attackWindup - dt);
     this.attackWarning.visible = !this.dead && this.state === 'attack' && this.attackWindup > 0 && this.def.behavior !== 'boss';
     this.attackWarning.scale.setScalar(this.def.behavior === 'ranged' ? 0.8 : this.def.attackRange + 0.5);

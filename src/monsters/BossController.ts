@@ -1,3 +1,4 @@
+import { monsterAggression } from './EnemyIntent';
 import { findEncounterRoomPosition, getEncounterBarriers } from '../world/EncounterBarriers';
 import * as THREE from 'three';
 import { decorateTelegraph, disposeTelegraphArt } from '../ui/CombatArt';
@@ -68,9 +69,9 @@ export class BossController {
       );
     }
 
-    this.attackTimer -= dt;
-    this.dashTimer -= dt;
-    this.summonTimer -= dt;
+    this.attackTimer -= dt * monsterAggression(boss);
+    this.dashTimer -= dt * monsterAggression(boss);
+    this.summonTimer -= dt * monsterAggression(boss);
     this.dashTime -= dt;
 
     if (this.warnings.some(warning => warning.kind === 'dash')) {

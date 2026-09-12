@@ -157,6 +157,7 @@ export interface ShopStockEntry {
 }
 
 export interface SavedMonster {
+  difficultyStatMultiplier?: number;
   sanctumState?: import('./monsters/SanctumController').SanctumState;
   chapterReinforcement?: boolean;
   mechanicState?: import('./monsters/EncounterMechanics').SerializedMechanicState;
@@ -186,6 +187,7 @@ export interface SaveData {
   mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {
+    aggression?: import('./core/AdaptiveAggression').AggressionSnapshot;
     oathGatekeeper?: import('./monsters/OathGatekeeperController').OathGatekeeperState;
     usedRituals?: string[];
     setState?: import('./items/SetRuntime').SetSnapshot;

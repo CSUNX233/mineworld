@@ -1,10 +1,14 @@
+import { EnemyTactics } from './EnemyTactics';
+import { MonsterAI } from './MonsterAI';
+import { directionToPlayer } from '../world/Navigation';
+import { monsterAggression } from './EnemyIntent';
 import * as THREE from 'three';
 import type { ElementType, FloorData, Room } from '../types';
 import type { Monster } from './Monster';
 import type { Player } from '../player/Player';
 import { SANCTUM_MONSTERS } from '../data/SanctumMonsters';
 import { sanctumThroneSlots } from '../data/SanctumChapter';
-import { findEncounterRoomPosition, encounterBarrierBlocksCylinder } from '../world/EncounterBarriers';
+import { findEncounterRoomPosition } from '../world/EncounterBarriers';
 import { isWalkable } from '../world/FloorGenerator';
 import { roomContainsPoint } from '../world/RoomGeometry';
 import { worldRayDistance } from '../world/SpatialQueries';
@@ -144,7 +148,7 @@ export class SanctumController {
     }
     // Frost slows preparation and locomotion; committed ground echoes retain their announced rhythm.
     const preparationDt = dt * Math.max(0.2, Math.min(1, monster.slowMultiplier));
-    state.cooldown = Math.max(0, state.cooldown - preparationDt);
+    state.cooldown = Math.max(0, state.cooldown - preparationDt * monsterAggression(monster));
     state.stagger = Math.max(0, state.stagger - dt); state.exposed = Math.max(0, state.exposed - dt);
     for (const slot of state.slots) slot.cooldown = Math.max(0, slot.cooldown - dt);
     this.updateSlotAppearance(runtime);
@@ -161,7 +165,9 @@ export class SanctumController {
       this.startSummon(runtime, player, floor, room, 6, 'summon'); return;
     }
     const distance = monster.position.distanceTo(new THREE.Vector3(player.position.x, 0, player.position.z));
-    if (state.cooldown <= 0 && distance <= monster.def.attackRange && distance <= monster.def.detectRadius) {
+    if (state.cooldown <= 0 && distance <= monster.def.attackRange && distance <= monster.def.detectRadius
+      && EnemyTactics.lineClear(monster.position, player.position, floor)
+      && EnemyTactics.canStartAttack(monster, 1.5)) {
       this.startAttack(runtime, player, floor, room, Math.max(1, attackDamage));
     }
     if (state.attack === 'none') this.advance(dt, monster, player, floor, room);
@@ -364,22 +370,29 @@ export class SanctumController {
   }
 
   private advance(dt: number, monster: Monster, player: Player, floor: FloorData, room: Room): void {
-    const dx = player.position.x - monster.position.x, dz = player.position.z - monster.position.z;
-    const distance = Math.hypot(dx, dz); monster.faceToward(player.position.x, player.position.z);
+    const distance = Math.hypot(player.position.x-monster.position.x, player.position.z-monster.position.z);
+    monster.faceToward(player.position.x, player.position.z);
     monster.velocity.set(0, 0, 0);
-    const desired = Math.min(Math.max(0, distance - monster.def.attackRange * 0.85), monster.def.speed * monster.speedMultiplier * monster.slowMultiplier * dt);
-    if (desired <= 0 || distance > monster.def.detectRadius || distance < 1e-6) return;
-    // Chase with room-aware alternatives around low tomb obstacles, without leaving the encounter mask.
-    const baseAngle = Math.atan2(dz, dx);
-    for (const turn of [0, 0.65, -0.65, 1.2, -1.2]) {
-      const direction = new THREE.Vector3(Math.cos(baseAngle + turn), 0, Math.sin(baseAngle + turn));
-      const allowed = Math.min(desired, Math.max(0, worldRayDistance(floor, monster.position.clone().setY(0.7), direction, desired, 0.38) - 0.03));
-      if (allowed < Math.min(0.02, desired * 0.4)) continue;
-      const x = monster.position.x + direction.x * allowed, z = monster.position.z + direction.z * allowed;
-      if (![[-0.38, 0], [0.38, 0], [0, -0.38], [0, 0.38]].every(([ox, oz]) => roomContainsPoint(room, x + ox, z + oz))
-        || encounterBarrierBlocksCylinder(floor, x, z, 0.38)) continue;
-      monster.position.set(x, monster.position.y, z); monster.velocity.copy(direction).multiplyScalar(allowed / Math.max(dt, 1e-6)); return;
+    if (dt <= 0 || distance > monster.def.detectRadius || distance < .01) return;
+    const ranged = monster.def.attackRange > 4;
+    const visible = EnemyTactics.lineClear(monster.position, player.position, floor);
+    let target = EnemyTactics.pursuitTarget(monster, player.position, floor);
+    if (ranged && visible && distance < 2.8) {
+      target = { x: monster.position.x+(monster.position.x-player.position.x)/distance*2,
+        z: monster.position.z+(monster.position.z-player.position.z)/distance*2 };
+    } else if (visible && distance <= monster.def.attackRange*.85) {
+      target = { x: monster.position.x, z: monster.position.z };
     }
+    let dx = target.x-monster.position.x, dz = target.z-monster.position.z;
+    if (!EnemyTactics.lineClear(monster.position, target, floor, .4)) {
+      const next = directionToPlayer(floor, monster.position.x, monster.position.z, target.x, target.z);
+      if (!next) return;
+      dx = next.x; dz = next.z;
+    }
+    const length = Math.hypot(dx, dz);
+    const direction = EnemyTactics.movementDirection(monster, length > .01 ? dx/length : 0, length > .01 ? dz/length : 0, floor);
+    MonsterAI.moveWithAvoidance(monster, dt, direction.x, direction.z,
+      monster.def.speed*monster.speedMultiplier*monster.slowMultiplier, floor);
   }
 
   private finish(runtime: Runtime, cooldown: number): void {

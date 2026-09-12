@@ -6,6 +6,7 @@ import { FOUNDRY_CHAPTER as CONFIG } from '../data/FoundryChapter';
 import { monsterAttack } from '../data/recipes';
 import { pressureLaneCells } from '../world/FoundryGeometry';
 import { disposeMechanicObject, setMechanicVisualPhase } from './MechanicVisual';
+import { monsterAggression } from './EnemyIntent';
 
 interface State {
   cooldown: number;
@@ -48,19 +49,24 @@ export class ValveOverseer {
 
   restore(monster: Monster, saved: SerializedMechanicState | undefined): void {
     if (saved?.role !== 'controller') return;
-    this.state(monster).cooldown = Math.max(2.5, saved.cooldown);
+    const state=this.state(monster);
+    this.removeVisual(state);state.phase='idle';state.remaining=0;state.hit=false;state.interrupted=false;
+    state.cooldown = Math.max(2.5, Number.isFinite(saved.cooldown)?saved.cooldown:2.5);
+    monster.group.userData.foundryAttack=false;
   }
 
   update(dt: number, monsters: Monster[], player: MechanicPlayer, floor: FloorData, host: EncounterMechanicsHost): void {
     for (const [monster, state] of this.states) {
       if (monster.dead || !monsters.includes(monster)) {
         this.removeVisual(state, host);
+        monster.group.userData.foundryAttack=false;
         this.states.delete(monster);
       }
     }
     for (const monster of monsters) {
       if (monster.dead || monster.def.id !== CONFIG.monsterId) continue;
       const state = this.state(monster);
+      monster.group.userData.foundryAttack=state.phase!=='idle';
       monster.velocity.set(0, 0, 0);
       monster.faceToward(player.position.x, player.position.z);
       if (state.interrupted) {
@@ -68,11 +74,14 @@ export class ValveOverseer {
         state.phase = 'idle';
         state.cooldown = CONFIG.interruptRecovery;
         state.interrupted = false;
+        monster.group.userData.foundryAttack=false;
       }
+      if(monster.slowMultiplier<=0||monster.statuses.some(status=>status.type==='frozen'&&status.duration>0)) continue;
       if (state.phase === 'idle') {
         setMechanicVisualPhase(monster, 'exposed');
-        state.cooldown = Math.max(0, state.cooldown - dt);
+        state.cooldown = Math.max(0, state.cooldown - dt*monsterAggression(monster));
         if (state.cooldown > 0) continue;
+        if(monsters.some(other=>other!==monster&&!other.dead&&other.roomId===monster.roomId&&other.group.userData.foundryAttack)) continue;
         const room = floor.rooms.find(room => room.id === monster.roomId);
         if (!room || !this.begin(monster, state, room, floor, player, host)) continue;
         continue;
@@ -110,6 +119,7 @@ export class ValveOverseer {
     state.cells = cells;
     state.hit = false;
     state.phase = 'warning';
+    monster.group.userData.foundryAttack=true;
     state.remaining = CONFIG.windup;
     state.visual = this.visual(cells, false);
     host.addWorldObject(state.visual);
@@ -147,7 +157,7 @@ export class ValveOverseer {
   }
 
   clear(host?: EncounterMechanicsHost): void {
-    for (const state of this.states.values()) this.removeVisual(state, host);
+    for (const [monster,state] of this.states) {this.removeVisual(state, host);monster.group.userData.foundryAttack=false;}
     this.states.clear();
   }
 }

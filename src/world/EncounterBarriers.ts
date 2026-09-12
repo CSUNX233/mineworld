@@ -1,6 +1,7 @@
 import { roomContainsCell } from './RoomGeometry';
 import type { FloorData, Room } from '../types';
 import { isWalkable } from './FloorGenerator';
+import { PLAYER_RADIUS } from './CollisionBounds';
 
 /** A thin, room-facing collision plane spanning one open doorway cell. */
 export interface EncounterBarrier {
@@ -61,6 +62,17 @@ export function getEncounterBarriers(floor: FloorData): readonly EncounterBarrie
   return activeBarriers.get(floor) ?? EMPTY_BARRIERS;
 }
 
+/** Check the entire body, including the future barrier thickness, before closing doors. */
+export function canSealEncounterRoom(floor: FloorData, room: Room, x: number, z: number, radius = PLAYER_RADIUS): boolean {
+  const clearance = radius + ENCOUNTER_BARRIER_THICKNESS / 2 + .02;
+  for (let gz = Math.floor(z - clearance); gz <= Math.floor(z + clearance); gz++) {
+    for (let gx = Math.floor(x - clearance); gx <= Math.floor(x + clearance); gx++) {
+      if (!roomContainsCell(room, gx, gz) || !isWalkable(floor, gx, gz)) return false;
+    }
+  }
+  return true;
+}
+
 /** Finds a walkable cell center safely inside a room, useful for old-save repair. */
 export function findEncounterRoomPosition(
   floor: FloorData,
@@ -74,6 +86,7 @@ export function findEncounterRoomPosition(
     for (let x = room.x + 1; x < room.x + room.width - 1; x++) {
       if (!isWalkable(floor, x, z) || !roomContainsCell(room, x, z)) continue;
       const candidate = { x: x + 0.5, z: z + 0.5 };
+      if (!canSealEncounterRoom(floor, room, candidate.x, candidate.z)) continue;
       const distance = (candidate.x - nearX) ** 2 + (candidate.z - nearZ) ** 2;
       if (distance < bestDistance) {
         best = candidate;

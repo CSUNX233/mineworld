@@ -1,3 +1,5 @@
+import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
+import { foundryOpeningEncounter } from '../data/FoundryChapter';
 import { RUINS_MONSTERS } from '../data/RuinsMonsters';
 import { SANCTUM_MONSTERS } from '../data/SanctumMonsters';
 import { ruinsEncounterForRoom } from '../data/RuinsChapter';
@@ -16,7 +18,7 @@ const MONSTER_DEFS = [...monsterData as unknown as MonsterDefinition[], ...RUINS
 export class MonsterSpawner {
   static spawnEncounter(floor: FloorData, room: Room, player: { x: number; z: number }, rng: RNG): Monster[] {
     const teaching = (floor.generationVersion ?? 0) >= 3 && room.template === 'pressure-ring';
-    const revised = (floor.generationVersion ?? 0) >= 5 ? (ruinsEncounterForRoom(floor.floor, room.id!) ?? sanctumEncounterForRoom(floor.floor, room.id!)) : undefined;
+    const revised = (floor.generationVersion ?? 0) >= 5 ? (ruinsEncounterForRoom(floor.floor, room.id!) ?? sanctumEncounterForRoom(floor.floor, room.id!) ?? foundryOpeningEncounter(floor.floor, room.id!)) : undefined;
     const chapter = (floor.generationVersion ?? 0) >= 4 ? ENCOUNTERS.find(e => e.template === room.template && e.minFloor <= floor.floor) : undefined;
     if (chapter) room.encounterId = chapter.id;
     if (teaching) room.encounterId = 'pressure_lesson';
@@ -108,8 +110,10 @@ export class MonsterSpawner {
     if (saved.elite && saved.eliteModifiers.length > 0) monster.setElite(saved.eliteModifiers);
     monster.statuses = structuredClone(saved.statuses ?? []);
     monster.roomId = saved.roomId ?? '';
-    monster.maxHealth = Math.max(1, saved.maxHealth);
-    monster.health = Math.min(monster.maxHealth, Math.max(0, saved.health));
+    const previousScale = Number.isFinite(saved.difficultyStatMultiplier) && saved.difficultyStatMultiplier! > 0 ? saved.difficultyStatMultiplier! : 1;
+    const ratio = GLOBAL_MONSTER_STAT_MULTIPLIER / previousScale;
+    monster.maxHealth = Math.max(1, Math.round(saved.maxHealth * ratio));
+    monster.health = Math.min(monster.maxHealth, Math.max(0, saved.health * ratio));
     return monster;
   }
 

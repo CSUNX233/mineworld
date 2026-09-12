@@ -9,11 +9,10 @@ import { clamp, damp } from '../utils/math';
 import { SettingsManager } from '../core/SettingsManager';
 import { worldRayDistance } from '../world/SpatialQueries';
 import { encounterBarrierBlocksCylinder } from '../world/EncounterBarriers';
+import { PLAYER_RADIUS, PLAYER_HEIGHT } from '../world/CollisionBounds';
 
 const GRAVITY = -24;
 const JUMP_SPEED = 8;
-const PLAYER_RADIUS = 0.35;
-const PLAYER_HEIGHT = 1.8;
 const THIRD_PERSON_MIN_PITCH = -0.15;
 const THIRD_PERSON_MAX_PITCH = 1.15;
 

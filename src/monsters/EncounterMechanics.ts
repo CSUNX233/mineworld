@@ -1,5 +1,7 @@
+import { monsterAggression } from './EnemyIntent';
 import { FoundryEnemies } from './FoundryEnemies';
 import { ValveOverseer } from './ValveOverseer';
+import { EnemyTactics } from './EnemyTactics';
 import type * as THREE from 'three';
 import type { FloorData, Room } from '../types';
 import { BlockKind } from '../world/Block';
@@ -224,7 +226,7 @@ export class EncounterMechanics {
     monsters: Monster[],
     host: EncounterMechanicsHost,
   ): void {
-    state.cooldown = Math.max(0, state.cooldown - dt);
+    state.cooldown = Math.max(0, state.cooldown - dt * monsterAggression(monster));
     if (state.cancelRequested) {
       this.finishSupportCast(state, host);
       state.cooldown = Math.max(state.cooldown, 3.5);
@@ -248,14 +250,15 @@ export class EncounterMechanics {
       return;
     }
     setMechanicVisualPhase(monster, 'idle', this.clock);
-    if (state.cooldown > 0 || state.healsRemaining <= 0) return;
+    if (state.cooldown > 0 || state.healsRemaining <= 0 || monster.state === 'attack' || monster.attackWindup > 0) return;
     const target = monsters
       .filter(candidate => candidate !== monster && !candidate.dead && candidate.roomId === monster.roomId
         && candidate.health < candidate.maxHealth * 0.88 && candidate.position.distanceTo(monster.position) <= SUPPORT_RANGE)
       .sort((a, b) => a.health / a.maxHealth - b.health / b.maxHealth)[0];
-    if (!target) return;
+    if (!target || !EnemyTactics.canStartAttack(monster, SUPPORT_WINDUP + .2)) return;
     state.target = target;
     state.castRemaining = SUPPORT_WINDUP;
+    monster.velocity.set(0, 0, 0);
     state.tether = createTetherVisual();
     updateTetherVisual(state.tether, monster.position, target.position);
     this.addWorldVisual(state.tether, host);
@@ -296,7 +299,7 @@ export class EncounterMechanics {
     floor: FloorData,
     host: EncounterMechanicsHost,
   ): void {
-    state.cooldown = Math.max(0, state.cooldown - dt);
+    state.cooldown = Math.max(0, state.cooldown - dt * monsterAggression(monster));
     if (state.cancelRequested) {
       this.finishControllerWarning(state, host);
       state.cooldown = Math.max(state.cooldown, 3.5);
@@ -317,9 +320,13 @@ export class EncounterMechanics {
       return;
     }
     setMechanicVisualPhase(monster, 'idle', this.clock);
-    if (state.cooldown > 0 || !this.canPlaceZone(monster, player.position.x, player.position.z, floor)) return;
+    if (state.cooldown > 0 || monster.state === 'attack' || monster.attackWindup > 0
+      || !EnemyTactics.lineClear(monster.position, player.position, floor)
+      || !this.canPlaceZone(monster, player.position.x, player.position.z, floor)
+      || !EnemyTactics.canStartAttack(monster, CONTROLLER_WINDUP + .2)) return;
     state.target = { x: player.position.x, z: player.position.z };
     state.castRemaining = CONTROLLER_WINDUP;
+    monster.velocity.set(0, 0, 0);
     state.warning = createZoneVisual(state.target.x, state.target.z, ZONE_RADIUS, 'warning');
     this.addWorldVisual(state.warning, host);
   }

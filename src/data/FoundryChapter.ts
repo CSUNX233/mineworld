@@ -1,5 +1,16 @@
 import type { FloorTheme } from '../types';
 import type { TacticalRoomTemplateId } from './rooms';
+import type { ChapterEncounterSpec } from './RuinsChapter';
+
+/** Only the first valve lesson stays solitary; subsequent floor-six rooms support crowd combat. */
+const OPENING_ENCOUNTERS: Readonly<Record<string, ChapterEncounterSpec>> = {
+  'room-2': { monsterIds: ['orc_warrior', 'zombie', 'zombie', 'slime', 'slime'], intent: '清扫运输支廊的步卒与杂兵，保留两侧通路。' },
+  'room-4': { monsterIds: ['ruin_guardian', 'skeleton', 'orc_warrior', 'zombie', 'slime', 'slime', 'slime'], intent: '盾卫与射手守住前庭，绕侧接近；杂兵适合范围技能清扫。' },
+  'room-1': { monsterIds: ['skeleton', 'orc_warrior', 'zombie', 'zombie', 'slime', 'slime'], intent: '清除出口守卫，利用射手停顿接近目标。' },
+};
+export function foundryOpeningEncounter(floor: number, roomId: string): ChapterEncounterSpec | undefined {
+  return floor === 6 ? OPENING_ENCOUNTERS[roomId] : undefined;
+}
 
 export interface FoundryRoomSpec {
   template: TacticalRoomTemplateId;

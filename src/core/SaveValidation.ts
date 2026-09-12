@@ -1,3 +1,4 @@
+import { validAggression } from './AdaptiveAggression';
 import { validSanctumState } from '../monsters/SanctumController';
 import { isValidRunTalentState, spentTalentPoints, talentBudget } from '../progression/RunTalents';
 import type {
@@ -152,6 +153,7 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
   const snapshot = legacy.value;
   const player = snapshot.player;
   const runtime: unknown = snapshot.runtime;
+  if (snapshot.runtime?.aggression !== undefined && !validAggression(snapshot.runtime.aggression)) return false;
   if (snapshot.runtime?.summonSquad !== undefined && !validSummonSnapshot(snapshot.runtime.summonSquad)) return false;
   if (runtime !== undefined && (!isRecord(runtime)
     || !['elapsed', 'shield', 'invulnerable', 'attackTimer', 'comboCount', 'comboTimer', 'lowHealthShieldCooldown']
@@ -172,6 +174,7 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
   if (snapshot.runtime?.shieldRechargeElapsed !== undefined && !isNonNegativeNumber(snapshot.runtime.shieldRechargeElapsed)) return false;
   if (snapshot.runTalents !== undefined && !isValidRunTalentState(snapshot.runTalents)) return false;
   if (snapshot.monsters !== undefined && (!Array.isArray(snapshot.monsters) || snapshot.monsters.some(monster => !isRecord(monster) || (monster.mechanicState !== undefined && !validMechanicState(monster.mechanicState))))) return false;
+  if (snapshot.monsters?.some(monster => monster.difficultyStatMultiplier !== undefined && (!isFiniteNumber(monster.difficultyStatMultiplier) || monster.difficultyStatMultiplier <= 0 || monster.difficultyStatMultiplier > 10))) return false;
   if (snapshot.monsters?.some(monster => (monster.sanctumState !== undefined && !validSanctumState(monster.sanctumState))
     || (monster.chapterReinforcement !== undefined && typeof monster.chapterReinforcement !== 'boolean'))) return false;
   if (snapshot.monsters?.some(monster => monster.statuses !== undefined && (!Array.isArray(monster.statuses) || monster.statuses.some(status =>

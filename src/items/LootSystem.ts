@@ -1,5 +1,7 @@
+import { RNG } from '../utils/RNG';
+import { monsterLootWeights, monsterItemChance } from '../data/MonsterLoot';
 import type { EquipmentMechanismTag } from './RewardPreference';
-import type { Item, MonsterDefinition } from '../types';
+import type { Item, MonsterDefinition, Rarity } from '../types';
 import type { ArchetypeId } from '../progression/types';
 import { ItemGenerator } from './ItemGenerator';
 
@@ -20,20 +22,26 @@ export class LootSystem {
     rewardPreference?: ArchetypeId,
     equipmentRulesVersion = 1,
     mechanism?: EquipmentMechanismTag,
+    rng = new RNG((Math.random() * 0xffffffff) >>> 0),
   ): LootDrop[] {
     const drops: LootDrop[] = [];
-    drops.push({ kind: 'gold', amount: Math.round((3 + floor * 2 + Math.random() * floor * 4) * (1 + luck / 100)) });
+    drops.push({ kind: 'gold', amount: Math.round((3 + floor * 2 + rng.float() * floor * 4) * (1 + luck / 100)) });
 
     const healthChance = 0.08 + floor * 0.002;
     const manaChance = 0.06 + floor * 0.002;
-    const itemChance = Math.min(0.65, 0.25 + floor * 0.01 + (isBoss ? 0.4 : 0));
+    const itemChance = monsterItemChance(floor);
 
-    if (Math.random() < healthChance) drops.push({ kind: 'health', amount: 20 + floor * 3 });
-    if (Math.random() < manaChance) drops.push({ kind: 'mana', amount: 12 + floor * 2 });
-    if (Math.random() < 0.02) drops.push({ kind: 'reforgeTicket', amount: 1 });
-    if (Math.random() < itemChance || isBoss) {
-      drops.push({ kind: 'item', item: ItemGenerator.generate(floor, undefined, playerLevel, undefined, undefined, luck, rewardPreference, false, equipmentRulesVersion, mechanism) });
-    }
+    if (rng.chance(healthChance)) drops.push({ kind: 'health', amount: 20 + floor * 3 });
+    if (rng.chance(manaChance)) drops.push({ kind: 'mana', amount: 12 + floor * 2 });
+    if (rng.chance(0.02)) drops.push({ kind: 'reforgeTicket', amount: 1 });
+    const equipment = (minimum: Rarity) => {
+      const rarity = rng.weighted(monsterLootWeights(floor, luck, minimum)).rarity;
+      drops.push({ kind: 'item', item: ItemGenerator.generate(floor, rng, playerLevel, rarity, undefined, luck, rewardPreference, false, equipmentRulesVersion, mechanism) });
+    };
+    if (isBoss) {
+      equipment('rare');
+      equipment(floor >= 10 ? 'epic' : 'rare');
+    } else if (rng.chance(itemChance)) equipment('common');
     return drops;
   }
 }

@@ -1,5 +1,6 @@
 import { isOptionalTrial } from '../world/ChapterEvents';
 import { roomContainsPoint } from '../world/RoomGeometry';
+import { canSealEncounterRoom } from '../world/EncounterBarriers';
 import type { FloorData, FloorProgress, Room } from '../types';
 
 export class EncounterDirector {
@@ -23,6 +24,9 @@ export class EncounterDirector {
     if (!this.state.visited.includes(room.id)) this.state.visited.push(room.id);
     if (!['battle', 'elite', 'exit'].includes(room.kind!) || this.state.started.includes(room.id)) return null;
     if (isOptionalTrial(room.template) && !activateOptional) return null;
+    // The center crossing an edge does not mean the player's collision body has cleared it.
+    // This also covers concave/cut-corner masks and entry by a fast dash.
+    if (!canSealEncounterRoom(this.floor, room, x, z)) return null;
     this.state.started.push(room.id);
     return room;
   }
