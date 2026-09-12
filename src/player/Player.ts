@@ -1,9 +1,11 @@
+import { swingRoll } from '../combat/MeleeSwing';
 import * as THREE from 'three';
 import type { ActorStatus, ElementType, Item } from '../types';
 import { applyStatus, updateStatuses } from '../combat/ElementSystem';
 import { defenseMitigation, boundedDodgeChance } from '../combat/DamageRules';
 
 export class Player {
+  onLeechRecovered: ((amount: number) => void) | null = null;
   readonly group = new THREE.Group();
   readonly position = new THREE.Vector3(0, 0, 0);
   readonly velocity = new THREE.Vector3(0, 0, 0);
@@ -101,7 +103,9 @@ export class Player {
     }
     if (this.alive && this.leechReserve > 0) {
       const recovery = Math.min(this.leechReserve, this.maxHealth * 0.05 * dt);
+      const beforeRecovery = this.health;
       this.heal(recovery);
+      this.onLeechRecovered?.(this.health - beforeRecovery);
       this.leechReserve = Math.max(0, Math.min(this.maxHealth * 0.1, this.leechReserve - recovery));
     } else if (!this.alive) this.leechReserve = 0;
     this.group.position.copy(this.position);
@@ -186,7 +190,9 @@ export class Player {
     this.mana = Math.min(this.maxMana, this.mana + amount);
   }
 
-  swingArm(progress: number): void {
+  swingArm(progress: number, angle = 0): void {
+    this.rightArm.rotation.order = 'ZXY';
+    this.rightArm.rotation.z = swingRoll(angle, progress);
     this.rightArm.rotation.x = -Math.PI * 0.85 * Math.sin(progress * Math.PI);
   }
 

@@ -1,3 +1,9 @@
+import type { EquipmentMechanismTag } from '../items/RewardPreference';
+import { SetRuntime } from '../items/SetRuntime';
+import { setDefinition } from '../data/sets';
+import { createReforgePanel } from '../ui/ReforgePanel';
+import type { ReforgeOptions } from '../items/CraftingSystem';
+import { meleeSwingAngle } from '../combat/MeleeSwing';
 import { preloadChapterTextures } from '../world/ChapterTextures';
 import { FoundryBossController } from '../monsters/FoundryBossController';
 import { prepareFoundryPanels, foundryPanels } from '../world/FoundryPanels';
@@ -48,6 +54,7 @@ import { elementalDamage, applyElementalHit, applyStatus, makeActorStatus, type 
 import { ELEMENTS, elementStatusChance } from '../data/elements';
 import { defenseMitigation, boundedCritChance } from '../combat/DamageRules';
 import { ShopSystem, SHOP_SLOTS } from '../items/ShopSystem';
+import { missingSetCommission } from '../items/EquipmentProgression';
 import { buildShopView } from '../ui/ShopUI';
 import { CraftingSystem } from '../items/CraftingSystem';
 import { AudioManager } from './AudioManager';
@@ -74,10 +81,15 @@ import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import type { ArchetypeId, RunOutcome, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
 import { buildCampView, buildMigrationView, buildSettlementView } from '../ui/RunScreens';
 import { starterWeapon } from '../items/StarterEquipment';
-import { createUiIcon } from '../ui/UiAssets';
+import { createUiIcon, UI_RARITY_COLORS } from '../ui/UiAssets';
+import { EquipmentDropVisual } from '../items/EquipmentDropVisual';
 
 interface DropEntity {
-  mesh: THREE.Mesh;
+  mesh: THREE.Object3D;
+  visual?: EquipmentDropVisual;
+  age: number;
+  pickupDelay: number;
+  retryIn: number;
   position: THREE.Vector3;
   kind: LootDrop['kind'];
   amount?: number;
@@ -113,6 +125,7 @@ export class Game {
   private readonly aimGuide = new AimGuide();
   private touchAimSkill: string | null = null;
   private renderer: THREE.WebGLRenderer;
+  private graphicsLost = false;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private app: HTMLElement;
@@ -160,6 +173,65 @@ export class Game {
   private floorData: ReturnType<typeof generateFloor> | null = null;
   private monsters: Monster[] = [];
   private summonSystem = new SummonSystem(this.scene);
+  private equipmentRulesVersion = 1;
+  private craftingSequence = 0;
+  private castingSetSkill: string | null = null;
+  private setRuntime = new SetRuntime({
+    position: () => ({ x: this.player.position.x, y: .06, z: this.player.position.z }),
+    targetsAt: (point, range) => {
+      const origin = new THREE.Vector3(point.x, point.y, point.z);
+      return this.monsters.filter(target => !target.dead
+        && Math.hypot(target.position.x - point.x, target.position.z - point.z) <= range
+        && this.hasLineOfSight(origin, target.position))
+        .sort((a, b) => a.position.distanceToSquared(origin) - b.position.distanceToSquared(origin));
+    },
+    trail: (point, life) => this.effects.setFireTrail(new THREE.Vector3(point.x, point.y, point.z), life),
+    attackRate: () => { const s = this.effectiveStats(); return s.attack * s.baseAttackSpeed * Math.min(3.5, 1 + s.attackSpeedBonus); },
+    maxHealth: () => this.player.maxHealth,
+    maxMana: () => this.player.maxMana,
+    targets: (origin, range) => this.monsters.filter(target => !target.dead
+      && target.position.distanceTo(origin?.position ?? this.player.position) <= range
+      && this.hasLineOfSight(this.player.position, target.position)
+      && (!origin || this.hasLineOfSight(origin.position, target.position)))
+      .sort((a,b) => a.position.distanceToSquared(origin?.position ?? this.player.position) - b.position.distanceToSquared(origin?.position ?? this.player.position)),
+    damage: (target, amount, element) => {
+      if (!this.running || !this.player.alive || target.dead || amount < 1) return;
+      const damage = Math.min(Math.floor(amount), elementalDamage(amount * (1 - defenseMitigation(target.def.armor, this.floor)),
+        element, target.def.resistances, target.statuses));
+      this.applyMonsterDamage(target, damage, false, .3, undefined, element, false);
+    },
+    slow: (target, seconds) => {
+      if (target.dead || target.def.immunities?.includes('frozen')) return;
+      const status = makeActorStatus('frozen', 0, 'frost');
+      status.duration = seconds; status.maxDuration = seconds; status.damagePerTick = 0;
+      status.slowMultiplier = target.def.behavior === 'boss' ? .9 : .75;
+      const existing = target.statuses.find(s => s.type === 'frozen' && s.duration > 0);
+      if (existing) {
+        const total = existing.duration * existing.damagePerTick;
+        existing.duration = existing.maxDuration = Math.max(existing.duration, seconds);
+        existing.damagePerTick = total / existing.duration;
+        existing.slowMultiplier = Math.min(existing.slowMultiplier ?? 1, status.slowMultiplier);
+      } else applyStatus(target, status);
+    },
+    status: (target, type, amount) => {
+      if (target.dead || target.def.immunities?.includes(type)) return;
+      const element = type === 'burning' ? 'fire' : 'poison';
+      const status = makeActorStatus(type, 0, element);
+      status.duration = status.maxDuration = 2;
+      const total = amount * (1 - defenseMitigation(target.def.armor, this.floor));
+      const existing = target.statuses.find(s => s.type === type && s.duration > 0);
+      if (existing) {
+        const combined = existing.duration * existing.damagePerTick + total;
+        existing.duration = existing.maxDuration = Math.max(existing.duration, 2);
+        existing.damagePerTick = combined / existing.duration;
+      } else { status.damagePerTick = total / 2; applyStatus(target, status); }
+    },
+    shield: amount => this.addP4Shield(amount),
+    mana: amount => this.player.addMana(amount),
+    summon: () => Boolean(this.floorData && this.summonSystem.raiseTemporary(this.floorData, this.player, this.summonConfig(),
+      { source: 'p5-venom', life: 6 }).ok),
+    message: (id, message) => this.hud.showLootMessage(`${setDefinition(id, 2)?.name ?? id} · ${message}`, 0xbde0cd),
+  });
   private p4Skills = new P4SkillRuntime({
     modifiers: () => deriveP4Modifiers(this.runTalents),
     floor: () => this.floorData,
@@ -175,7 +247,7 @@ export class Game {
       const result = CombatSystem.rollDamage(amount, stats.critChance, stats.critDamage,
         target.def.armor, this.floor, element, target.def.resistances, target.statuses);
       this.applyMonsterDamage(target, result.damage, result.crit, direct ? .8 : .25,
-        direct ? this.player.position : undefined, element, direct);
+        direct ? this.player.position : undefined, element, direct, id);
     },
     ignite: (target, amount) => {
       if (target.dead || target.def.immunities?.includes('burning')) return;
@@ -199,6 +271,7 @@ export class Game {
     },
     sacrificeSummon: () => {
       const unit = this.summonSystem.sacrifice()[0];
+      if (unit) this.setRuntime.onSacrifice(unit.role as 'warrior' | 'guardian' | 'archer');
       return unit ? { position: unit.position, role: unit.role as 'warrior' | 'guardian' | 'archer' } : null;
     },
     emit: event => this.showP4Effect(event),
@@ -206,6 +279,9 @@ export class Game {
   private summonCommands: SummonCommandBar | null = null;
   private projectiles: Projectile[] = [];
   private drops: DropEntity[] = [];
+  private lootSoundCooldown = 0;
+  private redLootCooldown = 0;
+  private fullInventoryNoticeCooldown = 0;
   private openedChests = new Set<string>();
   private portalActive = false;
   private gold = 0;
@@ -225,6 +301,8 @@ export class Game {
   private bonusAttributes: StatMap = {};
   private attackTimer = 0;
   private attackBuffer = 0;
+  private attackSwingAngle = 0;
+  private attackSwingSequence = 0;
   private attackAnimTimer = 0;
   private attackAnimDuration = 0.24;
   private hitstopTimer = 0;
@@ -248,7 +326,7 @@ export class Game {
   private attributePanel: HTMLDivElement | null = null;
   private attributeOpen = false;
   private sellOverlay: HTMLDivElement | null = null;
-  private craftOverlay: HTMLDivElement | null = null;
+  private craftOverlay: HTMLElement | null = null;
   private skillOverlay: HTMLDivElement | null = null;
   private skillPanel: HTMLDivElement | null = null;
   private skillOpen = false;
@@ -269,6 +347,19 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, PerformanceTierDetector.maxPixelRatio));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.app.appendChild(this.renderer.domElement);
+    this.renderer.domElement.addEventListener('webglcontextlost', event => {
+      event.preventDefault();
+      this.graphicsLost = true;
+      this.input.reset();
+      this.pauseGame();
+    });
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+      this.graphicsLost = false;
+      this.renderer.resetState();
+      this.onResize();
+      this.lastTime = performance.now();
+      this.input.reset();
+    });
 
     this.scene.background = new THREE.Color(0x090c12);
     this.scene.fog = new THREE.Fog(0x090c12, 18, 62);
@@ -294,6 +385,7 @@ export class Game {
     this.effects = new Effects(this.scene);
     this.effects.particleScale = PerformanceTierDetector.particleScale;
     this.bossController = new BossController(this.scene, this.effects, this.audio);
+    this.player.onLeechRecovered = amount => this.setRuntime.onLeechRecovered(amount);
     this.controller = new PlayerController(this.player, this.input, this.camera);
     this.scene.add(this.player.group);
     this.hud = new HUD(this.uiRoot);
@@ -362,7 +454,7 @@ export class Game {
       this.lastPlaytestFrameTime = performance.now();
       this.skipPlaytestFrameTime = true;
       if (document.hidden) this.pauseGame();
-      else this.input.reset();
+      else { this.input.reset(); this.lastTime = performance.now(); this.onResize(); }
     });
     this.mobileBack.setRootHandler(() => {
       if (this.failedSaveCandidate) return true;
@@ -515,7 +607,7 @@ export class Game {
     title.className = 'sunlit-menu-title';
     const warning = document.createElement('div');
     warning.setAttribute('role', 'alert');
-    warning.textContent = `${corrupt ? '此存档已损坏且无法读取。' : '当前进度将被永久删除。'} 此操作不可恢复。`;
+    warning.textContent = `${corrupt ? '此存档已损坏且无法读取。' : '此槽位的冒险进度将被永久删除，共享营地天赋会保留。'} 此操作不可恢复。`;
     warning.className = 'sunlit-menu-notice is-error';
     panel.append(title, warning);
 
@@ -562,6 +654,8 @@ export class Game {
       return;
     }
     const candidate = RunManager.createEnvelope(this.newProfileId());
+    try { SaveManager.attachSharedCamp(candidate); }
+    catch { this.showSaveSlotMenu('共享营地读取失败，请保留存档并重试。', true); return; }
     this.commitEnvelope(candidate, () => this.showCamp());
   }
 
@@ -573,7 +667,7 @@ export class Game {
     this.removeStartMenu();
     const { overlay, panel } = this.createStartMenuShell();
     panel.append(buildCampView(envelope, {
-      start: (archetype) => this.startArchetype(archetype),
+      start: (archetype, mechanism) => this.startArchetype(archetype, mechanism),
       resume: () => this.resumeActiveRun(),
       unlock: (id) => this.unlockArchetype(id),
       setPreference: (id) => {
@@ -634,12 +728,13 @@ export class Game {
     }
   }
 
-  private startArchetype(archetype: ArchetypeId): void {
+  private startArchetype(archetype: ArchetypeId, mechanism?: EquipmentMechanismTag): void {
     if (!this.envelope || this.failedSaveCandidate || !archetypeAllowed(this.envelope.profile, archetype)) return;
     try {
       const runId = this.newRunId();
       const seed = this.newGameSeed();
       const candidate = RunManager.startRun(this.envelope, runId, seed, archetype, Date.now());
+      if (candidate.activeRun) candidate.activeRun.setPreference = mechanism;
       this.commitEnvelope(candidate, () => this.startNewGame(archetype));
     } catch (error) {
       this.showCamp(error instanceof Error ? error.message : '无法开始新冒险。');
@@ -668,6 +763,10 @@ export class Game {
 
   private exportLegacyArchive(): void {
     if (this.envelope?.legacyArchive) SaveManager.exportLegacy(this.saveSlot);
+  }
+
+  private get mechanismPreference(): EquipmentMechanismTag | undefined {
+    return this.envelope?.activeRun?.setPreference as EquipmentMechanismTag | undefined;
   }
 
   private newProfileId(): string {
@@ -794,6 +893,9 @@ export class Game {
   }
 
   private startNewGame(archetype: ArchetypeId): void {
+    this.equipmentRulesVersion = this.envelope?.activeRun?.equipmentRulesVersion ?? 1;
+    this.craftingSequence = 0;
+    this.setRuntime.reset();
     this.runTalents = createRunTalents();
     this.runTalents = unlockRunTalent(this.runTalents,
       archetype === 'vanguard' ? 'melee_seed' : archetype === 'summoner' ? 'summon_seed' : 'fire_seed', 1);
@@ -853,6 +955,9 @@ export class Game {
 
   private loadGame(save: SaveData): void {
     this.pendingResume = save;
+    this.equipmentRulesVersion = save.equipmentRulesVersion ?? 1;
+    this.craftingSequence = save.craftingSequence ?? 0;
+    this.setRuntime.restore(save.runtime?.setState);
     this.runTalents = save.runTalents ? structuredClone(save.runTalents) : createRunTalents();
     this.migratedRunTalents = !save.runTalents;
     this.fireModifiers = deriveFireModifiers(this.runTalents);
@@ -865,6 +970,8 @@ export class Game {
     this.materials = save.materials;
     this.materialCounts = { ...(save.materialCounts ?? {}) };
     this.reforgeTickets = save.reforgeTickets ?? 0;
+    this.addMaterials([{ materialId: 'element_shard', amount: this.reforgeTickets }]);
+    this.reforgeTickets = 0;
     this.pendingSavedMonsters = Array.isArray(save.monsters) ? save.monsters : null;
     this.pendingPortalActive = save.portalActive ?? null;
     this.skillLoadout = [...new Set(save.skillLoadout ?? DEFAULT_SKILL_LOADOUT)].slice(0, 4);
@@ -994,6 +1101,7 @@ export class Game {
     await preloadChapterTextures(this.floor);
     await loading.step(30, '构建场景');
     prepareFoundryPanels(data, resume?.runtime?.brokenFoundryPanels);
+    this.setRuntime.clearTargets();
     this.world.generate(data);
     await loading.step(65, '安置角色与遭遇');
     this.audio.startAmbient(data.theme.id);
@@ -1049,6 +1157,7 @@ export class Game {
     this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     this.world.setPortalActive(this.portalActive);
     if (resume?.runtime?.summonSquad) this.summonSystem.restore(resume.runtime.summonSquad, data, this.player, this.summonConfig());
+    this.reconcileSummons();
     await loading.step(85, '准备画面');
     await this.renderer.compileAsync(this.scene, this.camera);
     this.renderer.render(this.scene, this.camera);
@@ -1125,9 +1234,21 @@ export class Game {
       this.changeGold(rewardGold, 'encounter_reward', { encounterId: cleared.id ?? 'unknown', kind: cleared.kind ?? 'unknown' });
       this.player.heal(this.player.maxHealth * 0.08);
       if (cleared.kind === 'elite') {
-        const item = ItemGenerator.generate(this.floor, new RNG(this.currentFloorSeed ^ Number(cleared.id!.split('-')[1]) * 31337), this.player.level, 'rare', undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference, this.floor === 1);
+        const run = this.envelope?.activeRun;
+        const starter = this.equipmentRulesVersion >= 2 && this.floor <= 5 && run && !run.p5StarterGranted;
+        const rewardRng = new RNG(this.currentFloorSeed ^ Number(cleared.id!.split('-')[1]) * 31337);
+        const item = ItemGenerator.generate(this.floor, rewardRng, this.player.level, 'rare', undefined, this.effectiveStats().luck, run?.rewardPreference, this.floor === 1 || Boolean(starter), this.equipmentRulesVersion, this.mechanismPreference);
         if (this.inventory.add(item)) this.recordItemAcquired(item, 'elite_encounter_reward');
         else this.spawnDrop(this.player.position, { kind: 'item', item });
+        if (starter && item.setId) {
+          run.p5StarterGranted = true;
+          const otherSlot = item.slot === 'helmet' ? 'chest' : 'helmet';
+          const companion = ItemGenerator.generate(this.floor, rewardRng, this.player.level, 'magic', otherSlot,
+            0, run.rewardPreference, false, 2, this.mechanismPreference, item.setId);
+          if (this.inventory.add(companion)) this.recordItemAcquired(companion, 'set_starter_reward');
+          else this.spawnDrop(this.player.position, { kind: 'item', item: companion });
+          this.hud.showLootMessage('流派起步：获得同套的两个不同部位', 0xffd77a);
+        }
       }
       this.playtestRecorder.record('encounter_completed', {
         floor: this.floor,
@@ -1226,7 +1347,7 @@ export class Game {
       (projectile.mesh.material as THREE.Material).dispose();
     });
     this.projectiles = [];
-    this.drops.forEach((drop) => this.disposeObject(drop.mesh));
+    this.drops.forEach((drop) => this.disposeDrop(drop));
     this.drops = [];
     this.effects.clear();
   }
@@ -1247,9 +1368,11 @@ export class Game {
   }
 
   private onResize(): void {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    const width = Math.max(1, window.innerWidth);
+    const height = Math.max(1, window.innerHeight);
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(width, height);
   }
 
   private requestPointerLock(): void {
@@ -1273,6 +1396,7 @@ export class Game {
     this.lastTime = now;
     if (!this.running || this.isGameplayPaused() || !this.player.alive) this.summonCommands?.hide();
     if (!this.player.alive && this.summonSystem.count) this.summonSystem.clear('owner-death');
+    if (document.hidden || this.graphicsLost || this.renderer.getContext().isContextLost()) { this.input.endFrame(); return; }
     if (this.running) this.updateGame(dt);
     this.updateAimIndicator();
     this.renderer.render(this.scene, this.camera);
@@ -1333,12 +1457,18 @@ export class Game {
     }
 
     if (this.player.alive) {
+      const movementStartX = this.player.position.x;
+      const movementStartZ = this.player.position.z;
       if (!this.inventoryUI.open && !this.skillOpen) {
         const wasGrounded = this.player.onGround;
         this.controller.update(dt, this.floorData, stats, rawDt);
         this.updatePlayerVisibility();
         if (this.input.wasPressed('Space') && wasGrounded) this.audio.jump();
       }
+      this.setRuntime.update(rawDt, this.equipment.getP5SetCounts(),
+        Math.hypot(this.player.position.x - movementStartX, this.player.position.z - movementStartZ),
+        Boolean(this.encounters?.lockedRoomIds.length));
+      if (this.player.health < this.player.maxHealth * .3) this.setRuntime.onLowHealth();
       this.handleInput(dt, stats);
       if (this.isGameplayPaused()) return;
       const aliveBeforePlayerUpdate = this.player.alive;
@@ -1354,8 +1484,8 @@ export class Game {
       if (this.attackAnimTimer > 0) {
         this.attackAnimTimer -= rawDt;
         const progress = Math.max(0, 1 - this.attackAnimTimer / this.attackAnimDuration);
-        this.player.swingArm(progress);
-        this.firstPersonView.swing(progress);
+        this.player.swingArm(progress, this.attackSwingAngle);
+        this.firstPersonView.swing(progress, this.attackSwingAngle);
       }
     } else this.audio.stopWalk();
 
@@ -1694,6 +1824,8 @@ export class Game {
         floor: this.floor, gold: this.gold, stock: this.shopStock, inventory: this.inventory.items,
         materials: this.materialCounts, full: !this.inventory.hasSpace(), refreshes: this.shopRefreshes,
         gambles: this.shopGambles, heals: this.shopHeals,
+        commission: this.equipmentRulesVersion >= 2 ? missingSetCommission(this.equipment.getEquippedItems()) : undefined,
+        buyShard: this.equipmentRulesVersion >= 2 ? () => this.buyCraftingShard() : undefined,
         needsHealing: this.player.health < this.player.maxHealth || this.player.mana < this.player.maxMana,
         message, buy: uid => this.buyShopItem(uid), refresh: () => this.refreshShop(),
         gamble: slot => this.gambleShopItem(slot), heal: () => this.healAtShop(),
@@ -1770,7 +1902,7 @@ export class Game {
     const scrollTop = this.floorRestOverlay?.querySelector('.merchant-panel')?.scrollTop ?? 0;
     if (this.shopFloor !== this.floor) {
       this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, 4,
-        new RNG((this.seed ^ (this.floor * 4099)) >>> 0), this.envelope?.activeRun?.rewardPreference);
+        new RNG((this.seed ^ (this.floor * 4099)) >>> 0), this.envelope?.activeRun?.rewardPreference, this.equipmentRulesVersion, this.mechanismPreference);
       this.shopFloor = this.floor;
       this.shopRefreshes = this.shopGambles = this.shopHeals = 0;
       this.saveGame();
@@ -1813,7 +1945,7 @@ export class Game {
     this.playtestRecorder.record('shop_transaction', { action: 'refresh', goldAmount: -price, floor: this.floor });
     this.shopRefreshes++;
     this.shopStock = ShopSystem.generateStock(this.floor, this.player.level, 4,
-      new RNG((this.seed ^ (this.floor * 4099) ^ (this.shopRefreshes * 65537)) >>> 0), this.envelope?.activeRun?.rewardPreference);
+      new RNG((this.seed ^ (this.floor * 4099) ^ (this.shopRefreshes * 65537)) >>> 0), this.envelope?.activeRun?.rewardPreference, this.equipmentRulesVersion, this.mechanismPreference);
     this.saveGame();
     this.showShopMenu('货架已换新；委托与补给次数保持不变');
   }
@@ -1822,8 +1954,10 @@ export class Game {
     const price = ShopSystem.gamblePrice(this.floor, slot);
     if (!this.shopOpen || this.shopGambles >= 3 || this.gold < price || !this.inventory.hasSpace()
       || !SHOP_SLOTS.some(option => option.slot === slot)) return;
+    const commission = this.equipmentRulesVersion >= 2 ? missingSetCommission(this.equipment.getEquippedItems()) : undefined;
     const item = ShopSystem.gamble(this.floor, this.player.level, slot,
-      new RNG((this.seed ^ (this.floor * 8191) ^ ((this.shopGambles + 1) * 104729)) >>> 0), this.envelope?.activeRun?.rewardPreference);
+      new RNG((this.seed ^ (this.floor * 8191) ^ ((this.shopGambles + 1) * 104729)) >>> 0), this.envelope?.activeRun?.rewardPreference, this.equipmentRulesVersion, this.mechanismPreference,
+      commission?.slots.includes(slot) ? commission.id : undefined);
     this.inventory.add(item);
     this.recordItemAcquired(item, 'shop_gamble');
     this.changeGold(-price, 'shop_gamble', { itemId: item.id, itemName: item.name, slot });
@@ -1832,6 +1966,16 @@ export class Game {
     this.audio.pickup();
     this.saveGame();
     this.showShopMenu(`委托完成：${item.name}（${this.rarityLabel(item.rarity)}）已收入背包`);
+  }
+
+  private buyCraftingShard(): void {
+    const price = Math.ceil(ShopSystem.materialPrice('element_shard', this.floor) * 1.5);
+    if (!this.shopOpen || this.equipmentRulesVersion < 2 || this.shopGambles >= 3 || this.gold < price) return;
+    this.changeGold(-price, 'shop_crafting_supply');
+    this.addMaterials([{ materialId: 'element_shard', amount: 1 }]);
+    this.shopGambles++;
+    this.saveGame();
+    this.showShopMenu('获得元素碎片 ×1；已使用一次本层委托额度');
   }
 
   private healAtShop(): void {
@@ -1937,6 +2081,7 @@ export class Game {
         if (!this.canEditRunTalents() || this.gold < cost) return;
         this.changeGold(-cost, 'talent_reset');
         this.runTalents = resetRunTalents(this.runTalents);
+        this.reconcileSummons();
         this.refreshTalentEffects();
         if (this.saveGame()) this.renderCharacterPanel();
       }, this.gold < cost);
@@ -2104,7 +2249,9 @@ export class Game {
     this.attackAnimDuration = this.attackAnimTimer;
     this.attackTimer = 1 / attackSpeed;
 
+    this.attackSwingAngle = meleeSwingAngle(weapon?.id ?? 'sword', this.attackSwingSequence++);
     if (this.isStaffWeapon(weapon)) {
+      this.attackSwingAngle = 0;
       this.doStaffAttack(weapon, aim, stats);
       return;
     }
@@ -2122,11 +2269,14 @@ export class Game {
     const profile = this.getMeleeProfile(weapon);
     const targets = this.getTargetsInFront(aim, profile.range, 1.0);
     this.audio.swing();
+    const visualAim = this.controller.isFirstPerson ? this.controller.getProjectileDirection() : aim;
     this.effects.meleeSlash(
-      this.player.position.clone().add(new THREE.Vector3(0, 1.1, 0)).addScaledVector(aim, 1.4),
-      aim,
+      this.player.position.clone().add(new THREE.Vector3(0, this.controller.isFirstPerson ? 1.5 : 1.1, 0)).addScaledVector(visualAim, 1.4),
+      visualAim,
       profile.color,
       profile.scale,
+      this.attackSwingAngle,
+      this.attackAnimDuration,
     );
 
     targets.slice(0, 3).forEach((target, index) => {
@@ -2303,9 +2453,12 @@ export class Game {
     skill.cooldownRemaining = skill.cooldown;
     this.skillCooldowns[skill.id] = skill.cooldown;
     this.player.mana -= skill.manaCost;
+    const coldBeforeCast = this.setRuntime.coldStacks;
+    this.castingSetSkill = skill.id;
     if (this.p4Skills.handles(skill.id)) {
       const cast = this.p4Skills.cast(skill.id);
       if (!cast.success) {
+        this.castingSetSkill = null;
         this.player.mana = Math.min(this.player.maxMana, this.player.mana + skill.manaCost);
         skill.cooldownRemaining = 0;
         this.skillCooldowns[skill.id] = 0;
@@ -2321,6 +2474,8 @@ export class Game {
     if (skill.id === 'frost_nova') this.useFrostNova(stats, skill);
     if (skill.id === 'lightning_chain') this.useLightningChain(stats, skill);
     if (skill.id === 'detonate') this.useDetonate();
+    this.setRuntime.onCast(skill.id, skill.manaCost, coldBeforeCast);
+    this.castingSetSkill = null;
   }
 
   private recordBuildSkillUse(id: string): void {
@@ -2583,7 +2738,7 @@ export class Game {
       monster.update(dt, this.elapsed);
       this.keepMonsterInBounds(monster);
       if (wasAliveBeforeUpdate && monster.dead) {
-        this.onMonsterKilled(monster, false);
+        this.onMonsterKilled(monster, false, false);
         if (this.isGameplayPaused()) return;
       }
 
@@ -2707,7 +2862,7 @@ export class Game {
         const raw = projectile.damage * (crit ? this.effectiveStats().critDamage : 1);
         const damage = elementalDamage(raw * (1 - defenseMitigation(hitMonster.def.armor, this.floor)),
           element, hitMonster.def.resistances, hitMonster.statuses);
-        this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7, projectile.position, element);
+        this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7, projectile.position, element, true, projectile.sourceSkillId ?? 'staff_attack');
         if (this.isGameplayPaused()) return;
         const fire = projectile.fireModifiers ?? this.fireModifiers;
         if (element === 'fire' && fire.enabled) {
@@ -2761,7 +2916,7 @@ export class Game {
           monster.def.resistances,
           monster.statuses,
         );
-        this.applyMonsterDamage(monster, result.damage, result.crit, projectile.impact ?? 0.7, undefined, element);
+        this.applyMonsterDamage(monster, result.damage, result.crit, projectile.impact ?? 0.7, undefined, element, false);
         this.applyPlayerElementalHit(monster, element, projectile.damage * 0.6, projectile.statusChance);
       });
       return;
@@ -2772,9 +2927,9 @@ export class Game {
     }
   }
 
-  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3, element: ElementType = 'physical', canLeech = true): void {
+  private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3, element: ElementType = 'physical', canLeech = true, setSource?: string): void {
     if (monster.dead) return;
-    if (this.equipment.hasSpecial('executeFullHealth') && this.player.health >= this.player.maxHealth) damage *= 1.25;
+    if (canLeech && this.equipment.hasSpecial('executeFullHealth') && this.player.health >= this.player.maxHealth) damage *= 1.25;
     if (directSource) damage = this.encounterMechanics.onDirectHit(monster, directSource, damage);
     if (monster.def.id === 'furnace_regent') damage *= this.foundryBossController.damageMultiplier;
     if (monster.def.id === 'ruins_warden') damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
@@ -2782,6 +2937,11 @@ export class Game {
     const actualDamage = Math.min(monster.health, damage);
     const killed = monster.takeDamage(damage);
     if (canLeech) this.player.leech(actualDamage * this.effectiveStats().lifeSteal);
+    if (canLeech || setSource) {
+      const source = setSource ?? this.castingSetSkill ?? 'melee_attack';
+      if (killed) this.setRuntime.onKillingHit(element, source);
+      else this.setRuntime.onHit(monster, element, source);
+    }
     const hitImpact = Math.max(0.25, Math.min(1.3, impact));
     monster.hitFlash = Math.max(monster.hitFlash, 0.05 + hitImpact * 0.07);
     this.hitstopTimer = Math.max(this.hitstopTimer, 0.012 + hitImpact * 0.03);
@@ -2794,10 +2954,10 @@ export class Game {
       this.hitstopTimer = Math.max(this.hitstopTimer, 0.05);
 
     }
-    if (killed) this.onMonsterKilled(monster, crit);
+    if (killed) this.onMonsterKilled(monster, crit, canLeech || Boolean(setSource));
   }
 
-  private onMonsterKilled(monster: Monster, crit: boolean): void {
+  private onMonsterKilled(monster: Monster, crit: boolean, allowEquipmentProcs = true): void {
     if (monster.def.id === 'furnace_regent') {
       this.foundryBossController.clear();
       // End the encounter immediately; cleanup is not an extra rewarded kill.
@@ -2813,7 +2973,7 @@ export class Game {
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.9, 0)), monster.def.color, 22, 5);
 
 
-    if (this.equipment.hasSpecial('explosiveKill')) {
+    if (allowEquipmentProcs && this.equipment.hasSpecial('explosiveKill')) {
       this.effects.explosion(monster.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff7a2a);
       const nearby = this.monsters.filter(
         (other) => other !== monster && !other.dead && other.position.distanceTo(monster.position) < 3,
@@ -2825,7 +2985,7 @@ export class Game {
       });
     }
 
-    const summonCap = this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0;
+    const summonCap = allowEquipmentProcs && this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0;
     if (summonCap > 0 && this.summonSystem.capacityUsed < this.summonConfig().capacity!) {
       this.spawnSummonedSkeleton(monster.position.clone());
     }
@@ -2845,7 +3005,7 @@ export class Game {
       if (Math.random() < 0.4) {
         this.spawnDrop(monster.position, {
           kind: 'item',
-          item: ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference),
+          item: ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference, false, this.equipmentRulesVersion, this.mechanismPreference),
         });
       }
     }
@@ -2863,6 +3023,7 @@ export class Game {
       monster.def.behavior === 'boss',
       this.player.level,
       this.envelope?.activeRun?.rewardPreference,
+      this.equipmentRulesVersion, this.mechanismPreference,
     );
     drops.forEach((drop) => this.spawnDrop(monster.position, drop));
   }
@@ -2894,7 +3055,7 @@ export class Game {
     const stats = this.effectiveStats();
     const mods = deriveP4Modifiers(this.runTalents);
     return { attack: stats.attack * mods.damageMultiplier, maxHealth: stats.maxHealth,
-      capacity: Math.max(mods.capacity, this.equipment.hasSpecial('summonSkeletonOnKill') ? 4 : 0),
+      capacity: Math.max(mods.capacity, (this.equipment.hasSpecial('summonSkeletonOnKill') || (this.equipment.getP5SetCounts().venom ?? 0) >= 2) ? 4 : 0),
       direction: mods.summonDirection === 'elite' ? 'elite' : 'legion',
       guardianShield: stats.maxHealth * .04 * mods.summonGuardMultiplier };
   }
@@ -2912,17 +3073,30 @@ export class Game {
     this.summonSystem.focus(target);
   }
 
+  private reconcileSummons(): void {
+    this.summonSystem.reconcileSources(deriveP4Modifiers(this.runTalents).raiseCompanyUnlocked,
+      this.equipment.hasSpecial('summonSkeletonOnKill'), (this.equipment.getP5SetCounts().venom ?? 0) >= 2);
+  }
+
   private updateSummons(dt: number): void {
+    this.reconcileSummons();
     if (!this.floorData) return;
     this.summonSystem.update(dt, this.floorData, this.player, this.monsters, this.summonConfig(), {
-      damage: (target, amount) => {
+      damage: (target, amount, _position, source) => {
+        if (source?.source === 'p5-venom') amount = this.setRuntime.temporaryDamage();
+        if (amount < 1) return;
         const stats = this.effectiveStats();
-        const hit = CombatSystem.rollDamage(amount, stats.critChance, stats.critDamage,
+        const hit = CombatSystem.rollDamage(amount, source?.source === 'p5-venom' ? 0 : stats.critChance, source?.source === 'p5-venom' ? 1 : stats.critDamage,
           target.def.armor, this.floor, 'physical', target.def.resistances, target.statuses);
+        if (source?.source === 'p5-venom') hit.damage = Math.min(Math.floor(amount), elementalDamage(
+          amount * (1 - defenseMitigation(target.def.armor, this.floor)), 'physical', target.def.resistances, target.statuses));
         this.applyMonsterDamage(target, hit.damage, hit.crit, .4, undefined, 'physical', false);
+        if (!target.dead && source && (!source.temporary || source.source === 'p5-venom')) this.setRuntime.onSummonHit(target, source.role, source.focused, source.temporary);
       },
       shield: amount => this.addP4Shield(amount),
       effect: effect => {
+        if (effect.kind === 'end' && effect.source === 'p5-venom' && ['death', 'expired'].includes(effect.reason ?? ''))
+          this.setRuntime.onTemporaryEnd(this.monsters.filter(t => !t.dead && t.position.distanceTo(effect.position) < 2.5 && this.hasLineOfSight(effect.position, t.position)));
         if (effect.kind === 'coordinated-shot' || effect.kind === 'guardian-shield')
           this.effects.burst(effect.position, effect.kind === 'guardian-shield' ? 0xbadfe0 : 0xd9b576, 6, 1);
       },
@@ -2950,6 +3124,34 @@ export class Game {
   }
 
   private spawnDrop(position: THREE.Vector3, drop: LootDrop): void {
+    if (drop.kind === 'item') {
+      const pos = position.clone();
+      pos.y = .04;
+      pos.x += (Math.random() - .5) * .6;
+      pos.z += (Math.random() - .5) * .6;
+      if (this.floorData && !MonsterSpawner.isWalkableCell(this.floorData, Math.floor(pos.x), Math.floor(pos.z))) {
+        const spot = MonsterSpawner.findNearestWalkable(this.floorData, position.x, position.z);
+        if (spot) { pos.x = spot.x + .5; pos.z = spot.z + .5; }
+        else { pos.x = position.x; pos.z = position.z; }
+      }
+      const visual = new EquipmentDropVisual(drop.item, PerformanceTierDetector.tier === 'low');
+      visual.group.position.copy(pos);
+      this.scene.add(visual.group);
+      this.drops.push({ mesh: visual.group, visual, position: pos, kind: 'item', item: drop.item,
+        bobPhase: 0, life: Infinity, age: 0, pickupDelay: visual.pickupDelay, retryIn: 0 });
+      const nearby = Math.hypot(pos.x - this.player.position.x, pos.z - this.player.position.z) < 18;
+      const red = drop.item.rarity === 'legendary';
+      if (nearby && (red ? this.redLootCooldown <= 0 : this.lootSoundCooldown <= 0)) {
+        this.audio.lootDrop(drop.item.rarity);
+        this.lootSoundCooldown = .25;
+        if (red) {
+          this.redLootCooldown = 1.5;
+          this.controller.addShake(.08);
+          this.hud.showLootMessage(`传说现世 · ${drop.item.name}`, this.rarityColor(drop.item.rarity));
+        }
+      }
+      return;
+    }
     const color =
       drop.kind === 'gold'
         ? 0xffd24a
@@ -2959,9 +3161,7 @@ export class Game {
             ? 0x4da3ff
             : drop.kind === 'reforgeTicket'
               ? 0xd49bff
-            : drop.kind === 'item'
-              ? this.rarityColor(drop.item.rarity)
-              : 0xffffff;
+            : 0xffffff;
     const geometry =
       drop.kind === 'gold'
         ? new THREE.BoxGeometry(0.28, 0.12, 0.28)
@@ -2980,35 +3180,49 @@ export class Game {
       mesh,
       position: pos,
       kind: drop.kind,
-      amount: drop.kind !== 'item' ? drop.amount : undefined,
-      item: drop.kind === 'item' ? drop.item : undefined,
+      amount: drop.amount,
+      age: 0, pickupDelay: 0, retryIn: 0,
       bobPhase: Math.random() * Math.PI * 2,
       life: 30,
     });
   }
 
+  private disposeDrop(drop: DropEntity): void {
+    if (drop.visual) drop.visual.dispose();
+    else this.disposeObject(drop.mesh);
+  }
+
   private updateDrops(dt: number, stats: DerivedStats): void {
+    this.lootSoundCooldown -= dt;
+    this.redLootCooldown -= dt;
+    this.fullInventoryNoticeCooldown -= dt;
+    let detailBudget = PerformanceTierDetector.tier === 'low' ? 10 : 20;
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const drop = this.drops[i];
       drop.life -= dt;
-      drop.bobPhase += dt * 3;
-      drop.mesh.position.y = drop.position.y + Math.sin(drop.bobPhase) * 0.12;
-      drop.mesh.rotation.y += dt * 2;
+      drop.age += dt;
+      drop.retryIn -= dt;
+      const distance = Math.hypot(drop.position.x - this.player.position.x, drop.position.z - this.player.position.z);
+      if (drop.visual) {
+        const detailed = distance < 24 && detailBudget > 0;
+        if (detailed) detailBudget--;
+        drop.visual.update(dt, distance, detailed);
+      } else {
+        drop.bobPhase += dt * 3;
+        drop.mesh.position.y = drop.position.y + Math.sin(drop.bobPhase) * .12;
+        drop.mesh.rotation.y += dt * 2;
+      }
       if (drop.life <= 0) {
-        this.scene.remove(drop.mesh);
-        drop.mesh.geometry.dispose();
-        (drop.mesh.material as THREE.Material).dispose();
+        this.disposeDrop(drop);
         this.drops.splice(i, 1);
         continue;
       }
-      const dx = drop.position.x - this.player.position.x;
-      const dz = drop.position.z - this.player.position.z;
-      const distance = Math.sqrt(dx * dx + dz * dz);
-      if (distance < stats.pickupRange && this.pickupDrop(drop)) {
-        this.scene.remove(drop.mesh);
-        drop.mesh.geometry.dispose();
-        (drop.mesh.material as THREE.Material).dispose();
-        this.drops.splice(i, 1);
+      if (distance < stats.pickupRange && drop.age >= drop.pickupDelay && drop.retryIn <= 0) {
+        drop.retryIn = .5;
+        if (this.hasLineOfSight(this.player.position, drop.position) && this.pickupDrop(drop)) {
+          this.disposeDrop(drop);
+          this.drops.splice(i, 1);
+        }
       }
     }
   }
@@ -3031,9 +3245,9 @@ export class Game {
       this.audio.pickup();
       return true;
     } else if (drop.kind === 'reforgeTicket') {
-      this.reforgeTickets += drop.amount ?? 1;
+      this.addMaterials([{ materialId: 'element_shard', amount: drop.amount ?? 1 }]);
       this.audio.pickup();
-      this.hud.showCenterMessage('获得重铸券', '可用于重铸装备', 1.2);
+      this.hud.showCenterMessage('获得元素碎片', '重铸券已兑换；用于定向或保留词条打造', 1.2);
       return true;
     } else if (drop.kind === 'item' && drop.item) {
       if (this.inventory.add(drop.item)) {
@@ -3042,7 +3256,10 @@ export class Game {
         this.hud.showLootMessage(`获得 ${drop.item.name}`, this.rarityColor(drop.item.rarity));
         return true;
       } else {
-        this.hud.showCenterMessage('背包已满', '无法拾取装备', 1.2);
+        if (this.fullInventoryNoticeCooldown <= 0) {
+          this.hud.showCenterMessage('背包已满', '装备留在地上，可整理后拾取', 1.2);
+          this.fullInventoryNoticeCooldown = 2;
+        }
         return false;
       }
     }
@@ -3128,9 +3345,9 @@ export class Game {
       const dz = this.player.position.z - (chest.z + 0.5);
       if (Math.hypot(dx, dz) <= 1.8) {
         this.openedChests.add(key);
-        this.reforgeTickets++;
+        this.addMaterials([{ materialId: 'element_shard', amount: 1 }]);
         this.world.removeChest(chest.x, chest.z);
-        const item = ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference);
+        const item = ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference, false, this.equipmentRulesVersion, this.mechanismPreference);
         const gold = 10 + this.floor * 3;
         this.changeGold(gold, 'chest', { chest: key });
         if (this.inventory.add(item)) {
@@ -3248,7 +3465,7 @@ export class Game {
       && !this.attributeOpen && !this.skillOpen && !this.inventoryUI.open;
     this.hud.setInteraction(visible && !this.mobile ? this.interactionLabel() : null);
     this.touchControls?.setGameplayState(visible, this.controller.isFirstPerson, visible ? this.interactionLabel() : null);
-    if (!visible || this.controller.isFirstPerson) {
+    if (!visible || (this.controller.isFirstPerson && !this.controller.isTouchAiming)) {
       this.hud.setAimPoint(0, 0, visible, false);
       return;
     }
@@ -3463,8 +3680,8 @@ export class Game {
     const def = skillById(id);
     if (!def) return false;
     if (!def.talentId) return true;
-    if (id === 'frost_nova') return this.equipment.hasSpecial('glacialNova');
-    if (id === 'lightning_chain') return this.equipment.hasSpecial('shockMastery');
+    if (id === 'frost_nova') return this.equipment.hasSpecial('glacialNova') || (this.equipment.getP5SetCounts().frost ?? 0) >= 2 || (this.equipment.getP5SetCounts().glacier ?? 0) >= 2;
+    if (id === 'lightning_chain') return this.equipment.hasSpecial('shockMastery') || (this.equipment.getP5SetCounts().storm ?? 0) >= 2;
     return this.runTalents.unlocked.includes(def.talentId);
   }
 
@@ -3479,6 +3696,8 @@ export class Game {
     const previous = this.equipment.equip(item);
     if (previous) this.inventory.add(previous);
     this.updatePlayerStats(this.effectiveStats());
+    this.setRuntime.update(0, this.equipment.getP5SetCounts(), 0, false);
+    this.reconcileSummons();
     this.updateWeaponVisual();
     this.inventoryUI.show(this.equipment, this.inventory);
     this.skills = this.buildSkillStates();
@@ -3489,6 +3708,8 @@ export class Game {
     if (!item) return;
     if (this.inventory.add(item)) {
       this.updatePlayerStats(this.effectiveStats());
+      this.setRuntime.update(0, this.equipment.getP5SetCounts(), 0, false);
+      this.reconcileSummons();
       this.updateWeaponVisual();
       this.skills = this.buildSkillStates();
       this.showInventory();
@@ -3566,19 +3787,18 @@ export class Game {
   private confirmReforge(index: number): void {
     const item = this.inventory.items[index];
     if (!item) return;
-    const affordable = this.reforgeTickets >= 1;
-    if (!affordable) this.audio.uiError();
-    this.showCraftOverlay(
-      affordable ? '确认重铸' : '无法重铸',
-      `${item.name} 将重新随机词条<br>重铸券 x1<br>当前 重铸券 ${this.reforgeTickets}${affordable ? '' : '<br><span style="color:#ff7b7b">重铸券不足，无法重铸</span>'}`,
-      () => this.reforgeFromInventory(index),
-      !affordable,
-    );
+    this.closeCraftOverlay();
+    const overlay = createReforgePanel(item, { gold: this.gold, materials: this.materialCounts },
+      options => { this.closeCraftOverlay(); this.reforgeFromInventory(index, options, item.id); },
+      () => this.closeCraftOverlay());
+    this.craftOverlay = overlay;
+    document.body.appendChild(overlay);
+    this.mobileBack.register('craft', () => this.closeCraftOverlay());
   }
 
   private materialStatusText(): string {
     const materials = MATERIAL_ORDER.map((id) => `${this.materialLabel(id)} ${this.materialCount(id)}`).join(' · ');
-    return `重铸券 ${this.reforgeTickets}${materials ? ` · ${materials}` : ''}`;
+    return materials;
   }
 
   private showCraftOverlay(title: string, infoHTML: string, onConfirm: () => void, confirmDisabled = false): void {
@@ -3794,40 +4014,33 @@ export class Game {
     this.saveGame();
   }
 
-  private reforgeFromInventory(index: number): void {
+  private reforgeFromInventory(index: number, options: ReforgeOptions = {}, expectedId?: string): void {
     const item = this.inventory.items[index];
-    if (!item) return;
-    if (this.reforgeTickets < 1) {
+    if (!item || (expectedId && item.id !== expectedId)) return;
+    try {
+      if (!CraftingSystem.canReforge(item, options)) throw new Error(CraftingSystem.reforgeUnavailableReason(item, options) ?? '无法重铸');
+      const cost = CraftingSystem.reforgeCost(item, options);
+      if (!this.canPayCost(cost)) throw new Error('金币或打造材料不足');
+      const rng = new RNG((this.seed ^ Math.imul(this.craftingSequence + 1, 104729)) >>> 0);
+      const reforged = CraftingSystem.reforgeItem(item, rng, options);
+      this.payCost(cost);
+      this.craftingSequence++;
+      this.inventory.items[index] = reforged;
+      this.playtestRecorder.record('craft_completed', { action: 'reforge', floor: this.floor, itemId: item.id,
+        tag: options.tag ?? 'any', lockedAffixId: options.lockedAffixId, remaining: CraftingSystem.remainingReforges(reforged), goldSpent: cost.gold });
+      this.audio.pickup();
+      this.showInventory();
+      this.hud.showLootMessage(`重铸完成：${reforged.name}`, this.rarityColor(reforged.rarity));
+      this.saveGame();
+    } catch (error) {
       this.audio.uiError();
-      this.hud.showCenterMessage('无法重铸：重铸券不足', '击败怪物有 2% 概率掉落重铸券', 1.8);
-      return;
+      this.hud.showCenterMessage('无法重铸', error instanceof Error ? error.message : '请重试', 1.8);
     }
-    this.reforgeTickets--;
-    const reforged = CraftingSystem.reforgeItem(item);
-    this.inventory.items[index] = reforged;
-    this.playtestRecorder.record('craft_completed', {
-      action: 'reforge',
-      floor: this.floor,
-      itemId: item.id,
-      itemNameBefore: item.name,
-      itemNameAfter: reforged.name,
-      reforgeTicketsSpent: 1,
-    });
-    this.audio.pickup();
-    this.showInventory();
-    this.hud.showLootMessage(`重铸完成：${reforged.name}`, this.rarityColor(reforged.rarity));
-    this.saveGame();
   }
 
   private rarityColor(rarity: string): number {
-    const colors: Record<string, number> = {
-      common: 0xc9ced6,
-      magic: 0x4da3ff,
-      rare: 0xffe14d,
-      epic: 0xc05bff,
-      legendary: 0xff8a1e,
-    };
-    return colors[rarity] ?? 0xc9ced6;
+    const color = UI_RARITY_COLORS[rarity as keyof typeof UI_RARITY_COLORS] ?? '#55bd69';
+    return parseInt(color.slice(1), 16);
   }
 
   private captureRunSnapshot(): SaveData {
@@ -3871,7 +4084,10 @@ export class Game {
       shopGambles: this.shopGambles,
       shopHeals: this.shopHeals,
       playerStatuses: this.player.statuses,
+      equipmentRulesVersion: this.equipmentRulesVersion,
+      craftingSequence: this.craftingSequence,
       runtime: {
+        setState: this.setRuntime.snapshot(),
         summonSquad: this.summonSystem.snapshot(),
         brokenFoundryPanels: this.floorData ? foundryPanels(this.floorData).filter(p => p.broken).map(p => p.id) : [],
         foundryTrialClaimed: this.foundryTrialClaimed,

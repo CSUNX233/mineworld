@@ -69,6 +69,7 @@ export class PlayerController {
       this.cameraPitch = this.thirdPersonPitch;
       this.boomDistance = 0;
     }
+    this.endTouchAim(true);
     this.firstPerson = value;
     this.recenterYaw = null;
   }
@@ -117,7 +118,15 @@ export class PlayerController {
   }
 
   setTouchAim(x: number, y: number): void {
-    if (Math.hypot(x, y) < 5) return;
+    if (Math.hypot(x, y) < 5) { this.touchAim = null; return; }
+    if (this.firstPerson) {
+      // First-person drag offsets the visible aim, rather than firing 90 degrees offscreen.
+      const yaw = this.cameraYaw - clamp(x * 0.006, -0.65, 0.65);
+      const pitch = clamp(this.cameraPitch - clamp(y * 0.006, -0.5, 0.5), -1.3, 1.3);
+      this.touchAim = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+      this.touchAimLife = Infinity;
+      return;
+    }
     const yaw = this.cameraYaw - Math.atan2(x, -y);
     this.touchAim = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     this.touchAimLife = Infinity;
@@ -127,7 +136,7 @@ export class PlayerController {
     if (cancel) this.touchAim = null;
   }
   getAimDirection(): THREE.Vector3 {
-    if (this.touchAim) return this.touchAim.clone();
+    if (this.touchAim) return this.touchAim.clone().setY(0).normalize();
     return new THREE.Vector3(Math.sin(this.cameraYaw), 0, Math.cos(this.cameraYaw));
   }
 

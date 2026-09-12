@@ -255,7 +255,7 @@
   box-shadow:none !important; border-radius:50% !important; padding:0;
 }
 #ui-root .touch-pause .sunlit-icon, #ui-root .touch-view-art .sunlit-icon { inset:0; width:100%; height:100%; }
-#ui-root .touch-view-art[data-view="first"] { outline:2px solid #92e4db; outline-offset:1px; }
+#ui-root .touch-view-art[data-view="first"] { outline:none !important; }
 .summon-role-icons { display:flex; width:100%; gap:8px; }
 .summon-role-icons > span { display:flex; align-items:center; gap:2px; }
 .summon-role-icons .sunlit-icon { width:24px; height:24px; }

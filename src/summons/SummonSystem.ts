@@ -224,6 +224,15 @@ export class SummonSystem {
     this.updateSignals(delta);
   }
 
+  /** Talent resets and equipment changes invalidate only their own summons. */
+  reconcileSources(talentUnlocked: boolean, equipmentEnabled: boolean, venomEnabled = false): void {
+    for (const unit of [...this.units]) {
+      if ((!unit.temporary && !talentUnlocked)
+        || (unit.source === 'equipment-kill' && !equipmentEnabled)
+        || (unit.source === 'p5-venom' && !venomEnabled)) this.removeUnit(unit, 'clear');
+    }
+  }
+
   clear(reason: SummonEndReason = 'clear'): void {
     for (const unit of [...this.units]) this.removeUnit(unit, reason);
     this.signals.forEach(signal => this.disposeSignal(signal));
@@ -432,7 +441,7 @@ export class SummonSystem {
 
   private deal(unit: SummonUnit, target: Monster, damage: number, host: SummonHost): void {
     if (target.dead || damage <= 0) return;
-    host.damage(target, damage, unit.position.clone());
+    host.damage(target, damage, unit.position.clone(), { role: unit.role, temporary: unit.temporary, source: unit.source, focused: this.mode === 'focus' && this.focusTarget === target });
     this.emit(host, { kind: 'hit', position: unit.position.clone(), targetPosition: target.position.clone(), role: unit.role, summonId: unit.id, amount: damage });
   }
 
@@ -556,7 +565,7 @@ export class SummonSystem {
   private removeUnit(unit: SummonUnit, reason: SummonEndReason, host?: SummonHost): void {
     const index = this.units.indexOf(unit);
     if (index < 0) return;
-    if (host) this.emit(host, { kind: 'end', position: unit.position.clone(), role: unit.role, summonId: unit.id, reason });
+    if (host) this.emit(host, { kind: 'end', position: unit.position.clone(), role: unit.role, summonId: unit.id, source: unit.source, temporary: unit.temporary, reason });
     unit.dispose(this.scene);
     this.units.splice(index, 1);
   }

@@ -1,11 +1,13 @@
 import type { ElementType, Item, Rarity, StatMap } from '../types';
 import itemData from '../data/items.json';
-import { RARITY_AFFIX_COUNT, RARITY_ORDER, rarityWeightsForFloor } from '../data/recipes';
+import { RARITY_AFFIX_COUNT, rarityWeightsForFloor } from '../data/recipes';
 import { AffixSystem } from './AffixSystem';
 import { baseDefenseFromArmor } from './StatRules';
 import { RNG } from '../utils/RNG';
 import type { ArchetypeId } from '../progression/types';
-import { matchesRewardPreference, REWARD_PREFERENCE_CHANCE } from './RewardPreference';
+import { matchesRewardPreference, p5PreferredCandidates, REWARD_PREFERENCE_CHANCE, type EquipmentMechanismTag } from './RewardPreference';
+import { P5_BASE_ITEMS } from './SetItems';
+import { equipmentSellPrice } from './ItemValue';
 
 interface BaseItemDef {
   id: string;
@@ -39,13 +41,24 @@ export class ItemGenerator {
     luck = 0,
     rewardPreference?: ArchetypeId,
     forcePreference = false,
+    equipmentRulesVersion = 1,
+    mechanism?: EquipmentMechanismTag,
+    setOverride?: string,
   ): Item {
-    const candidates = slotOverride ? BASE_ITEMS.filter(base => base.slot === slotOverride) : BASE_ITEMS;
+    const pool = equipmentRulesVersion >= 2 ? P5_BASE_ITEMS : BASE_ITEMS;
+    const baseSlot = equipmentRulesVersion >= 2 && slotOverride === 'ring2' ? 'ring' : slotOverride;
+    const candidates = baseSlot ? pool.filter(base => base.slot === baseSlot) : pool;
     let base = rng.pick(candidates);
     const rarity = rarityOverride ?? rng.weighted(rarityWeightsForFloor(floor, luck)).rarity;
     if (rewardPreference && (forcePreference || rng.chance(REWARD_PREFERENCE_CHANCE))) {
-      const preferredCandidates = candidates.filter(candidate => matchesRewardPreference(candidate, rewardPreference));
+      const preferredCandidates = equipmentRulesVersion >= 2
+        ? p5PreferredCandidates(candidates, rewardPreference, mechanism)
+        : candidates.filter(candidate => matchesRewardPreference(candidate, rewardPreference));
       if (preferredCandidates.length > 0) base = rng.pick(preferredCandidates);
+    }
+    if (equipmentRulesVersion >= 2 && setOverride) {
+      const matching = candidates.filter(candidate => candidate.setId === setOverride);
+      if (matching.length) base = rng.pick(matching);
     }
     const itemLevel = Math.max(1, floor + rng.int(-1, 2));
     const [minAffixes, maxAffixes] = RARITY_AFFIX_COUNT[rarity];
@@ -62,12 +75,13 @@ export class ItemGenerator {
 
     const prefix = affixes.length > 0 ? `${affixes[0].name}` : '';
     const name = prefix ? `${prefix}${base.name}` : base.name;
-    const sellPrice = this.sellPrice(rarity, itemLevel);
+    const sellPrice = equipmentSellPrice(rarity, itemLevel);
     const element = this.elementForBase(base);
     const statusChance = element === 'physical' ? undefined : 0.08;
 
     return {
       id: `${base.id}_${rarity}_${itemLevel}_${rng.int(0, 999999)}`,
+      ...(equipmentRulesVersion >= 2 ? { contentId: base.id, equipmentRulesVersion: 2 } : {}),
       name,
       slot: base.slot,
       rarity,
@@ -85,7 +99,7 @@ export class ItemGenerator {
   }
 
   private static elementForBase(base: BaseItemDef): ElementType {
-    if (base.setId === 'inferno') return 'fire';
+    if (base.setId === 'inferno' || base.setId === 'embersteel' || base.setId === 'soul_pyre') return 'fire';
     if (base.setId === 'glacier' || base.setId === 'frost') return 'frost';
     if (base.setId === 'storm') return 'lightning';
     if (base.setId === 'venom') return 'poison';
@@ -101,8 +115,4 @@ export class ItemGenerator {
     return integer ? Math.max(1, Math.round(raw)) : Number(raw.toFixed(4));
   }
 
-  private static sellPrice(rarity: Rarity, itemLevel: number): number {
-    const multiplier = RARITY_ORDER.indexOf(rarity) + 1;
-    return Math.round((5 + itemLevel * 2) * multiplier * multiplier);
-  }
 }

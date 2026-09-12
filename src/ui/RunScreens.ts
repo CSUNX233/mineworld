@@ -1,3 +1,5 @@
+import { CRAFTING_TAGS } from '../items/CraftingTags';
+import type { EquipmentMechanismTag } from '../items/RewardPreference';
 import type { SaveData } from '../types';
 import type { ArchetypeId, RewardPreference, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
 import {
@@ -12,7 +14,7 @@ import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import { createUiIcon } from './UiAssets';
 
 interface CampActions {
-  start: (id: ArchetypeId) => void;
+  start: (id: ArchetypeId, mechanism?: EquipmentMechanismTag) => void;
   resume: () => void;
   unlock: (id: string) => void;
   back: () => void;
@@ -74,7 +76,7 @@ const ARCHETYPE_ICONS: Record<ArchetypeId, string> = {
 
 export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, message?: string): HTMLDivElement {
   const profile = envelope.profile;
-  const root = panel('营地', '练成新的流派，再向深渊出发。每局的等级、装备与金币独立，局外解锁永久保留。');
+  const root = panel('营地', '练成新的流派，再向深渊出发。每局的等级、装备与金币独立；营地天赋点、解锁与专精由本机五个存档共享，删除冒险存档也会保留。');
   const points = element('div', `可用天赋点 ${profile.availableMetaPoints} · 研究经验 ${profile.researchXp} / ${XP_PER_POINT}`);
   points.className = 'sunlit-inset sunlit-resource-banner';
   points.prepend(createUiIcon('gem', 'sunlit-inline-icon'));
@@ -99,6 +101,11 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
     root.append(abandonArea, paragraph('进行中的对局保留出发时配置；结束后可解锁其他起始流派。'));
   } else {
     root.append(paragraph('一大局 25 层，每 5 层一场 Boss 战。完成第 5、10、15、20 层主线后可低收益提前结算，也可保留本局构筑继续深入；第 25 层完成才是完整通关。死亡结束本局，按进度获得少量研究经验。'));
+    const mechanism = element('select');
+    mechanism.setAttribute('aria-label', '本局辅助机制偏好');
+    const any = element('option', '不限制辅助机制'); any.value = ''; mechanism.append(any);
+    for (const tag of CRAFTING_TAGS) { const option = element('option', tag.name); option.value = tag.id; mechanism.append(option); }
+    root.append(element('h3', '本局辅助机制偏好'), mechanism, paragraph('部分装备奖励在主流派池内优先匹配所选机制；不提升品质，也不排除其他混搭。'));
     root.append(element('h3', '流派入门'));
     for (const node of ARCHETYPE_NODES) {
       const unlocked = profile.unlockedNodes.includes(node.id);
@@ -110,7 +117,7 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
       copy.className = 'sunlit-card-copy';
       copy.append(title, paragraph(node.description));
       const action = unlocked
-        ? button('以此流派出发', () => actions.start(node.id))
+        ? button('以此流派出发', () => actions.start(node.id, (mechanism.value || undefined) as EquipmentMechanismTag | undefined))
         : button(`解锁 · ${node.cost} 天赋点`, () => actions.unlock(node.id), profile.availableMetaPoints < node.cost);
       action.classList.add('sunlit-card-action');
       card.append(icon, copy, action);
@@ -152,7 +159,7 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
   }
 
   root.append(element('h3', '奖励偏好'));
-  root.append(paragraph('普通掉落和商店按 40% 定向池、60% 通用池生成。第一层精英房的稀有装备奖励保证来自本局偏好池；不提高装备品质。'));
+  root.append(paragraph('普通掉落和商店按 40% 定向池、60% 通用池生成。新局前5层首次清理精英房，额外获得同套不同部位的两件起步装备；商店★委托可补当前未成型套装的缺部位。偏好不提高品质。'));
   const availablePreferences = MASTERY_NODES.filter((node) => profile.unlockedNodes.includes(node.id));
   if (availablePreferences.length === 0) {
     root.append(paragraph('解锁一个流派掌握节点后，可让奖励生成更常提供该系核心机会。未选择时，每局默认跟随出发流派。'));

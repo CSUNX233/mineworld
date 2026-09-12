@@ -3,7 +3,17 @@ import * as THREE from 'three';
 export const combatArtUrl = (group: string, name: string): string =>
   `${import.meta.env.BASE_URL}assets/ui/sunlit/p0/${group}/${name}.webp`;
 const textures = new Map<string, THREE.Texture>();
+const lastVariant = new Map<string, number>();
+export function effectTexture(name: string): THREE.Texture {
+  if (name !== 'slash' && name !== 'impact') return combatTexture('effects', name);
+  const previous = lastVariant.get(name) ?? 0;
+  const next = previous === 0 ? 1 + Math.floor(Math.random() * 3) : (previous + Math.floor(Math.random() * 2)) % 3 + 1;
+  lastVariant.set(name, next);
+  const variant = combatTexture('effects', `${name}-${next}`);
+  return variant.image ? variant : combatTexture('effects', name);
+}
 export function preloadCombatArt(): void {
+  for (const name of ['slash', 'impact']) for (let i = 1; i <= 3; i++) combatTexture('effects', `${name}-${i}`);
   for (const name of ['slash','impact','fire','ice','lightning','smoke','shockwave','shadow']) combatTexture('effects', name);
   for (const name of ['circle','cone','lane','landing','target','elite']) combatTexture('telegraphs', name);
   for (const name of ['burning','frozen','shocked','poisoned']) combatTexture('statuses', name);

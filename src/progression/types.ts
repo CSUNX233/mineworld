@@ -37,6 +37,9 @@ export interface ProfileData {
   claimedChallengeIds: string[];
 }
 export interface RunState {
+  equipmentRulesVersion?: number;
+  setPreference?: string;
+  p5StarterGranted?: boolean;
   runId: string;
   runDefinitionId: 'basic-25-floors';
   mapPoolId: 'basic';
@@ -74,6 +77,7 @@ export interface SettlementRecord {
   masteredBranches?: BuildBranchId[];
 }
 export interface SaveEnvelopeV3 {
+  sharedCampRevision?: number;
   version: 3;
   revision: number;
   profile: ProfileData;

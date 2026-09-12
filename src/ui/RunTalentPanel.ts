@@ -65,7 +65,7 @@ const TALENT_ICONS: Record<string, string> = {
   tempered_skin: 'shield',
   deep_reservoir: 'staff',
   vital_spark: 'heal',
-  steady_flame: 'dash',
+  steady_flame: 'fireball',
   scavenger_instinct: 'bag',
 };
 

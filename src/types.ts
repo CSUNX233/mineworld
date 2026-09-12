@@ -67,6 +67,9 @@ export interface ActorStatus {
 }
 
 export interface Item {
+  contentId?: string;
+  equipmentRulesVersion?: number;
+  reforgeCount?: number;
   id: string;
   name: string;
   slot: Slot;
@@ -174,10 +177,14 @@ export interface FloorProgress {
 }
 
 export interface SaveData {
+  equipmentRulesVersion?: number;
+  craftingSequence?: number;
+  setPreference?: string;
   mapGenerationVersion?: 1 | 2 | 3 | 4;
   mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {
+    setState?: import('./items/SetRuntime').SetSnapshot;
     summonSquad?: import('./summons/types').SummonSnapshot;
     brokenFoundryPanels?: string[];
     foundryTrialClaimed?: boolean;

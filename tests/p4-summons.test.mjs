@@ -46,6 +46,20 @@ const host = () => {
     api: { damage: (target, amount, source) => damage.push({ target, amount, source }), shield() {} } };
 };
 
+test('removing talent clears its squad while equipment summons keep their own unlock source', () => {
+  const summons = new SummonSystem(new Scene()), floor = floorFixture(), owner = player();
+  assert.equal(summons.raise(floor, owner, config()).ok, true);
+  summons.reconcileSources(false, true);
+  assert.equal(summons.count, 0);
+  assert.equal(summons.raiseTemporary(floor, owner, config(), { source: 'equipment-kill' }).ok, true);
+  summons.reconcileSources(false, true);
+  assert.equal(summons.count, 1);
+  const snapshot = summons.snapshot();
+  assert.equal(summons.restore(snapshot, floor, owner, config()), true);
+  summons.reconcileSources(false, false);
+  assert.equal(summons.count, 0);
+});
+
 test('raise starts without kills and capacity failure never removes the existing formation', () => {
   const scene = new Scene(), summons = new SummonSystem(scene), floor = floorFixture(), owner = player();
   assert.deepEqual(summons.raise(floor, owner, config()), { ok: true, message: '已补充 3 个召唤物，容量 4/4' });

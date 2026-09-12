@@ -3,8 +3,9 @@ import affixData from '../data/affixes.json';
 import { RNG } from '../utils/RNG';
 import { RARITY_AFFIX_COUNT, RARITY_ORDER } from '../data/recipes';
 import { defaultAffixValueMode, statValueMode } from './StatRules';
+import { CRAFTING_TAGS, craftingTagsForStat, type CraftingTag, type CraftingTagDefinition } from './CraftingTags';
 
-interface AffixDef {
+export interface AffixDef {
   id: string;
   name: string;
   stat: Stat;
@@ -13,9 +14,17 @@ interface AffixDef {
   max: number;
   weight: number;
   slots: Slot[];
+  tags: CraftingTag[];
 }
 
-const AFFIXES = affixData as unknown as AffixDef[];
+const AFFIXES: AffixDef[] = (affixData as unknown as Omit<AffixDef, 'tags'>[])
+  .map((def) => ({ ...def, tags: craftingTagsForStat(def.stat) }));
+
+export interface AffixGenerationOptions {
+  tag?: CraftingTag;
+  excludeAffixIds?: readonly string[];
+  includeSpecial?: boolean;
+}
 
 const INTEGER_STATS = new Set<Stat>([
   'attack',
@@ -98,20 +107,57 @@ const SPECIAL_AFFIXES: Affix[] = [
 ];
 
 export class AffixSystem {
+  static candidates(slot: Slot): AffixDef[] {
+    const sourceSlot = slot === 'ring2' ? 'ring' : slot;
+    return AFFIXES.filter((def) => def.slots.includes(sourceSlot));
+  }
+
+  static definitionId(affix: Affix): string | undefined {
+    return AFFIXES.filter((def) => affix.id === def.id || affix.id.startsWith(`${def.id}_`))
+      .sort((a, b) => b.id.length - a.id.length)[0]?.id;
+  }
+
+  static candidatesForTag(slot: Slot, tag: CraftingTag): AffixDef[] {
+    return this.candidates(slot).filter((def) => def.tags.includes(tag));
+  }
+
+  static availableTags(slot: Slot): CraftingTagDefinition[] {
+    return CRAFTING_TAGS.filter((tag) => this.candidatesForTag(slot, tag.id).length > 0);
+  }
+
+  static candidatePreview(slot: Slot, rarity: Rarity, itemLevel: number, tag?: CraftingTag): AffixDef[] {
+    const definitions = tag ? this.candidatesForTag(slot, tag) : this.candidates(slot);
+    return definitions.map((def) => {
+      if (def.id === 'renewing') {
+        const rarityIndex = RARITY_ORDER.indexOf(rarity);
+        return { ...def, min: 0.5 + rarityIndex * 0.1, max: Number((1.3 + rarityIndex * 0.3).toFixed(2)) };
+      }
+      const scale = 1 + Math.max(0, itemLevel - 1) * 0.025;
+      const mode = def.mode ?? defaultAffixValueMode(def.stat);
+      const format = (value: number) => mode === 'flat' && INTEGER_STATS.has(def.stat)
+        ? Math.max(1, Math.round(value * scale)) : Number((value * scale).toFixed(4));
+      return { ...def, min: format(def.min), max: format(def.max) };
+    });
+  }
+
   static rollAffixes(slot: Slot, rarity: Rarity, itemLevel: number, rng: RNG): Affix[] {
     const [minAffixes, maxAffixes] = RARITY_AFFIX_COUNT[rarity];
     return this.generateAffixes(slot, rarity, itemLevel, rng, rng.int(minAffixes, maxAffixes));
   }
 
-  static generateAffixes(slot: Slot, rarity: Rarity, itemLevel: number, rng: RNG, count: number): Affix[] {
-    const available = AFFIXES.filter((def) => def.slots.includes(slot));
+  static generateAffixes(slot: Slot, rarity: Rarity, itemLevel: number, rng: RNG, count: number, options: AffixGenerationOptions = {}): Affix[] {
+    const available = this.candidates(slot);
     const picked: Affix[] = [];
-    const used = new Set<string>();
+    const used = new Set(options.excludeAffixIds ?? []);
 
     for (let i = 0; i < count && available.length > 0; i++) {
       const candidates = available.filter((def) => !used.has(def.id));
       if (candidates.length === 0) break;
-      const def = rng.weighted(candidates);
+      // A direction increases odds, never guarantees a target or its best roll.
+      const def = rng.weighted(candidates.map((candidate) => ({
+        ...candidate,
+        weight: candidate.weight * (options.tag && candidate.tags.includes(options.tag) ? 3 : 1),
+      })));
       used.add(def.id);
       let value = this.rollValue(def, itemLevel, rng);
       if (def.id === 'renewing') {
@@ -129,7 +175,7 @@ export class AffixSystem {
       });
     }
 
-    if (rarity === 'legendary') {
+    if (rarity === 'legendary' && options.includeSpecial !== false) {
       const special = rng.pick(SPECIAL_AFFIXES);
       picked.push({ ...special, id: `${special.id}_${itemLevel}` });
     }

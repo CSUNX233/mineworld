@@ -1,0 +1,128 @@
+{
+  "generator": "built-in image_gen",
+  "status": "selected-icons-integrated-all-candidates-retained",
+  "files": [
+    {
+      "index": 0,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/01-warlord-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-9f40759b-ee1b-4973-8459-d0a2b6d690a1.png"
+    },
+    {
+      "index": 1,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/01-warlord-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-2437352b-128b-4f27-848d-9d642cbc6fc4.png"
+    },
+    {
+      "index": 2,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/02-warbringer-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-207665a4-2b4c-49d7-bf70-1a0a65e243a6.png"
+    },
+    {
+      "index": 3,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/02-warbringer-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-6a35f291-7146-425d-8a65-1a5b026378bb.png"
+    },
+    {
+      "index": 4,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/03-frost-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-43a485de-3aa6-4165-a1e6-23e712b694c1.png"
+    },
+    {
+      "index": 5,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/03-frost-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-100d1adb-1eac-42ab-bd62-65a107fc60cd.png"
+    },
+    {
+      "index": 6,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/04-shadow-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-595883e2-c672-48c0-b283-e2bffa07b876.png"
+    },
+    {
+      "index": 7,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/04-shadow-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-b1f0b020-f406-443d-8072-a875be57b28a.png"
+    },
+    {
+      "index": 8,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/05-inferno-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-967a1b3f-18f4-43e9-b53b-34c27e7ed4eb.png"
+    },
+    {
+      "index": 9,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/05-inferno-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-d34f5005-1ead-4841-baed-f2cb332b123e.png"
+    },
+    {
+      "index": 10,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/06-glacier-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-60fecf83-f9bc-4109-ab0a-609a7275b1ad.png"
+    },
+    {
+      "index": 11,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/06-glacier-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-7f0523c5-2a7f-49a0-bea9-af5824f00c2f.png"
+    },
+    {
+      "index": 12,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/07-venom-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-6fa1fe96-7aa6-4038-abcc-8c6253a56ed8.png"
+    },
+    {
+      "index": 13,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/07-venom-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-0e528775-69b7-4cec-92b6-4f4453286a26.png"
+    },
+    {
+      "index": 14,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/08-sanguine-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-ef6f8433-e8bb-436f-9b3c-2e01ade95593.png"
+    },
+    {
+      "index": 15,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/08-sanguine-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-48ee396a-fe8a-4a0b-9751-a60bec3133fe.png"
+    },
+    {
+      "index": 16,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/09-storm-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-c297a997-42d7-4e3c-83a9-ce50f66a77e6.png"
+    },
+    {
+      "index": 17,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/09-storm-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-13516093-88d4-49bd-a585-82709654c8e4.png"
+    },
+    {
+      "index": 18,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/10-soul_banner-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-b6abc902-2f8a-48f3-9343-30ec94f2c8d1.png",
+      "originalSource": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-4ad1eccd-a438-4afa-a5d9-bff702577bb4.png",
+      "background": "navy preview backdrop; final selected icon extraction pending"
+    },
+    {
+      "index": 19,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/10-soul_banner-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-65bac96b-a978-48f6-97ba-e05ed2c2754d.png"
+    },
+    {
+      "index": 20,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/11-soul_pyre-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-dad2ebd8-a2f8-432a-a653-e8f1c71fe1e2.png"
+    },
+    {
+      "index": 21,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/11-soul_pyre-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-9d54d7e4-7da4-48c3-96ef-74dad1a56ca7.png"
+    },
+    {
+      "index": 22,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/12-embersteel-A.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-430f9b90-6615-40dc-be0f-066c1e48eb4b.png"
+    },
+    {
+      "index": 23,
+      "path": "D:/34229/mineworld/art/sunlit-ui/p5-equipment/12-embersteel-B.png",
+      "source": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-3ce145e3-3963-4b7f-ac1f-f17843dfcc4b.png"
+    }
+  ]
+}

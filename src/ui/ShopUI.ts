@@ -11,6 +11,8 @@ export interface ShopView {
   floor: number; gold: number; stock: ShopStockEntry[]; inventory: Item[];
   materials: Partial<Record<MaterialId, number>>; full: boolean; refreshes: number;
   gambles: number; heals: number; needsHealing: boolean; message: string;
+  commission?: { name: string; slots: Slot[] };
+  buyShard?(): void;
   buy(uid: string): void; refresh(): void; gamble(slot: Slot): void; heal(): void;
   sell(index: number): void; sellAll(rarity: Rarity): void; sellMaterial(id: MaterialId): void;
 }
@@ -86,13 +88,16 @@ export function buildShopView(view: ShopView): HTMLElement {
   heading(buyPanel, '定向随机委托', 'gem');
   const odds = document.createElement('p');
   odds.textContent = `先选部位，再随机品质与词条；${view.floor < 5 ? '魔法 75% / 稀有 25%' : '魔法 72% / 稀有 25% / 史诗 3%'}。不产出传说。`;
+  if (view.commission) odds.textContent += ` 补件优先：${view.commission.name}（当前穿戴最多且不足4件的套装）；标有★的缺部位保证该套，其余部位仍随机。`;
   buyPanel.appendChild(odds);
   const request = document.createElement('div'); request.className = 'shop-actions'; buyPanel.appendChild(request);
   const slot = document.createElement('select'); slot.setAttribute('aria-label', '委托装备部位');
   for (const option of SHOP_SLOTS) {
-    const element = document.createElement('option'); element.value = option.slot; element.textContent = option.label; slot.appendChild(element);
+    const element = document.createElement('option'); element.value = option.slot;
+    element.textContent = `${view.commission?.slots.includes(option.slot) ? '★ ' : ''}${option.label}`; slot.appendChild(element);
   }
   request.appendChild(slot);
+  if (view.commission?.slots[0]) slot.value = view.commission.slots[0];
   const gamble = action(request, '', () => view.gamble(slot.value as Slot));
   const update = () => {
     const cost = ShopSystem.gamblePrice(view.floor, slot.value as Slot);
@@ -100,6 +105,11 @@ export function buildShopView(view: ShopView): HTMLElement {
     gamble.disabled = view.gambles >= 3 || view.full || view.gold < cost;
   };
   slot.onchange = update; update();
+  if (view.buyShard) {
+    const shardCost = Math.ceil(ShopSystem.materialPrice('element_shard', view.floor) * 1.5);
+    action(buyPanel, `元素碎片 ×1 · ${shardCost} 金币（占1次委托额度）`, view.buyShard,
+      view.gambles >= 3 || view.gold < shardCost, 'gem');
+  }
   heading(buyPanel, '旅途补给', 'heal');
   const healCost = ShopSystem.healPrice(view.floor);
   action(buyPanel, `恢复 40% 生命与法力 · ${healCost} 金币（${2 - view.heals}/2）`, view.heal,

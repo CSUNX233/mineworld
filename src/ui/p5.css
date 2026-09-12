@@ -1,0 +1,46 @@
+.p5-reforge-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  background: rgba(4, 10, 18, .78);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+.p5-reforge-panel {
+  width: min(560px, 100%);
+  max-width: 100%;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 16px;
+  gap: 12px;
+  background: var(--sunlit-paper, #efddb3);
+  color: var(--sunlit-ink, #24384a);
+  border: 2px solid #a3834c;
+}
+.p5-reforge-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-shrink: 0; }
+.p5-reforge-title { margin: 0; font-size: 18px; }
+.p5-reforge-body { overflow-y: auto; min-height: 0; overscroll-behavior: contain; touch-action: pan-y; display: flex; flex-direction: column; gap: 12px; }
+.p5-reforge-item { font-weight: bold; overflow-wrap: anywhere; }
+.p5-reforge-field { display: flex; flex-direction: column; gap: 6px; }
+.p5-reforge-panel select { width: 100%; min-width: 0; min-height: 44px; background: #0e1825; color: #eef2f8; border: 1px solid #8f9aac; padding: 8px; font: inherit; }
+.p5-reforge-help { margin: 0; font-size: 12px; color: var(--sunlit-muted, #645539); line-height: 1.6; }
+.p5-reforge-cost { border: 1px solid #8a7857; padding: 10px; line-height: 1.65; }
+.p5-reforge-cost .is-missing { color: #9b2921; }
+.p5-reforge-candidates { margin: 0; padding-left: 20px; font-size: 12px; line-height: 1.65; }
+.p5-reforge-status { margin: 0; font-size: 13px; line-height: 1.6; }
+.p5-reforge-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; border-top: 1px solid #526479; padding-top: 12px; }
+.p5-reforge-actions button { flex: 1; min-width: 100px; min-height: 44px; font: inherit; cursor: pointer; touch-action: manipulation; }
+.p5-reforge-panel button:disabled { opacity: .5; cursor: default; }
+.p5-reforge-close { min-width: 44px; min-height: 44px; font: inherit; touch-action: manipulation; }
+@media (max-height: 450px) {
+  .p5-reforge-panel { padding: 10px; gap: 6px; }
+  .p5-reforge-actions { padding-top: 6px; }
+}

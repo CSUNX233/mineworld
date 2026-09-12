@@ -32,6 +32,8 @@ export interface TemporarySummonOptions {
 }
 
 export interface SummonEffect {
+  source?: string;
+  temporary?: boolean;
   kind: 'raise' | 'hit' | 'focus-mark' | 'coordinated-shot' | 'guardian-shield' | 'guardian-archer-link' | 'end';
   position: THREE.Vector3;
   targetPosition?: THREE.Vector3;
@@ -42,7 +44,7 @@ export interface SummonEffect {
 }
 
 export interface SummonHost {
-  damage(monster: Monster, amount: number, sourcePosition: THREE.Vector3): void;
+  damage(monster: Monster, amount: number, sourcePosition: THREE.Vector3, source?: { role: SummonRole; temporary: boolean; source: string; focused: boolean }): void;
   shield(amount: number): void;
   effect?(effect: SummonEffect): void;
   message?(text: string): void;

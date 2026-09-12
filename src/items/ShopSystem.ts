@@ -1,3 +1,4 @@
+import type { EquipmentMechanismTag } from './RewardPreference';
 import type { Item, MaterialId, ShopStockEntry, Rarity, Slot } from '../types';
 import { MATERIALS } from '../data/materials';
 import { RARITY_ORDER } from '../data/recipes';
@@ -5,6 +6,7 @@ import { ItemGenerator } from './ItemGenerator';
 import { RNG } from '../utils/RNG';
 import { CraftingSystem } from './CraftingSystem';
 import type { ArchetypeId } from '../progression/types';
+import { equipmentSellPrice } from './ItemValue';
 
 export const SHOP_SLOTS: { slot: Slot; label: string }[] = [
   { slot: 'weapon', label: '武器' }, { slot: 'helmet', label: '头盔' },
@@ -20,11 +22,14 @@ export class ShopSystem {
     count: number,
     rng: RNG = new RNG((Math.random() * 0xffffffff) >>> 0),
     rewardPreference?: ArchetypeId,
+    equipmentRulesVersion = 1,
+    mechanism?: EquipmentMechanismTag,
+    setOverride?: string,
   ): ShopStockEntry[] {
     const stock: ShopStockEntry[] = [];
     for (let i = 0; i < count; i++) {
       const rarity = i === 0 ? 'magic' : i === 1 ? 'rare' : rng.weighted(this.gambleWeights(floor)).rarity;
-      const item = ItemGenerator.generate(floor, rng, playerLevel, rarity, undefined, 0, rewardPreference);
+      const item = ItemGenerator.generate(floor, rng, playerLevel, rarity, undefined, 0, rewardPreference, false, equipmentRulesVersion, mechanism, setOverride);
       stock.push({ uid: `${item.id}_${i}_${rng.int(0, 99999)}`, item, price: this.itemPrice(item, floor) });
     }
     return stock;
@@ -60,8 +65,7 @@ export class ShopSystem {
   static gamblePrice(floor: number, slot: Slot): number {
     const level = floor + 2;
     const expectedRecovery = this.gambleWeights(floor).reduce((total, entry) => {
-      const multiplier = RARITY_ORDER.indexOf(entry.rarity) + 1;
-      const item = { slot, rarity: entry.rarity, itemLevel: level, sellPrice: (5 + level * 2) * multiplier ** 2 } as Item;
+      const item = { slot, rarity: entry.rarity, itemLevel: level, sellPrice: equipmentSellPrice(entry.rarity, level) } as Item;
       return total + this.recoveryValue(item, floor) * entry.weight / 100;
     }, 0);
     return Math.ceil(Math.max(this.floorIncome(floor) * .65, expectedRecovery * 1.35));
@@ -73,6 +77,9 @@ export class ShopSystem {
     slot: Slot,
     rng: RNG,
     rewardPreference?: ArchetypeId,
+    equipmentRulesVersion = 1,
+    mechanism?: EquipmentMechanismTag,
+    setOverride?: string,
   ): Item {
     return ItemGenerator.generate(
       floor,
@@ -82,6 +89,7 @@ export class ShopSystem {
       slot,
       0,
       rewardPreference,
+      false, equipmentRulesVersion, mechanism, setOverride,
     );
   }
 

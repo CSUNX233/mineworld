@@ -289,6 +289,19 @@ export class AudioManager {
     }
   }
 
+  lootDrop(rarity: string): void {
+    this.ensure();
+    const tier = ['common', 'magic', 'rare', 'epic', 'legendary'].indexOf(rarity);
+    if (tier === 4) {
+      this.tone(110, .35, 'triangle', .10, 55);
+      this.tone(660, .65, 'sine', .075, 880);
+      this.tone(990, .8, 'sine', .055, 1320);
+      this.tone(1320, 1, 'sine', .035, 1760);
+    } else {
+      this.tone(400 + tier * 140, .14 + tier * .07, 'sine', .035 + tier * .008, 650 + tier * 180);
+    }
+  }
+
   pickup(): void {
     this.ensure();
     if (!this.playSample(SFX.pickup, 0.14, 0)) this.tone(520, 0.12, 'sine', 0.1, 780);

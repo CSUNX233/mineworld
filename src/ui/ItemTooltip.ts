@@ -1,9 +1,10 @@
 import type { Item, Stat, StatMap } from '../types';
 import { UI_RARITY_COLORS as RARITY_COLORS } from './UiAssets';
-import { setDisplayName } from '../data/sets';
+import { setDefinition } from '../data/sets';
 import { statLabel, formatValue, AffixSystem } from '../items/AffixSystem';
 import { baseDefenseFromArmor, defaultAffixValueMode, statValueMode } from '../items/StatRules';
 import { iconHTML, itemIconHTML } from './UiAssets';
+import { CraftingSystem, MAX_REFORGES } from '../items/CraftingSystem';
 
 interface ItemContributions {
   baseAttackSpeed: number | null;
@@ -13,6 +14,10 @@ interface ItemContributions {
 }
 
 const RATE_STATS: Stat[] = ['attackSpeed', 'critChance', 'critDamage', 'moveSpeed', 'lifeSteal', 'cooldown', 'shieldRecoveryRate'];
+
+function escapeHTML(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
+}
 
 function displayedBaseStats(item: Item): StatMap {
   const stats = { ...item.baseStats };
@@ -85,21 +90,30 @@ export function itemTooltipHTML(item: Item, equipped?: Item | null): string {
     .map(([stat, value]) => baseStatHTML(item, stat as Stat, value))
     .join('');
   const affixes = item.affixes
-    .map((affix) => `<div style="color:${color}">${affix.name} · ${AffixSystem.describe(affix)}</div>`)
+    .map((affix) => `<div style="color:${color}">${escapeHTML(affix.name)} · ${escapeHTML(AffixSystem.describe(affix))}</div>`)
     .join('');
   const comparison = equipped ? compareHTML(item, equipped) : '';
+  const version = item.equipmentRulesVersion ?? 1;
+  const set = item.setId ? setDefinition(item.setId, version) : undefined;
+  const setHTML = item.setId ? `<div class="item-tooltip-set">套装：${escapeHTML(set?.name ?? item.setId)}${version < 2 ? '（旧版）' : ''}</div>` : '';
+  const mechanisms = set && version >= 2 ? Object.entries(set.bonuses)
+    .map(([threshold, bonus]) => `<div class="item-tooltip-set">${threshold}件：${escapeHTML(bonus.description ?? '')}</div>`)
+    .join('') : '';
+  const budgetHint = set?.runtimeHint && version >= 2
+    ? `<div class="item-tooltip-level">${escapeHTML(set.runtimeHint)}</div>` : '';
   return `
     <div class="item-tooltip-card">
       <div class="item-tooltip-heading">
         <span class="item-tooltip-icon-frame">${itemIconHTML(item, 'item-tooltip-icon')}</span>
         <div>
-          <div class="item-tooltip-name" style="color:${color}">${item.name}</div>
+          <div class="item-tooltip-name" style="color:${color}">${escapeHTML(item.name)}</div>
           <div class="item-tooltip-level">等级需求 ${item.requiredLevel}</div>
         </div>
       </div>
-      ${item.setId ? `<div class="item-tooltip-set">套装：${setDisplayName(item.setId)}</div>` : ''}
+      ${setHTML}${mechanisms}${budgetHint}
       <div class="item-tooltip-stats">${baseStats}${affixes}</div>
-      ${item.flavor ? `<div class="item-tooltip-flavor">「${item.flavor}」</div>` : ''}
+      <div class="item-tooltip-level">剩余重铸 ${CraftingSystem.remainingReforges(item)}/${MAX_REFORGES} 次</div>
+      ${item.flavor ? `<div class="item-tooltip-flavor">「${escapeHTML(item.flavor)}」</div>` : ''}
       ${comparison}
       <div class="item-tooltip-price">${iconHTML('coin', 'item-tooltip-coin')}<span>售价 ${item.sellPrice} 金币</span></div>
     </div>

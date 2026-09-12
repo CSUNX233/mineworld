@@ -1,5 +1,5 @@
 import type { Item, Slot, StatMap } from '../types';
-import { SETS } from '../data/sets';
+import { setDefinition } from '../data/sets';
 import {
   addBaseStatMap,
   addStatMap,
@@ -61,6 +61,7 @@ export interface SetBonusInfo {
   setId: string;
   count: number;
   effects: StatMap;
+  equipmentRulesVersion?: number;
 }
 
 const EMPTY_STATS: StatMap = {};
@@ -116,14 +117,9 @@ export class EquipmentManager {
   }
 
   getActiveSetBonuses(): SetBonusInfo[] {
-    const counts = new Map<string, number>();
-    this.getEquippedItems().forEach((item) => {
-      if (!item.setId) return;
-      counts.set(item.setId, (counts.get(item.setId) ?? 0) + 1);
-    });
     const result: SetBonusInfo[] = [];
-    counts.forEach((count, setId) => {
-      const setDef = SETS[setId];
+    this.groupSetCounts().forEach(({ count, setId, equipmentRulesVersion }) => {
+      const setDef = setDefinition(setId, equipmentRulesVersion);
       if (!setDef) return;
       const bonuses = setDef.bonuses;
       const effects: StatMap = {};
@@ -132,9 +128,31 @@ export class EquipmentManager {
           effects[stat as keyof StatMap] = (effects[stat as keyof StatMap] ?? 0) + (value ?? 0);
         }
       }
-      if (Object.keys(effects).length > 0) result.push({ setId, count, effects });
+      const active = Object.keys(bonuses).some(threshold => count >= Number(threshold));
+      if (active) result.push({ setId, count, effects, equipmentRulesVersion });
     });
     return result;
+  }
+
+  getP5SetCounts(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    this.groupSetCounts().forEach(group => {
+      if (group.equipmentRulesVersion >= 2) counts[group.setId] = group.count;
+    });
+    return counts;
+  }
+
+  private groupSetCounts(): Map<string, { setId: string; equipmentRulesVersion: number; count: number }> {
+    const groups = new Map<string, { setId: string; equipmentRulesVersion: number; count: number }>();
+    this.getEquippedItems().forEach(item => {
+      if (!item.setId) return;
+      const equipmentRulesVersion = (item.equipmentRulesVersion ?? 1) >= 2 ? 2 : 1;
+      const key = `${equipmentRulesVersion}:${item.setId}`;
+      const group = groups.get(key);
+      if (group) group.count++;
+      else groups.set(key, { setId: item.setId, equipmentRulesVersion, count: 1 });
+    });
+    return groups;
   }
 
   getActiveSetSpecials(): string[] {
@@ -158,14 +176,9 @@ export class EquipmentManager {
   }
 
   private getActiveSetSpecialCounts(): Map<string, number> {
-    const counts = new Map<string, number>();
-    this.getEquippedItems().forEach((item) => {
-      if (!item.setId) return;
-      counts.set(item.setId, (counts.get(item.setId) ?? 0) + 1);
-    });
     const specialCounts = new Map<string, number>();
-    counts.forEach((count, setId) => {
-      const setDef = SETS[setId];
+    this.groupSetCounts().forEach(({ count, setId, equipmentRulesVersion }) => {
+      const setDef = setDefinition(setId, equipmentRulesVersion);
       if (!setDef) return;
       const activeSpecials = new Set<string>();
       for (const [threshold, bonus] of Object.entries(setDef.bonuses)) {
@@ -236,12 +249,8 @@ export class EquipmentManager {
       });
     }
     buckets.base.attackSpeed = Math.max(0.15, this.get('weapon')?.baseStats.attackSpeed ?? 1);
-    const setCounts = new Map<string, number>();
-    this.getEquippedItems().forEach((item) => {
-      if (item.setId) setCounts.set(item.setId, (setCounts.get(item.setId) ?? 0) + 1);
-    });
-    setCounts.forEach((count, setId) => {
-      const setDef = SETS[setId];
+    this.groupSetCounts().forEach(({ count, setId, equipmentRulesVersion }) => {
+      const setDef = setDefinition(setId, equipmentRulesVersion);
       if (!setDef) return;
       Object.entries(setDef.bonuses).forEach(([threshold, bonus]) => {
         if (count >= Number(threshold)) addStatMap(buckets, bonus.stats, bonus.valueModes, 'flat');

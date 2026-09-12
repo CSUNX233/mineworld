@@ -1,0 +1,12 @@
+{
+  "candidate": "10A",
+  "tool": "built-in image_gen",
+  "prompts": [
+    "Edit this equipment atlas with one precise layout correction only: the top-left banner staff currently touches/crops at the upper canvas edge. Restore its complete ivory tip and reduce/recenter ONLY this top-left staff to fit entirely inside the central 72% of the top-left grid cell, leaving at least 12% clear cell margin all around. Preserve the other eight equipment icons, their shapes, colors, placement, the exact Sunlit Quest chunky pixel rendering, 3x3 grid, transparent background and canvas size. No new objects, no text, no borders. Keep the teal pennant, linked-three ivory emblem, antique-gold fittings, and ivory staff tip. Crisp pixels, no blur or interpolation haze. This is the corrected final 10A Soul Banner Legion candidate.",
+    "Edit only the backdrop of this 3x3 equipment atlas. Replace ALL gray/white checkerboard with one perfectly uniform SOLID DARK NAVY #14283e color, including spaces inside ring holes and necklace chains. Do not depict a transparency grid, no checkerboard, no pattern, no gradient, no transparency needed. Preserve all nine equipment icons, their exact current sizes, positions, margins, shapes, colors and crisp pixel artwork. Keep the correctly inset top-left banner staff. No text or extra objects."
+  ],
+  "sources": [
+    "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-c4ae72cc-f30f-4bbf-9a74-103f18896897.png",
+    "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-b6abc902-2f8a-48f3-9343-30ec94f2c8d1.png"
+  ]
+}

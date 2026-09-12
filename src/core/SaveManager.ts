@@ -1,3 +1,4 @@
+import { SHARED_CAMP_KEY, readSharedCamp, migrateSharedCamp, useSharedCamp } from './SharedCamp';
 import type { SaveEnvelopeV3, SaveResult, SlotReadResult } from '../progression/types';
 import type { SaveData } from '../types';
 import { RunManager } from './RunManager';
@@ -41,6 +42,8 @@ function createProfileId(): string {
 }
 
 function rawForSlot(slot: number): { raw: string | null; sourceKey: string } {
+  const shared = readSharedCamp();
+  if (shared && Object.prototype.hasOwnProperty.call(shared.slots, slot)) return { raw: shared.slots[slot], sourceKey: SHARED_CAMP_KEY };
   const slotKey = SAVE_PREFIX + slot;
   const slotRaw = localStorage.getItem(slotKey);
   if (slotRaw !== null) return { raw: slotRaw, sourceKey: slotKey };
@@ -70,6 +73,22 @@ function parseRaw(raw: string): SlotReadResult {
 }
 
 export class SaveManager {
+  static attachSharedCamp(envelope: SaveEnvelopeV3): void {
+    let camp = readSharedCamp();
+    if (!camp) {
+      const old: SaveEnvelopeV3[] = [];
+      for (let slot = 0; slot < SLOT_COUNT; slot++) {
+        const raw = rawForSlot(slot).raw;
+        if (raw === null) continue;
+        const parsed = parseRaw(raw);
+        if (parsed.kind === 'ready') old.push(parsed.envelope);
+      }
+      camp = migrateSharedCamp(old);
+      localStorage.setItem(SHARED_CAMP_KEY, JSON.stringify(camp));
+    }
+    useSharedCamp(envelope, camp);
+  }
+
   static get slotCount(): number {
     return SLOT_COUNT;
   }
@@ -87,7 +106,9 @@ export class SaveManager {
     if (!validSlot(slot)) return { kind: 'error', error: `Invalid save slot: ${slot}` };
     try {
       const { raw } = rawForSlot(slot);
-      return raw === null ? { kind: 'empty' } : parseRaw(raw);
+      const result = raw === null ? { kind: 'empty' as const } : parseRaw(raw);
+      if (result.kind === 'ready') SaveManager.attachSharedCamp(result.envelope);
+      return result;
     } catch (error) {
       return { kind: 'error', error: `Failed to read save: ${errorMessage(error)}` };
     }
@@ -98,8 +119,16 @@ export class SaveManager {
     const checked = validateSaveEnvelope(envelope);
     if (!checked.ok) return { ok: false, error: checked.error };
     try {
-      const raw = JSON.stringify(checked.value);
-      localStorage.setItem(SAVE_PREFIX + slot, raw);
+      const camp = readSharedCamp() ?? migrateSharedCamp([checked.value]);
+      if ((envelope.sharedCampRevision ?? 0) !== camp.revision) return { ok: false, error: '共享营地已在其他页面更新，请重新载入存档后再操作。' };
+      camp.revision += 1;
+      const committed = { ...checked.value, sharedCampRevision: camp.revision };
+      camp.profile = checked.value.profile;
+      camp.claimedRunIds = [...new Set([...camp.claimedRunIds, ...checked.value.claimedRunIds])];
+      camp.slots[slot] = JSON.stringify(committed);
+      // Profile and run settlement commit in one atomic storage write.
+      localStorage.setItem(SHARED_CAMP_KEY, JSON.stringify(camp));
+      envelope.sharedCampRevision = camp.revision;
       return { ok: true };
     } catch (error) {
       return { ok: false, error: `Failed to save game: ${errorMessage(error)}` };
@@ -124,6 +153,7 @@ export class SaveManager {
       if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
 
       const envelope = RunManager.createEnvelope(createProfileId());
+      SaveManager.attachSharedCamp(envelope);
       envelope.legacyArchive = {
         importedAt: Date.now(),
         sourceVersion: parsed.sourceVersion,
@@ -157,6 +187,11 @@ export class SaveManager {
 
   static clear(slot = 0): void {
     if (!validSlot(slot)) return;
+    const camp = readSharedCamp();
+    if (camp) {
+      camp.slots[slot] = null;
+      localStorage.setItem(SHARED_CAMP_KEY, JSON.stringify(camp));
+    }
     localStorage.removeItem(SAVE_PREFIX + slot);
     localStorage.removeItem(MIGRATION_BACKUP_PREFIX + slot);
     if (slot === 0) localStorage.removeItem(LEGACY_SAVE_KEY);

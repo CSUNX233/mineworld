@@ -10,6 +10,7 @@ import type { SaveData } from '../types';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import { BUILD_BRANCH_IDS } from '../progression/MetaProgression';
 import { validateSnapshot as validSummonSnapshot } from '../summons/validation';
+import { CRAFTING_TAGS } from '../items/CraftingTags';
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -40,6 +41,36 @@ const isNumericRecord = (value: unknown): value is Record<string, number> =>
 
 const validPreference = (value: unknown): boolean => value === undefined
   || ['vanguard', 'arcanist', 'summoner'].includes(value as string);
+const validEquipmentRulesVersion = (value: unknown): boolean => value === undefined || value === 1 || value === 2;
+const validSetPreference = (value: unknown): boolean => value === undefined
+  || CRAFTING_TAGS.some(tag => tag.id === value);
+
+function validItemCraftingFields(value: unknown): boolean {
+  // Existing legacy validation does not validate the full item shape. Keep that
+  // boundary and validate only P5 fields when an item record supplies them.
+  if (!isRecord(value)) return true;
+  return (value.contentId === undefined || isNonEmptyString(value.contentId))
+    && validEquipmentRulesVersion(value.equipmentRulesVersion)
+    && (value.reforgeCount === undefined || (isNonNegativeInteger(value.reforgeCount) && value.reforgeCount <= 3));
+}
+
+function validSetState(value: unknown): boolean {
+  if (!isRecord(value) || value.version !== 1 || !isNonNegativeNumber(value.time)) return false;
+  return ['meters', 'cooldowns', 'budgets'].every(field => isRecord(value[field])
+    && Object.keys(value[field]).length <= 100
+    && Object.values(value[field]).every(entry => isNonNegativeNumber(entry) && entry <= 1e9));
+}
+
+function validP5SnapshotFields(value: Record<string, unknown>): boolean {
+  if (!validEquipmentRulesVersion(value.equipmentRulesVersion)
+    || !validSetPreference(value.setPreference)
+    || (value.craftingSequence !== undefined && (!Number.isSafeInteger(value.craftingSequence) || (value.craftingSequence as number) < 0))) return false;
+  if (isRecord(value.runtime) && value.runtime.setState !== undefined && !validSetState(value.runtime.setState)) return false;
+  if (Array.isArray(value.inventory) && !value.inventory.every(validItemCraftingFields)) return false;
+  if (isRecord(value.equipment) && !Object.values(value.equipment).every(validItemCraftingFields)) return false;
+  if (Array.isArray(value.shopStock) && value.shopStock.some(entry => isRecord(entry) && !validItemCraftingFields(entry.item))) return false;
+  return true;
+}
 const validBranches = (value: unknown): boolean => value === undefined
   || (isStringArray(value) && hasUniqueEntries(value)
     && value.every(id => (BUILD_BRANCH_IDS as readonly string[]).includes(id)));
@@ -63,6 +94,7 @@ export function validateLegacySaveData(value: unknown): ValidationResult<SaveDat
   if (!Array.isArray(value.inventory) || !isRecord(value.equipment)) {
     return { ok: false, error: 'Legacy save is missing inventory data' };
   }
+  if (!validP5SnapshotFields(value)) return { ok: false, error: 'Save has invalid equipment crafting or set runtime data' };
   return { ok: true, value: value as unknown as SaveData };
 }
 
@@ -174,6 +206,9 @@ function validateRun(value: unknown): value is RunState {
     && value.runDefinitionId === BASIC_RUN_DEFINITION.id
     && value.mapPoolId === 'basic'
     && value.rulesVersion === BASIC_RUN_DEFINITION.rulesVersion
+    && validEquipmentRulesVersion(value.equipmentRulesVersion)
+    && validSetPreference(value.setPreference)
+    && (value.p5StarterGranted === undefined || typeof value.p5StarterGranted === 'boolean')
     && validPreference(value.rewardPreference)
     && validBuildUsage(value.buildUsage)
     && isFiniteNumber(value.seed)

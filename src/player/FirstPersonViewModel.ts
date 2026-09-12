@@ -1,3 +1,4 @@
+import { swingRoll } from '../combat/MeleeSwing';
 import * as THREE from 'three';
 import type { ElementType, Item } from '../types';
 
@@ -65,7 +66,13 @@ export class FirstPersonViewModel {
     }
   }
 
-  swing(progress: number): void {
+  swing(progress: number, angle = 0): void {
+    this.arm.rotation.order = 'ZXY';
+    this.arm.rotation.z = swingRoll(angle, progress);
+    if (this.weaponGroup) {
+      this.weaponGroup.rotation.order = 'ZXY';
+      this.weaponGroup.rotation.z = swingRoll(angle, progress);
+    }
     this.arm.rotation.x = -Math.PI * 0.65 * Math.sin(progress * Math.PI);
     this.arm.position.z = Math.sin(progress * Math.PI) * 0.12;
     if (this.weaponGroup) {

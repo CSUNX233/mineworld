@@ -1,4 +1,8 @@
 [
+  { "id": "tempered", "name": "淬炼的", "stat": "attack", "mode": "increased", "min": 0.08, "max": 0.16, "weight": 3, "slots": ["weapon", "ring", "necklace"] },
+  { "id": "deep_reserve", "name": "深储的", "stat": "maxMana", "mode": "increased", "min": 0.1, "max": 0.2, "weight": 3, "slots": ["helmet", "ring", "necklace", "offhand"] },
+  { "id": "layered", "name": "层铸的", "stat": "armor", "mode": "increased", "min": 0.12, "max": 0.24, "weight": 3, "slots": ["chest", "legs", "offhand"] },
+  { "id": "enduring", "name": "长生的", "stat": "maxHealth", "mode": "increased", "min": 0.06, "max": 0.12, "weight": 3, "slots": ["chest", "legs", "necklace"] },
   { "id": "sharp", "name": "锐利的", "stat": "attack", "min": 3, "max": 10, "weight": 10, "slots": ["weapon", "ring", "necklace"] },
   { "id": "fierce", "name": "狂暴的", "stat": "attackSpeed", "mode": "increased", "min": 0.06, "max": 0.18, "weight": 8, "slots": ["weapon", "boots", "ring"] },
   { "id": "precise", "name": "精准的", "stat": "critChance", "mode": "increased", "min": 0.2, "max": 0.55, "weight": 8, "slots": ["weapon", "helmet", "ring", "necklace"] },

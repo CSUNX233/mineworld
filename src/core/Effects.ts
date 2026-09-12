@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { combatTexture } from '../ui/CombatArt';
+import { effectTexture } from '../ui/CombatArt';
+import { swingRoll } from '../combat/MeleeSwing';
 
 type EffectTexture = 'slash' | 'impact' | 'fire' | 'ice' | 'lightning' | 'smoke' | 'shockwave' | 'shadow';
 type EffectMaterial = THREE.MeshBasicMaterial | THREE.SpriteMaterial;
@@ -23,6 +24,7 @@ interface Visual {
   spin: number;
   baseOpacity: number;
   fadeIn: number;
+  swing?: { orientation: THREE.Quaternion; angle: number };
 }
 
 const MAX_PARTICLES = 160;
@@ -41,6 +43,7 @@ export class Effects {
     this.emitDebris(position, color, count, speed);
     const size = count >= 18 ? 1.65 : count >= 9 ? 1.25 : 0.92;
     this.addBillboard('impact', position, size, 0.24, {
+      color,
       rotation: Math.random() * Math.PI * 2,
       startScale: 0.42,
       endScale: 1.18,
@@ -59,16 +62,20 @@ export class Effects {
     });
   }
 
-  meleeSlash(position: THREE.Vector3, direction: THREE.Vector3, color = 0xdff4ff, scale = 1): void {
-    const yaw = Math.atan2(direction.x, direction.z);
-    this.addPlane('slash', position, 1.7 * scale, 0.22, {
+  meleeSlash(position: THREE.Vector3, direction: THREE.Vector3, color = 0xdff4ff, scale = 1, angle = 0.65, duration = 0.22): void {
+    const before = this.visuals.length;
+    this.addPlane('slash', position, 1.7 * scale, duration, {
       color,
-      rotationY: yaw,
-      rotationZ: -0.2,
       startScale: 0.72,
       endScale: 1.14,
       opacity: 0.98,
     });
+    if (this.visuals.length > before) {
+      const visual = this.visuals[this.visuals.length - 1];
+      const orientation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction.clone().normalize());
+      visual.object.quaternion.copy(orientation);
+      visual.swing = { orientation, angle };
+    }
 
     const accent = this.elementAccent(color);
     if (accent) {
@@ -146,6 +153,13 @@ export class Effects {
     }
   }
 
+  setFireTrail(position: THREE.Vector3, life: number): void {
+    this.addGroundPlane('fire', position, 4.4, life, {
+      startScale: .85, endScale: 1, opacity: .36,
+      rotationZ: Math.random() * Math.PI * 2,
+    });
+  }
+
   explosion(position: THREE.Vector3, color: number): void {
     this.emitDebris(position, color, 26, 6);
     const element = this.closestElementTexture(color);
@@ -198,6 +212,10 @@ export class Effects {
       const eased = 1 - (1 - progress) * (1 - progress);
       visual.object.scale.lerpVectors(visual.startScale, visual.endScale, eased);
       visual.object.position.addScaledVector(visual.velocity, dt);
+      if (visual.swing) {
+        visual.object.quaternion.copy(visual.swing.orientation);
+        visual.object.rotateZ(swingRoll(visual.swing.angle, progress));
+      }
       if (visual.object instanceof THREE.Sprite) {
         (visual.material as THREE.SpriteMaterial).rotation += visual.spin * dt;
       } else {
@@ -270,7 +288,7 @@ export class Effects {
   ): void {
     if (this.visuals.length >= MAX_VISUALS) return;
     const material = new THREE.SpriteMaterial({
-      map: combatTexture('effects', name),
+      map: effectTexture(name),
       color: options.color ?? 0xffffff,
       transparent: true,
       opacity: options.opacity ?? 1,
@@ -340,7 +358,7 @@ export class Effects {
 
   private makePlaneMaterial(name: EffectTexture, color?: number, opacity = 1): THREE.MeshBasicMaterial {
     return new THREE.MeshBasicMaterial({
-      map: combatTexture('effects', name),
+      map: effectTexture(name),
       color: color ?? 0xffffff,
       transparent: true,
       opacity,

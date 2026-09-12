@@ -291,6 +291,8 @@ export class TouchControls {
   private bindDirectionalControl(button: HTMLDivElement, attack: boolean): void {
     let pointer: number | null = null;
     let startX = 0, startY = 0, cancelled = false, key = '';
+    let attackStarted = false;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
     const thumb = document.createElement('span');
     thumb.className = 'touch-aim-thumb';
     if (attack) thumb.style.backgroundImage = `url(${import.meta.env.BASE_URL}assets/ui/sunlit/attack/aim-thumb.webp)`;
@@ -306,7 +308,11 @@ export class TouchControls {
       const id = pointer;
       pointer = null;
       if (button.hasPointerCapture(id)) button.releasePointerCapture(id);
-      if (attack) this.callbacks.onAttackRelease();
+      if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
+      if (attack) {
+        if (!cancel && !attackStarted) this.callbacks.onAttackPress();
+        this.callbacks.onAttackRelease();
+      }
       else if (!cancel && !cancelled && button.getAttribute('aria-disabled') !== 'true') {
         this.callbacks.onSkillPress(key);
         this.callbacks.onSkillRelease(key);
@@ -340,7 +346,11 @@ export class TouchControls {
       button.classList.add('is-aiming');
       indicator.hidden = false;
       indicator.textContent = attack ? '拖动调整方向' : '拖动瞄准 · 松手施放';
-      if (attack) this.callbacks.onAttackPress();
+      attackStarted = false;
+      if (attack) holdTimer = setTimeout(() => {
+        holdTimer = null;
+        if (pointer !== null) { attackStarted = true; this.callbacks.onAttackPress(); }
+      }, 120);
     });
     const move = (event: PointerEvent) => {
       if (event.pointerId !== pointer) return;
@@ -350,6 +360,7 @@ export class TouchControls {
       const dx = latest.clientX - startX, dy = latest.clientY - startY;
       const length = Math.hypot(dx, dy);
       if (attack && length >= 5) {
+        if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
         button.classList.add('is-attack-dragging');
         thumb.hidden = false;
       }

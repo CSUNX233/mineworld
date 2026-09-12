@@ -1,0 +1,93 @@
+{
+  "selectedBy": "user",
+  "keepUnselected": true,
+  "sets": [
+    {
+      "number": 1,
+      "id": "warlord",
+      "name": "战争领主",
+      "variant": "A",
+      "source": "01-warlord-A.png"
+    },
+    {
+      "number": 2,
+      "id": "warbringer",
+      "name": "破军",
+      "variant": "B",
+      "source": "02-warbringer-B.png"
+    },
+    {
+      "number": 3,
+      "id": "frost",
+      "name": "霜语者",
+      "variant": "B",
+      "source": "03-frost-B.png"
+    },
+    {
+      "number": 4,
+      "id": "shadow",
+      "name": "暗影行者",
+      "variant": "A",
+      "source": "04-shadow-A.png"
+    },
+    {
+      "number": 5,
+      "id": "inferno",
+      "name": "炼狱",
+      "variant": "A",
+      "source": "05-inferno-A.png"
+    },
+    {
+      "number": 6,
+      "id": "glacier",
+      "name": "永冻",
+      "variant": "B",
+      "source": "06-glacier-B.png"
+    },
+    {
+      "number": 7,
+      "id": "venom",
+      "name": "疫毒",
+      "variant": "B",
+      "source": "07-venom-B.png"
+    },
+    {
+      "number": 8,
+      "id": "sanguine",
+      "name": "血裔",
+      "variant": "B",
+      "source": "08-sanguine-B.png"
+    },
+    {
+      "number": 9,
+      "id": "storm",
+      "name": "风暴",
+      "variant": "B",
+      "source": "09-storm-B.png"
+    },
+    {
+      "number": 10,
+      "id": "soul_banner",
+      "name": "魂旗军团",
+      "variant": "B",
+      "source": "10-soul_banner-B.png"
+    },
+    {
+      "number": 11,
+      "id": "soul_pyre",
+      "name": "烬祭",
+      "variant": "A",
+      "source": "11-soul_pyre-A.png"
+    },
+    {
+      "number": 12,
+      "id": "embersteel",
+      "name": "烬钢",
+      "variant": "B",
+      "source": "12-embersteel-B.png"
+    }
+  ],
+  "status": "integrated",
+  "publicPath": "public/assets/ui/sunlit/equipment",
+  "iconCount": 108
+}

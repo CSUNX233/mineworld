@@ -2,7 +2,7 @@ import { pixelText, setPixelText } from './PixelNumbers';
 import type { EquipmentManager, DerivedStats } from '../items/EquipmentManager';
 import type { Inventory } from '../items/Inventory';
 import type { Item, Rarity, Slot, Stat } from '../types';
-import { SETS, setDisplayName } from '../data/sets';
+import { setDefinition } from '../data/sets';
 import { statLabel, formatModifier } from '../items/AffixSystem';
 import { itemTooltipHTML } from './ItemTooltip';
 import { isMobileDevice } from '../utils/mobile';
@@ -202,10 +202,10 @@ export class InventoryUI {
     equipmentPanel.appendChild(shieldRule);
     const setSummary = document.createElement('div');
     setSummary.className = 'inventory-set-summary';
-    const activeSets = equipment.getActiveSetBonuses();
+    const activeSets = this.equippedSets();
     for (const set of activeSets) {
       const line = document.createElement('div');
-      line.textContent = this.setSummary(set.setId, set.count);
+      line.textContent = this.setSummary(set.setId, set.count, set.version);
       line.title = line.textContent;
       setSummary.appendChild(line);
     }
@@ -379,9 +379,25 @@ export class InventoryUI {
     window.addEventListener('pointerdown', this.dismissContext);
   }
 
-  private setSummary(id: string, count: number): string {
-    const thresholds = Object.keys(SETS[id]?.bonuses ?? {}).map(Number);
-    return setDisplayName(id) + ' ' + count + '/' + Math.max(1, ...thresholds);
+  private equippedSets(): { setId: string; count: number; version: number }[] {
+    const groups = new Map<string, { setId: string; count: number; version: number }>();
+    for (const item of this.equipment?.getEquippedItems() ?? []) {
+      if (!item.setId) continue;
+      const version = (item.equipmentRulesVersion ?? 1) >= 2 ? 2 : 1;
+      const key = `${version}:${item.setId}`;
+      const group = groups.get(key) ?? { setId: item.setId, count: 0, version };
+      group.count++;
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  }
+
+  private setSummary(id: string, count: number, version: number): string {
+    const definition = setDefinition(id, version);
+    const thresholds = Object.keys(definition?.bonuses ?? {}).map(Number).sort((a, b) => a - b);
+    const next = thresholds.find(threshold => threshold > count);
+    const progress = next ? ` · 下一档 ${next}件` : ' · 已达最高档';
+    return `${definition?.name ?? id}${version < 2 ? '（旧版）' : ''} ${count}/${Math.max(1, ...thresholds)}${progress}`;
   }
 
   private openSetDetails(trigger: HTMLButtonElement): void {
@@ -407,18 +423,26 @@ export class InventoryUI {
     header.append(heading, close);
     const setPanel = document.createElement('div');
     setPanel.className = 'inventory-set-dialog-body mobile-scroll';
-    const activeSets = this.equipment?.getActiveSetBonuses() ?? [];
+    const activeSets = this.equippedSets();
     if (!activeSets.length) setPanel.textContent = '尚未装备套装。穿戴套装装备后，可在这里查看件数和全部套装效果。';
       activeSets.forEach((set) => {
         const title = document.createElement('div');
         title.className = 'inventory-set-title';
         title.style.fontWeight = 'bold';
         title.style.marginBottom = '2px';
-        setPixelText(title, this.setSummary(set.setId, set.count));
+        setPixelText(title, this.setSummary(set.setId, set.count, set.version));
         setPanel.appendChild(title);
 
-        const setDef = SETS[set.setId];
+        const setDef = setDefinition(set.setId, set.version);
         if (!setDef) return;
+        if (set.version >= 2 && setDef.runtimeHint) {
+          const budgetHint = document.createElement('p');
+          budgetHint.className = 'inventory-set-bonus';
+          budgetHint.style.margin = '4px 0';
+          budgetHint.style.fontSize = '11px';
+          budgetHint.textContent = setDef.runtimeHint;
+          setPanel.appendChild(budgetHint);
+        }
         Object.keys(setDef.bonuses)
           .map(Number)
           .sort((a, b) => a - b)
@@ -431,15 +455,21 @@ export class InventoryUI {
                 return `${statLabel(typedStat)} ${formatModifier(typedStat, value, bonus.valueModes?.[typedStat] ?? 'flat')}`;
               })
               .join(' · ');
-            const specialText = bonus.special ? ` · ${this.specialLabel(bonus.special)}` : '';
+            const mechanismText = bonus.description || (bonus.special ? this.specialLabel(bonus.special) : '');
+            const duplicate = active && bonus.special && bonus.special !== 'aegisWalk' && (this.equipment?.getSpecialCount(bonus.special) ?? 0) > 1
+              ? ' · 同名独特效果有多个来源，仅生效一次' : '';
             const line = document.createElement('div');
             line.className = active ? 'inventory-set-bonus is-active' : 'inventory-set-bonus';
             line.dataset.active = String(active);
-            line.textContent = `${active ? '已激活' : '未激活'} · ${threshold}件：${statsText}${specialText}${bonus.description ? ' · ' + bonus.description : ''}`;
+            line.textContent = `${active ? '已激活' : '未激活'} · ${threshold}件：${[statsText, mechanismText].filter(Boolean).join(' · ')}${duplicate}`;
             setPanel.appendChild(line);
           });
       });
 
+    const countingRule = document.createElement('div');
+    countingRule.className = 'inventory-set-bonus';
+    countingRule.textContent = '戒指与戒指 II 分别计件；同一底材的两枚戒指也可计为两件。旧版与新版套装分别计件。';
+    setPanel.appendChild(countingRule);
     panel.append(header, setPanel);
     overlay.appendChild(panel);
     overlay.onclick = event => { if (event.target === overlay) close.click(); };

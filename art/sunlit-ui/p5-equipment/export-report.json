@@ -1,0 +1,2918 @@
+[
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "weapon",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      418
+    ],
+    "sourceBounds": [
+      30,
+      21,
+      400,
+      397
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "helmet",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      418
+    ],
+    "sourceBounds": [
+      58,
+      29,
+      360,
+      403
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "chest",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      418
+    ],
+    "sourceBounds": [
+      6,
+      49,
+      401,
+      403
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "legs",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      0,
+      418,
+      418,
+      825
+    ],
+    "sourceBounds": [
+      56,
+      11,
+      364,
+      389
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "boots",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      418,
+      418,
+      836,
+      825
+    ],
+    "sourceBounds": [
+      34,
+      55,
+      372,
+      347
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "ring",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      836,
+      418,
+      1254,
+      825
+    ],
+    "sourceBounds": [
+      55,
+      57,
+      353,
+      345
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "ring2",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      0,
+      825,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      60,
+      77,
+      365,
+      315
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "necklace",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      418,
+      825,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      45,
+      9,
+      374,
+      387
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warlord",
+    "variant": "A",
+    "slot": "offhand",
+    "source": "01-warlord-A.png",
+    "sourceCell": [
+      836,
+      825,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      82,
+      1,
+      333,
+      413
+    ],
+    "file": "assets/ui/sunlit/equipment/warlord-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      418
+    ],
+    "sourceBounds": [
+      49,
+      19,
+      403,
+      412
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      418
+    ],
+    "sourceBounds": [
+      86,
+      53,
+      333,
+      394
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "chest",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      418
+    ],
+    "sourceBounds": [
+      12,
+      73,
+      400,
+      415
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "legs",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      0,
+      418,
+      418,
+      836
+    ],
+    "sourceBounds": [
+      72,
+      25,
+      374,
+      399
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "boots",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      418,
+      418,
+      836,
+      836
+    ],
+    "sourceBounds": [
+      33,
+      71,
+      368,
+      381
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "ring",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      836,
+      418,
+      1254,
+      836
+    ],
+    "sourceBounds": [
+      64,
+      49,
+      360,
+      384
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      0,
+      836,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      59,
+      66,
+      375,
+      348
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      418,
+      836,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      55,
+      9,
+      362,
+      392
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "warbringer",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "02-warbringer-B.png",
+    "sourceCell": [
+      836,
+      836,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      77,
+      17,
+      359,
+      403
+    ],
+    "file": "assets/ui/sunlit/equipment/warbringer-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      423
+    ],
+    "sourceBounds": [
+      78,
+      25,
+      346,
+      417
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      423
+    ],
+    "sourceBounds": [
+      41,
+      51,
+      370,
+      423
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "chest",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      423
+    ],
+    "sourceBounds": [
+      24,
+      50,
+      370,
+      417
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "legs",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      0,
+      423,
+      418,
+      835
+    ],
+    "sourceBounds": [
+      64,
+      26,
+      349,
+      370
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "boots",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      418,
+      423,
+      836,
+      835
+    ],
+    "sourceBounds": [
+      33,
+      46,
+      350,
+      360
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "ring",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      836,
+      423,
+      1254,
+      835
+    ],
+    "sourceBounds": [
+      67,
+      59,
+      336,
+      348
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      0,
+      835,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      79,
+      21,
+      350,
+      334
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      418,
+      835,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      58,
+      1,
+      361,
+      351
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "frost",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "03-frost-B.png",
+    "sourceCell": [
+      836,
+      835,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      29,
+      5,
+      369,
+      356
+    ],
+    "file": "assets/ui/sunlit/equipment/frost-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "weapon",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      447
+    ],
+    "sourceBounds": [
+      51,
+      33,
+      408,
+      447
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "helmet",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      447
+    ],
+    "sourceBounds": [
+      65,
+      62,
+      357,
+      426
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "chest",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      447
+    ],
+    "sourceBounds": [
+      27,
+      95,
+      382,
+      429
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "legs",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      0,
+      447,
+      418,
+      836
+    ],
+    "sourceBounds": [
+      89,
+      18,
+      366,
+      360
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "boots",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      418,
+      447,
+      836,
+      836
+    ],
+    "sourceBounds": [
+      37,
+      56,
+      384,
+      345
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "ring",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      836,
+      447,
+      1254,
+      836
+    ],
+    "sourceBounds": [
+      75,
+      62,
+      344,
+      339
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "ring2",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      0,
+      836,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      84,
+      63,
+      358,
+      342
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "necklace",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      418,
+      836,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      68,
+      2,
+      359,
+      359
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "shadow",
+    "variant": "A",
+    "slot": "offhand",
+    "source": "04-shadow-A.png",
+    "sourceCell": [
+      836,
+      836,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      13,
+      7,
+      366,
+      354
+    ],
+    "file": "assets/ui/sunlit/equipment/shadow-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "weapon",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      418
+    ],
+    "sourceBounds": [
+      27,
+      17,
+      372,
+      404
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "helmet",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      418
+    ],
+    "sourceBounds": [
+      63,
+      20,
+      355,
+      396
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "chest",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      418
+    ],
+    "sourceBounds": [
+      30,
+      32,
+      400,
+      404
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "legs",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      0,
+      418,
+      418,
+      834
+    ],
+    "sourceBounds": [
+      32,
+      11,
+      377,
+      383
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "boots",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      418,
+      418,
+      836,
+      834
+    ],
+    "sourceBounds": [
+      35,
+      46,
+      372,
+      377
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "ring",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      836,
+      418,
+      1254,
+      834
+    ],
+    "sourceBounds": [
+      78,
+      25,
+      362,
+      372
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "ring2",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      0,
+      834,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      48,
+      53,
+      369,
+      332
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "necklace",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      418,
+      834,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      45,
+      1,
+      373,
+      400
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "inferno",
+    "variant": "A",
+    "slot": "offhand",
+    "source": "05-inferno-A.png",
+    "sourceCell": [
+      836,
+      834,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      82,
+      1,
+      355,
+      400
+    ],
+    "file": "assets/ui/sunlit/equipment/inferno-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      420
+    ],
+    "sourceBounds": [
+      65,
+      31,
+      398,
+      420
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      420
+    ],
+    "sourceBounds": [
+      57,
+      33,
+      361,
+      417
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "chest",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      420
+    ],
+    "sourceBounds": [
+      16,
+      91,
+      400,
+      415
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "legs",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      0,
+      420,
+      418,
+      829
+    ],
+    "sourceBounds": [
+      88,
+      34,
+      331,
+      392
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "boots",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      418,
+      420,
+      836,
+      829
+    ],
+    "sourceBounds": [
+      61,
+      64,
+      360,
+      379
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "ring",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      836,
+      420,
+      1254,
+      829
+    ],
+    "sourceBounds": [
+      77,
+      88,
+      339,
+      361
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      0,
+      829,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      80,
+      84,
+      358,
+      347
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      418,
+      829,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      71,
+      11,
+      348,
+      384
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "glacier",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "06-glacier-B.png",
+    "sourceCell": [
+      836,
+      829,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      65,
+      1,
+      350,
+      404
+    ],
+    "file": "assets/ui/sunlit/equipment/glacier-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      418
+    ],
+    "sourceBounds": [
+      42,
+      28,
+      411,
+      405
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      418
+    ],
+    "sourceBounds": [
+      67,
+      38,
+      351,
+      397
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "chest",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      418
+    ],
+    "sourceBounds": [
+      16,
+      65,
+      391,
+      405
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "legs",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      0,
+      418,
+      418,
+      823
+    ],
+    "sourceBounds": [
+      62,
+      14,
+      348,
+      371
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "boots",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      418,
+      418,
+      836,
+      823
+    ],
+    "sourceBounds": [
+      42,
+      54,
+      372,
+      371
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "ring",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      836,
+      418,
+      1254,
+      823
+    ],
+    "sourceBounds": [
+      67,
+      29,
+      355,
+      362
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      0,
+      823,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      58,
+      39,
+      372,
+      363
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      418,
+      823,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      45,
+      6,
+      373,
+      391
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "venom",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "07-venom-B.png",
+    "sourceCell": [
+      836,
+      823,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      81,
+      1,
+      349,
+      398
+    ],
+    "file": "assets/ui/sunlit/equipment/venom-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      418
+    ],
+    "sourceBounds": [
+      28,
+      25,
+      397,
+      397
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      418
+    ],
+    "sourceBounds": [
+      87,
+      46,
+      332,
+      397
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "chest",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      418
+    ],
+    "sourceBounds": [
+      27,
+      41,
+      393,
+      397
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "legs",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      0,
+      418,
+      418,
+      836
+    ],
+    "sourceBounds": [
+      66,
+      14,
+      343,
+      400
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "boots",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      418,
+      418,
+      836,
+      836
+    ],
+    "sourceBounds": [
+      49,
+      57,
+      355,
+      370
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "ring",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      836,
+      418,
+      1254,
+      836
+    ],
+    "sourceBounds": [
+      65,
+      51,
+      348,
+      353
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      0,
+      836,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      58,
+      62,
+      356,
+      303
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      418,
+      836,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      49,
+      1,
+      369,
+      361
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "sanguine",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "08-sanguine-B.png",
+    "sourceCell": [
+      836,
+      836,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      43,
+      6,
+      374,
+      354
+    ],
+    "file": "assets/ui/sunlit/equipment/sanguine-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      438
+    ],
+    "sourceBounds": [
+      94,
+      32,
+      417,
+      438
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      438
+    ],
+    "sourceBounds": [
+      68,
+      50,
+      362,
+      417
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "chest",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      438
+    ],
+    "sourceBounds": [
+      12,
+      87,
+      388,
+      414
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "legs",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      0,
+      438,
+      418,
+      836
+    ],
+    "sourceBounds": [
+      76,
+      21,
+      377,
+      378
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "boots",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      418,
+      438,
+      836,
+      836
+    ],
+    "sourceBounds": [
+      36,
+      67,
+      375,
+      367
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "ring",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      836,
+      438,
+      1254,
+      836
+    ],
+    "sourceBounds": [
+      74,
+      44,
+      344,
+      358
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      0,
+      836,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      76,
+      46,
+      361,
+      355
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      418,
+      836,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      64,
+      11,
+      356,
+      371
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "storm",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "09-storm-B.png",
+    "sourceCell": [
+      836,
+      836,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      32,
+      21,
+      371,
+      381
+    ],
+    "file": "assets/ui/sunlit/equipment/storm-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      418
+    ],
+    "sourceBounds": [
+      33,
+      12,
+      352,
+      411
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      418
+    ],
+    "sourceBounds": [
+      52,
+      17,
+      367,
+      402
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "chest",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      418
+    ],
+    "sourceBounds": [
+      16,
+      61,
+      385,
+      398
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "legs",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      0,
+      418,
+      418,
+      836
+    ],
+    "sourceBounds": [
+      79,
+      22,
+      349,
+      396
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "boots",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      418,
+      418,
+      836,
+      836
+    ],
+    "sourceBounds": [
+      31,
+      42,
+      369,
+      384
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "ring",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      836,
+      418,
+      1254,
+      836
+    ],
+    "sourceBounds": [
+      47,
+      45,
+      354,
+      351
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      0,
+      836,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      55,
+      38,
+      359,
+      346
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      418,
+      836,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      70,
+      9,
+      349,
+      387
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_banner",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "10-soul_banner-B.png",
+    "sourceCell": [
+      836,
+      836,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      42,
+      19,
+      377,
+      393
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_banner-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "weapon",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      419
+    ],
+    "sourceBounds": [
+      119,
+      16,
+      391,
+      419
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "helmet",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      419
+    ],
+    "sourceBounds": [
+      73,
+      37,
+      339,
+      412
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "chest",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      419
+    ],
+    "sourceBounds": [
+      22,
+      64,
+      389,
+      415
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "legs",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      0,
+      419,
+      418,
+      820
+    ],
+    "sourceBounds": [
+      66,
+      31,
+      371,
+      390
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "boots",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      418,
+      419,
+      836,
+      820
+    ],
+    "sourceBounds": [
+      37,
+      73,
+      398,
+      364
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "ring",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      836,
+      419,
+      1254,
+      820
+    ],
+    "sourceBounds": [
+      55,
+      54,
+      384,
+      363
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "ring2",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      0,
+      820,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      75,
+      20,
+      363,
+      386
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "necklace",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      418,
+      820,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      51,
+      24,
+      380,
+      394
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "soul_pyre",
+    "variant": "A",
+    "slot": "offhand",
+    "source": "11-soul_pyre-A.png",
+    "sourceCell": [
+      836,
+      820,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      96,
+      1,
+      395,
+      401
+    ],
+    "file": "assets/ui/sunlit/equipment/soul_pyre-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "weapon",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      0,
+      0,
+      418,
+      418
+    ],
+    "sourceBounds": [
+      46,
+      40,
+      408,
+      404
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-weapon.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "helmet",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      418,
+      0,
+      836,
+      418
+    ],
+    "sourceBounds": [
+      71,
+      51,
+      355,
+      404
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-helmet.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "chest",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      836,
+      0,
+      1254,
+      418
+    ],
+    "sourceBounds": [
+      13,
+      70,
+      388,
+      405
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-chest.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "legs",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      0,
+      418,
+      418,
+      836
+    ],
+    "sourceBounds": [
+      63,
+      23,
+      373,
+      396
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-legs.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "boots",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      418,
+      418,
+      836,
+      836
+    ],
+    "sourceBounds": [
+      43,
+      63,
+      366,
+      374
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-boots.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "ring",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      836,
+      418,
+      1254,
+      836
+    ],
+    "sourceBounds": [
+      64,
+      72,
+      348,
+      372
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-ring.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "ring2",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      0,
+      836,
+      418,
+      1254
+    ],
+    "sourceBounds": [
+      76,
+      61,
+      364,
+      341
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-ring2.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "necklace",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      418,
+      836,
+      836,
+      1254
+    ],
+    "sourceBounds": [
+      53,
+      6,
+      365,
+      360
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-necklace.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  },
+  {
+    "setId": "embersteel",
+    "variant": "B",
+    "slot": "offhand",
+    "source": "12-embersteel-B.png",
+    "sourceCell": [
+      836,
+      836,
+      1254,
+      1254
+    ],
+    "sourceBounds": [
+      30,
+      19,
+      378,
+      358
+    ],
+    "file": "assets/ui/sunlit/equipment/embersteel-offhand.webp",
+    "size": [
+      256,
+      256
+    ],
+    "alphaValues": [
+      0,
+      255
+    ]
+  }
+]

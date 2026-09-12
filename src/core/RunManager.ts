@@ -74,6 +74,7 @@ export class RunManager {
     const next = structuredClone(envelope);
     next.revision += 1;
     next.activeRun = {
+      equipmentRulesVersion: 2,
       runId,
       runDefinitionId: BASIC_RUN_DEFINITION.id,
       mapPoolId: BASIC_RUN_DEFINITION.mapPoolId,
