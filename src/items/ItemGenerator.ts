@@ -8,6 +8,7 @@ import type { ArchetypeId } from '../progression/types';
 import { matchesRewardPreference, p5PreferredCandidates, REWARD_PREFERENCE_CHANCE, type EquipmentMechanismTag } from './RewardPreference';
 import { P5_BASE_ITEMS, normalizeSetRingName } from './SetItems';
 import { equipmentSellPrice } from './ItemValue';
+import { bossWeaponForBoss } from '../data/BossWeapons';
 import { DEATH_REAPER_ITEMS, DEATH_REAPER_SET } from '../data/DeathReaperItems';
 
 interface BaseItemDef {
@@ -48,6 +49,19 @@ export class ItemGenerator {
       name: base.name, slot: base.slot, rarity: 'mythic', baseStats, affixes, requiredLevel: Math.max(1,Math.min(itemLevel,playerLevel)),
       icon: base.icon, itemLevel, sellPrice: equipmentSellPrice('mythic',itemLevel), setId: DEATH_REAPER_SET,
       element: 'shadow', flavor: base.flavor });
+  }
+  static generateBossWeapon(bossId: string, floor: number, rng: RNG, playerLevel = floor): Item {
+    const base=bossWeaponForBoss(bossId);
+    if(!base) throw new Error('未知 Boss 专武来源');
+    const itemLevel=Math.max(1,floor+rng.int(0,2));
+    const baseStats: StatMap={};
+    for(const [key,value] of Object.entries(base.baseStats)) baseStats[key as keyof StatMap]=this.scaleBaseStat(key,value,itemLevel);
+    if(baseStats.armor&&!baseStats.defense)baseStats.defense=baseDefenseFromArmor(baseStats.armor);
+    const affixes=AffixSystem.generateAffixes('weapon','mythic',itemLevel,rng,RARITY_AFFIX_COUNT.mythic[0],{includeSpecial:false});
+    affixes.unshift({id:`core_${base.id}`,name:'领主遗物',tier:1,values:{},special:base.id});
+    return {id:`${base.id}_${itemLevel}_${rng.int(0,999999)}`,contentId:base.id,equipmentRulesVersion:2,
+      name:base.name,slot:'weapon',rarity:'mythic',baseStats,affixes,requiredLevel:Math.max(1,Math.min(itemLevel,playerLevel)),
+      icon:base.icon,itemLevel,sellPrice:equipmentSellPrice('mythic',itemLevel),setId:base.setId,element:base.element,flavor:base.flavor};
   }
   static generate(
     floor: number,

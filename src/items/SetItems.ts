@@ -24,7 +24,7 @@ const SLOT_TEMPLATES: EquipmentBaseDefinition[] = [
   { id: 'offhand', name: '符盾', slot: 'offhand', icon: 'shield', baseStats: { maxHealth: 18, armor: 4 } },
 ];
 
-export const P5_SET_ITEMS: EquipmentBaseDefinition[] = Object.values(P5_SETS).filter(set => set.id !== 'death_reaper').flatMap(set =>
+export const P5_SET_ITEMS: EquipmentBaseDefinition[] = Object.values(P5_SETS).filter(set => set.id !== 'death_reaper' && !set.tags?.includes('boss-relic')).flatMap(set =>
   SLOT_TEMPLATES.map(template => {
     // Staff names are also the existing game's explicit ranged-weapon discriminator.
     const staff = template.slot === 'weapon'

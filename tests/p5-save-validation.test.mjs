@@ -35,6 +35,18 @@ function fixture(p5 = true) {
   return envelope;
 }
 
+test('legal summon talent saves while screenshot-only overspending is diagnosed without mutating data', () => {
+  const envelope = fixture();
+  envelope.activeRun.snapshot.runTalents = {version:1,unlocked:['melee_seed','summon_seed'],resetsUsed:0};
+  const before = JSON.stringify(envelope);
+  const invalid = validateSaveEnvelope(envelope);
+  assert.equal(invalid.ok,false);
+  assert.match(invalid.error,/局内天赋已用/);
+  assert.equal(JSON.stringify(envelope),before);
+  envelope.activeRun.snapshot.runTalents.unlocked=['summon_seed'];
+  assert.equal(validateSaveEnvelope(envelope).ok,true);
+});
+
 test('missing P5 fields preserve old saves and current runtime snapshots remain valid without mutation', () => {
   const legacy = fixture(false);
   assert.equal(validateSaveEnvelope(legacy).ok, true);

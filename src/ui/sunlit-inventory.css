@@ -76,7 +76,7 @@
 #ui-root .inventory-item-slot.sunlit-inset {
   box-sizing: border-box;
   overflow: hidden;
-  background: #172b46;
+  background: #172b46 url('/assets/ui/sunlit/slot-kit/socket.png') center / 100% 100% no-repeat;
   border: 3px solid var(--item-rarity);
   border-image: none;
   border-radius: 0;
@@ -91,7 +91,7 @@
 
 #ui-root .inventory-item-slot.is-empty {
   --item-rarity: #3d526b;
-  background: #13243a;
+  background: #13243a url('/assets/ui/sunlit/slot-kit/socket.png') center / 100% 100% no-repeat;
   border-width: 1px;
   clip-path: none;
   box-shadow: inset 1px 1px 0 #0b192b;
@@ -119,7 +119,9 @@
 .inventory-item-icon {
   width: 42px;
   height: 42px;
-  flex: 0 0 42px;
+  /* Responsive width must also control the flex basis: atlas cells distort
+     when mobile height is 28/30px but the old basis still forces 42px. */
+  flex: 0 0 auto;
   image-rendering: pixelated;
 }
 
@@ -619,7 +621,6 @@
 #ui-root .mobile-inventory .equipment-slot .inventory-item-icon {
   width: 28px;
   height: 28px;
-  flex-basis: 28px;
 }
 #ui-root .mobile-inventory .equipment-slot-label { font-size: 10px; line-height: 1.1; }
 #ui-root .mobile-inventory .inventory-stat-summary {
@@ -835,6 +836,11 @@
     radial-gradient(circle at 96% 70%,#ff6eae 0 1px,transparent 2px),
     radial-gradient(circle at 30% 96%,#ffc574 0 1px,transparent 2px);
   animation: reaper-rim-sparks 1.8s steps(4,end) infinite;
+}
+#ui-root .inventory-item-slot.rarity-mythic {
+  background-image: url('/assets/ui/sunlit/slot-kit/socket.png'),
+    linear-gradient(115deg,#651332,#ff2857,#ffd58a,#9d1848,#ff65aa,#f0ba61,#651332);
+  background-repeat: no-repeat;
 }
 @keyframes reaper-border-flow { 0%,100% {background-position:0 0,0% 50%} 50% {background-position:0 0,100% 50%} }
 @keyframes reaper-rim-sparks { 0%,100% {opacity:.3} 50% {opacity:1} }

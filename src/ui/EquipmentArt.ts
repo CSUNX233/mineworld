@@ -1,3 +1,4 @@
+import { BOSS_WEAPONS } from '../data/BossWeapons';
 import type { Item } from '../types';
 
 export type ItemArtSource = Pick<Item, 'icon'> & Partial<Pick<Item, 'id' | 'setId' | 'slot' | 'equipmentRulesVersion'>>;
@@ -8,6 +9,8 @@ const SLOTS = new Set(['weapon', 'helmet', 'chest', 'legs', 'boots', 'ring', 'ri
 
 /** Resolve at display time so existing P5 saves receive artwork without changing item identity. */
 export function equipmentArtPath(item: ItemArtSource): string | undefined {
+  const bossWeapon=BOSS_WEAPONS.find(w=>w.setId===item.setId && item.slot==='weapon');
+  if(bossWeapon) return `assets/ui/sunlit/boss-weapons/${bossWeapon.icon}.png`;
   if (item.setId === 'death_reaper' && item.slot && SLOTS.has(item.slot))
     return `assets/ui/sunlit/death-reaper/${item.slot}.webp`;
   if ((item.equipmentRulesVersion ?? 1) < 2 || !item.setId || !SET_IDS.has(item.setId)

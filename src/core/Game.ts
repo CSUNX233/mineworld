@@ -1,8 +1,12 @@
 import { cloneData } from '../utils/cloneData';
+import { createSaveCandidate } from './SaveCandidate';
+import { MonsterSpatialIndex } from '../combat/MonsterSpatialIndex';
+import { updateProjectileRuntime, type ProjectileRuntimeHost } from '../combat/ProjectileRuntime';
 import { normalizeSetRingName } from '../items/SetItems';
-import { DeathReaper } from '../items/DeathReaper';
+import { BossWeaponRuntime } from '../items/BossWeaponRuntime';
+import { DeathReaper, type DeathReaperHost } from '../items/DeathReaper';
 import { DeathReaperVisual } from '../items/DeathReaperVisual';
-import { applyPermanentMetaBonuses } from '../progression/MetaProgression';
+import { EffectiveStatsCache } from '../progression/EffectiveStatsCache';
 import { AdaptiveAggression } from './AdaptiveAggression';
 import { EnemyTactics } from '../monsters/EnemyTactics';
 import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
@@ -23,7 +27,6 @@ import { preloadChapterTextures } from '../world/ChapterTextures';
 import { FoundryBossController } from '../monsters/FoundryBossController';
 import { prepareFoundryPanels, foundryPanels } from '../world/FoundryPanels';
 import { FoundryPractice } from '../world/FoundryPractice';
-import { AimGuide } from '../ui/AimGuide';
 import { SoftAim } from '../combat/SoftAim';
 import { buildControlsGuide } from '../ui/ControlsGuide';
 import { DAMAGE_COLORS } from '../ui/DamageStyle';
@@ -139,8 +142,9 @@ const SKILL_UI_ICONS: Record<string, string> = {
 };
 
 export class Game {
+  private readonly projectileIndex = new MonsterSpatialIndex();
+  private readonly statsCache = new EffectiveStatsCache();
   private readonly softAim = new SoftAim();
-  private readonly aimGuide = new AimGuide();
   private touchAimSkill: string | null = null;
   private renderer: THREE.WebGLRenderer;
   private graphicsLost = false;
@@ -347,7 +351,7 @@ export class Game {
   private comboTimer = 0;
   private lowHealthShieldCooldown = 0;
   private reaperVisual = new DeathReaperVisual(this.scene);
-  private reaper = new DeathReaper({
+  private relicHost: DeathReaperHost = {
     attack: () => this.effectiveStats().attack,
     maxHealth: () => this.player.maxHealth,
     maxMana: () => this.player.maxMana,
@@ -371,7 +375,11 @@ export class Game {
     },
     message: text => this.hud.showCenterMessage(text,'死亡收割 · 六秒化身',2),
     effect: (kind,target,radius) => this.reaperVisual.onEffect(kind,target?.position ?? this.player.position,radius),
-  });
+  };
+  private reaper = new DeathReaper(this.relicHost);
+  private bossWeapons = new BossWeaponRuntime({...this.relicHost, effect: (_kind,target) => {
+    if(target) this.effects.burst(target.position, this.equipment.get('weapon')?.element==='fire' ? 0xff7028 : this.equipment.get('weapon')?.element==='frost' ? 0x80dfdc : 0xda4568, 10, 2);
+  }});
   private elapsed = 0;
   private aggression = new AdaptiveAggression();
   private running = false;
@@ -430,7 +438,6 @@ export class Game {
     this.camera.position.set(0, 8, 12);
     this.camera.lookAt(0, 1, 0);
     this.scene.add(this.camera);
-    this.scene.add(this.aimGuide.mesh);
     this.firstPersonView = new FirstPersonViewModel(this.camera);
 
     const hemi = new THREE.HemisphereLight(0xd8e8ff, 0x2a2f36, 0.9);
@@ -998,7 +1005,7 @@ export class Game {
     this.equipmentRulesVersion = this.envelope?.activeRun?.equipmentRulesVersion ?? 1;
     this.craftingSequence = 0;
     this.setRuntime.reset();
-    this.reaper.reset();
+    this.reaper.reset(); this.bossWeapons.reset();
     this.runTalents = createRunTalents();
     this.runTalents = unlockRunTalent(this.runTalents,
       archetype === 'vanguard' ? 'melee_seed' : archetype === 'summoner' ? 'summon_seed' : 'fire_seed', 1);
@@ -1064,6 +1071,7 @@ export class Game {
     this.craftingSequence = save.craftingSequence ?? 0;
     this.setRuntime.restore(save.runtime?.setState);
     this.reaper.restore(save.runtime?.deathReaper);
+    this.bossWeapons.restore(save.runtime?.bossWeaponCooldown);
     this.runTalents = save.runTalents ? cloneData(save.runTalents) : createRunTalents();
     this.migratedRunTalents = !save.runTalents;
     this.fireModifiers = deriveFireModifiers(this.runTalents);
@@ -1480,7 +1488,7 @@ export class Game {
   }
 
   private clearEntities(): void {
-    this.reaper.clearTargets();
+    this.reaper.clearTargets(); this.bossWeapons.clearTargets();
     this.reaperVisual.reset();
     this.foundryPractice.clear();
     this.oathGatekeeper.clear();
@@ -1622,6 +1630,7 @@ export class Game {
       this.reaper.update(rawDt, this.equipment.getEquippedItems(),
         Math.hypot(this.player.position.x-movementStartX,this.player.position.z-movementStartZ),
         Boolean(this.encounters?.lockedRoomIds.length));
+      this.bossWeapons.update(rawDt,this.equipment.getEquippedItems(),Math.hypot(this.player.position.x-movementStartX,this.player.position.z-movementStartZ),Boolean(this.encounters?.lockedRoomIds.length));
       this.reaperVisual.update(rawDt,this.equipment.getEquippedItems(),this.player.position,this.reaper.transformed,this.controller.isFirstPerson,this.player.yaw);
       this.setRuntime.update(rawDt, this.equipment.getP5SetCounts(),
         Math.hypot(this.player.position.x - movementStartX, this.player.position.z - movementStartZ),
@@ -2038,7 +2047,7 @@ export class Game {
       const run = this.envelope?.activeRun;
       if (run && canExtract(run)) {
         const checkpoint = document.createElement('p');
-        checkpoint.textContent = `阶段 Boss 已击败。现在提前结算可获得 ${extractionResearchXp(run) / 100} 个局外天赋点；完整通关获得 500 点。进入下一层后，要到下一场 Boss 战后才能再次提前结算。`;
+        checkpoint.textContent = `阶段 Boss 已击败。现在提前结算可获得 ${extractionResearchXp(run)} 研究经验；完整通关获得 500 研究经验。进入下一层后，要到下一场 Boss 战后才能再次提前结算。`;
         panel.appendChild(checkpoint);
         const extract = this.makeMenuButton('提前结算，返回营地');
         extract.onclick = () => this.confirmExtraction();
@@ -2693,6 +2702,7 @@ export class Game {
     if (skill.id === 'detonate') this.useDetonate();
     this.setRuntime.onCast(skill.id, skill.manaCost, coldBeforeCast);
     this.reaper.onCast(skill.id, skill.manaCost);
+    this.bossWeapons.onCast(skill.manaCost);
     this.castingSetSkill = null;
   }
 
@@ -3094,51 +3104,57 @@ export class Game {
     this.effects.burst(minion.position.clone().add(new THREE.Vector3(0, 0.8, 0)), minion.def.color, 12, 3);
   }
 
-  private updateProjectiles(dt: number): void {
-    if (dt <= 0) return;
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      if (this.isGameplayPaused()) return;
-      const projectile = this.projectiles[i];
-      const { hitWall, hitMonster, hitPlayer, expired } = stepProjectile(projectile,dt,this.floorData,this.monsters,this.player);
-      projectile.mesh.position.copy(projectile.position);
-      let remove = hitWall || hitPlayer || hitMonster !== null;
-      if (hitMonster) {
+  private projectileIndexDirty = true;
+  private readonly projectileRuntimeHost: ProjectileRuntimeHost = {
+    projectiles: () => this.projectiles,
+    paused: () => this.isGameplayPaused(),
+    step: (projectile, dt) => {
+      if (projectile.friendly && this.projectileIndexDirty) {
+        this.projectileIndex.rebuild(this.monsters);
+        this.projectileIndexDirty = false;
+      }
+      const result = stepProjectile(projectile, dt, this.floorData, this.projectileIndex.query(projectile, dt), this.player);
+      if (result.hitMonster || result.hitPlayer || result.expired) this.projectileIndexDirty = true;
+      return result;
+    },
+    hitMonster: (projectile, hitMonster) => {
         const crit = Math.random() < boundedCritChance(this.effectiveStats().critChance);
         const element = projectile.element ?? 'physical';
         const raw = projectile.damage * (crit ? this.effectiveStats().critDamage : 1);
         const damage = elementalDamage(raw * (1 - defenseMitigation(hitMonster.def.armor, this.floor)),
           element, hitMonster.def.resistances, hitMonster.statuses);
         this.applyMonsterDamage(hitMonster, damage, crit, projectile.impact ?? 0.7, projectile.position, element, true, projectile.sourceSkillId ?? 'staff_attack');
-        if (this.isGameplayPaused()) return;
+        if (this.isGameplayPaused()) return false;
         const fire = projectile.fireModifiers ?? this.fireModifiers;
         if (element === 'fire' && fire.enabled) {
           this.igniteMonster(hitMonster, raw, fire);
           if (projectile.sourceSkillId === 'fireball') this.spreadFire(hitMonster, raw, fire);
         } else this.applyPlayerElementalHit(hitMonster, element, raw, projectile.statusChance);
         if (projectile.sourceSkillId === 'staff_attack') this.triggerBasicAttackEffects(hitMonster, this.effectiveStats());
-        if ((projectile.piercesRemaining ?? 0) > 0 && !expired) {
-          projectile.piercesRemaining!--;
-          remove = false;
-        }
-      } else if (hitPlayer) {
-        this.damagePlayerWithElement(projectile.damage, projectile.element ?? 'physical', projectile.statusChance, 'enemy_projectile');
-        if (this.isGameplayPaused()) return;
-      }
-      if (remove) {
-        this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
-        if (hitWall) this.audio.explosion();
-      } else if (expired) {
-        if (projectile.sourceSkillId === 'fireball') this.effects.explosion(projectile.position, 0xff8c1e);
-        else this.detonateProjectile(projectile);
-        remove = true;
-      }
-      if (remove) {
-        this.scene.remove(projectile.mesh);
-        projectile.mesh.geometry.dispose();
-        (projectile.mesh.material as THREE.Material).dispose();
-        this.projectiles.splice(i, 1);
-      }
-    }
+      return true;
+    },
+    hitPlayer: projectile => {
+      this.damagePlayerWithElement(projectile.damage, projectile.element ?? 'physical', projectile.statusChance, 'enemy_projectile');
+      return !this.isGameplayPaused();
+    },
+    impact: (projectile, wall) => {
+      this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
+      if (wall) this.audio.explosion();
+    },
+    expire: projectile => {
+      if (projectile.sourceSkillId === 'fireball') this.effects.explosion(projectile.position, 0xff8c1e);
+      else this.detonateProjectile(projectile);
+    },
+    dispose: projectile => {
+      this.scene.remove(projectile.mesh);
+      projectile.mesh.geometry.dispose();
+      (projectile.mesh.material as THREE.Material).dispose();
+    },
+  };
+
+  private updateProjectiles(dt: number): void {
+    this.projectileIndexDirty = true;
+    updateProjectileRuntime(dt, this.projectileRuntimeHost);
   }
 
   private detonateProjectile(projectile: Projectile): void {
@@ -3188,6 +3204,7 @@ export class Game {
     if (canLeech || setSource) {
       const source = setSource ?? this.castingSetSkill ?? 'melee_attack';
       this.reaper.onHit(monster,actualDamage,element,source);
+      this.bossWeapons.onHit(monster,actualDamage,source);
       if (killed) this.setRuntime.onKillingHit(element, source);
       else this.setRuntime.onHit(monster, element, source);
     }
@@ -3326,16 +3343,24 @@ export class Game {
   }
 
   private commandSummons(focus: boolean): void {
-    if (this.isGameplayPaused() || !this.player.alive) return;
+    if (this.isGameplayPaused() || !this.player.alive || !this.hasSummonLoadout()) return;
     if (!focus) { this.summonSystem.recall(); return; }
-    const target = this.getTargetsInFront(this.controller.getAimDirection(), 16, 1.4)[0];
-    if (!target) { this.hud.showCenterMessage('没有集火目标', '朝向视线内的敌人后再次下令', 1.5); return; }
+    const aim = this.controller.getAimDirection();
+    const target = this.getTargetsInFront(aim, 16, .18)[0] ?? this.getTargetsInFront(aim, 16, Math.PI)[0];
+    if (!target) { this.hud.showCenterMessage('没有集火目标', '附近没有可攻击的敌人', 1.5); return; }
     this.summonSystem.focus(target);
   }
 
   private reconcileSummons(): void {
     this.summonSystem.reconcileSources(deriveP4Modifiers(this.runTalents).raiseCompanyUnlocked,
       this.equipment.hasSpecial('summonSkeletonOnKill'), (this.equipment.getP5SetCounts().venom ?? 0) >= 2);
+  }
+
+  private hasSummonLoadout(): boolean {
+    return this.skills.some(skill => skillById(skill.id)?.tags.includes('summon'))
+      || this.equipment.hasSpecial('summonSkeletonOnKill')
+      || Object.entries(this.equipment.getP5SetCounts()).some(([id, count]) =>
+        count >= 2 && ['venom', 'soul_banner', 'soul_pyre'].includes(id));
   }
 
   private updateSummons(dt: number): void {
@@ -3365,7 +3390,7 @@ export class Game {
     });
     if (!this.summonCommands) this.summonCommands = new SummonCommandBar(this.uiRoot,
       () => this.commandSummons(true), () => this.commandSummons(false));
-    this.summonCommands.update(this.summonSystem.status, this.runTalents.unlocked.includes('summon_seed'));
+    this.summonCommands.update(this.summonSystem.status, this.hasSummonLoadout());
   }
 
   private addXp(amount: number): void {
@@ -3678,7 +3703,7 @@ export class Game {
     const record = candidate.pendingSettlement;
     if (!record) return;
     this.running = false;
-    this.reaper.clearTargets(); this.reaperVisual.reset();
+    this.reaper.clearTargets(); this.bossWeapons.clearTargets(); this.reaperVisual.reset();
     this.summonSystem.clear();
     this.p4Skills.clear();
     this.summonCommands?.hide();
@@ -3744,7 +3769,6 @@ export class Game {
   }
 
   private updateAimIndicator(): void {
-    this.aimGuide.mesh.visible = false;
     const visible = this.running && !this.loadingFloor && this.player.alive && !this.paused && !this.restOpen
       && !this.attributeOpen && !this.skillOpen && !this.inventoryUI.open;
     this.hud.setInteraction(visible && !this.mobile ? this.interactionLabel() : null);
@@ -3761,7 +3785,6 @@ export class Game {
     const skillRanges: Record<string, number> = { fireball: 10, dash: 3.9, whirlwind: 4.4, frost_nova: 5, lightning_chain: 8, detonate: 8, guard_counter: 4, seismic_slam: 6, flame_rift: 6, ember_blade: 3.1, raise_company: 1.5, soul_burst: 1.5 };
     const range = aimingSkill ? skillRanges[aimingSkill.id] ?? 8 : ranged ? 10 : this.getMeleeProfile(weapon).range;
     const distance = this.floorData ? worldRayDistance(this.floorData, origin, aim, range) : range;
-    if (this.controller.isTouchAiming) this.aimGuide.show(this.player.position, aim, distance);
     const point = origin.addScaledVector(aim, Math.max(0, distance - 0.05)).project(this.camera);
     this.hud.setAimPoint(point.x, point.y, point.z > -1 && point.z < 1, true, distance < range);
   }
@@ -3804,7 +3827,7 @@ export class Game {
   }
 
   private effectiveStats(): DerivedStats {
-    return applyPermanentMetaBonuses(this.equipment.getDerivedStats(this.bonusAttributes), this.envelope?.activeRun?.unlockedNodesAtStart ?? []);
+    return this.statsCache.get(this.equipment.getDerivedStats(this.bonusAttributes), this.envelope?.activeRun?.unlockedNodesAtStart ?? []);
   }
 
   private newGameSeed(): number {
@@ -3857,7 +3880,7 @@ export class Game {
       const found = this.envelope.profile.discoveredRelics ??= [];
       if (!found.includes(item.contentId)) {
         found.push(item.contentId);
-        this.hud.showCenterMessage('死亡图鉴已点亮',item.name,2);
+        this.hud.showCenterMessage('遗物图鉴已点亮',item.name,2);
       }
     }
     this.playtestRecorder.record('item_acquired', {
@@ -4401,6 +4424,7 @@ export class Game {
         usedRituals: this.chapterRituals.snapshot(),
         setState: this.setRuntime.snapshot(),
         deathReaper: this.reaper.snapshot(),
+        bossWeaponCooldown: this.bossWeapons.snapshot(),
         summonSquad: this.summonSystem.snapshot(),
         brokenFoundryPanels: this.floorData ? foundryPanels(this.floorData).filter(p => p.broken).map(p => p.id) : [],
         foundryTrialClaimed: this.foundryTrialClaimed,
@@ -4423,12 +4447,7 @@ export class Game {
   private saveGame(): boolean {
     if (!this.envelope?.activeRun) return true;
     if (this.failedSaveCandidate) return false;
-    const candidate = cloneData(this.envelope);
-    if (!candidate.activeRun) return true;
-    candidate.activeRun.maxLevel = Math.max(candidate.activeRun.maxLevel, this.player.level);
-    candidate.activeRun.upgradeCount = Math.max(candidate.activeRun.upgradeCount, this.upgradeCount);
-    candidate.activeRun.snapshot = this.captureRunSnapshot();
-    candidate.revision += 1;
+    const candidate = createSaveCandidate(this.envelope, this.captureRunSnapshot(), this.player.level, this.upgradeCount);
     const resumeAfterRetry = () => {
       this.removeStartMenu();
       this.paused = false;

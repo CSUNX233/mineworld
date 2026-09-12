@@ -191,6 +191,7 @@ export interface SaveData {
   runTalents?: RunTalentState;
   runtime?: {
     relicDrops?: { item: Item; x: number; z: number }[];
+    bossWeaponCooldown?: number;
     deathReaper?: import('./items/DeathReaper').DeathReaperState;
     aggression?: import('./core/AdaptiveAggression').AggressionSnapshot;
     oathGatekeeper?: import('./monsters/OathGatekeeperController').OathGatekeeperState;

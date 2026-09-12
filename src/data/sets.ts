@@ -1,3 +1,4 @@
+import { BOSS_WEAPONS } from './BossWeapons';
 import type { StatMap, StatValueModes } from '../types';
 
 export interface SetBonusDef {
@@ -241,6 +242,11 @@ export const P5_NINE_DESCRIPTIONS: Record<string, string> = {
 };
 for (const [id, description] of Object.entries(P5_NINE_DESCRIPTIONS)) {
   P5_SETS[id].bonuses[9] = { stats: { attack: .08, maxHealth: .08 }, valueModes: { attack: 'increased', maxHealth: 'increased' }, special: `p5_${id}_9`, description };
+}
+
+for (const weapon of BOSS_WEAPONS) {
+  P5_SETS[weapon.setId]={id:weapon.setId,name:weapon.setName,lore:weapon.flavor,tags:['boss-relic'],
+    bonuses:{1:{stats:{},description:weapon.effect}}};
 }
 
 export function setDefinition(id: string, equipmentRulesVersion = 1): SetDefinition | undefined {

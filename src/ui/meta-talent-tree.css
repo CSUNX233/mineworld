@@ -36,6 +36,11 @@
 .meta-relic-collection summary { cursor: pointer; font-weight: 700; }
 .meta-relic-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; font-size: 12px; color: #767266; }
 .meta-relic-list .is-discovered { color: #9b3d42; font-weight: 700; }
+.meta-relic-list > li { min-width: 0; overflow-wrap: anywhere; padding: 8px; border: 1px solid #9b8e6e55; }
+.meta-relic-list .sunlit-equipment-icon { width: 40px; height: 40px; vertical-align: middle; margin-right: 6px; }
+.meta-relic-list details { margin-top: 6px; }
+.meta-relic-list details summary { min-height: 44px; display: flex; align-items: center; text-decoration: underline; }
+.meta-relic-list details p { line-height: 1.65; margin: 4px 0; font-weight: 400; }
 @media(max-width: 650px) {
   .meta-tree-layout { grid-template-columns: minmax(0,1fr); }
   .meta-tree-viewport { height: 380px; }

@@ -1,6 +1,10 @@
 import type { ElementType } from '../types';
 
 export type SkillTrigger = 'active';
+/** Self buffs, squad commands and global detonation do not consume directional aim. */
+export function skillUsesDirectionalAim(id: string): boolean {
+  return !['guard_counter', 'raise_company', 'soul_burst', 'frost_nova', 'detonate'].includes(id);
+}
 export type SkillTag = 'summon' | 'defense' | 'hybrid' | 'persistent' | 'area' | 'consume' | 'fire' | 'frost' | 'lightning' | 'melee' | 'movement' | 'physical' | 'projectile' | 'status';
 
 export interface SkillDefinition {

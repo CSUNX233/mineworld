@@ -1,0 +1,50 @@
+#ui-root { --scroll-accent: #d7a447; --scroll-tile: 0%; }
+#ui-root :is(.inventory-grid,.inventory-equipment,.meta-tree-viewport,.sunlit-skill-list) { --scroll-accent: #48ada7; --scroll-tile: 50%; }
+#ui-root :is(.item-details-info,.inventory-set-dialog-body,.controls-guide-body) { --scroll-accent: #93b7c9; --scroll-tile: 100%; }
+#ui-root * { scrollbar-color: var(--scroll-accent) #112238; scrollbar-width: thin; }
+@supports selector(::-webkit-scrollbar) {
+  #ui-root * { scrollbar-color: auto !important; scrollbar-width: auto !important; }
+  #ui-root ::-webkit-scrollbar { width: 12px; height: 12px; }
+  #ui-root ::-webkit-scrollbar-track { background: #112238; border: 2px solid #294662; }
+  #ui-root ::-webkit-scrollbar-thumb {
+    background: #294662 url('/assets/ui/sunlit/scroll-kit/handles.png') var(--scroll-tile) center / 300% 100% no-repeat;
+    border: 1px solid var(--scroll-accent); border-radius: 0; min-height: 30px; min-width: 30px;
+  }
+  #ui-root ::-webkit-scrollbar-corner { background: #112238; }
+}
+#ui-root input[type=range] {
+  appearance: none; -webkit-appearance: none; min-height: 44px; padding: 0; border: 0;
+  background: transparent; cursor: pointer; touch-action: pan-y; accent-color: var(--scroll-accent);
+}
+#ui-root input[type=range]::-webkit-slider-runnable-track {
+  height: 10px; border: 2px solid #294662;
+  background: linear-gradient(to right,var(--scroll-accent) var(--range-fill,50%),#112238 var(--range-fill,50%));
+}
+#ui-root input[type=range]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px;
+  border: 0; border-radius: 0; image-rendering: pixelated;
+  background: url('/assets/ui/sunlit/scroll-kit/handles.png') var(--scroll-tile) center / 300% 100% no-repeat;
+}
+#ui-root input[type=range]::-moz-range-track { height: 6px; background: #112238; border: 2px solid #294662; }
+#ui-root input[type=range]::-moz-range-progress { height: 6px; background: var(--scroll-accent); }
+#ui-root input[type=range]::-moz-range-thumb {
+  width: 28px; height: 28px; border: 0; border-radius: 0;
+  background: url('/assets/ui/sunlit/scroll-kit/handles.png') var(--scroll-tile) center / 300% 100% no-repeat;
+}
+#ui-root input[type=range]:focus-visible { outline: 2px solid #f0dfb8; outline-offset: 3px; }
+#ui-root .scroll-guidance { flex: 0 0 auto; grid-column: 1 / -1; margin: 3px 0; padding: 3px 6px; font-size: 11px; line-height: 1.4; color: #f0dfb8; background: #183047; border-left: 3px solid var(--scroll-accent); pointer-events: none; }
+#ui-root .scroll-guidance[hidden] { display: none; }
+#ui-root button.scroll-guidance { pointer-events: auto; cursor: pointer; min-height: 32px; border: 0; border-left: 3px solid var(--scroll-accent); border-image: none; box-shadow: none; text-align: start; }
+#ui-root .range-guidance { display: block; }
+@media (pointer: coarse) { #ui-root ::-webkit-scrollbar { width: 10px; height: 10px; } }
+.scroll-intro-dialog {
+  box-sizing: border-box; width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+  margin: auto; padding: 20px; overflow: auto; color: #f0dfb8; background: #183047;
+  border: 3px solid #d7a447; box-shadow: inset 0 0 0 3px #112238, 5px 5px 0 #112238;
+  font-family: inherit; text-align: center;
+}
+.scroll-intro-dialog::backdrop { background: rgba(8,17,30,.76); }
+.scroll-intro-dialog h3 { margin: 0 0 12px; color: #f4d38b; font-size: 20px; }
+.scroll-intro-dialog p { margin: 0 0 18px; font-size: 14px; line-height: 1.7; }
+.scroll-intro-dialog button { min-width: 120px; min-height: 44px; border: 2px solid #d7a447; background: #294662; color: #f0dfb8; font: inherit; cursor: pointer; }
+.scroll-intro-dialog button:focus-visible { outline: 2px solid #fff4bf; outline-offset: 3px; }

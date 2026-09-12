@@ -10,13 +10,37 @@ export {CraftingSystem} from './src/items/CraftingSystem';
 export {AffixSystem} from './src/items/AffixSystem';
 export {DEATH_REAPER_ITEMS} from './src/data/DeathReaperItems';
 export {RNG} from './src/utils/RNG';
+export {monsterLootWeights,deathReaperBossChance} from './src/data/MonsterLoot';
+export {rarityWeightsForFloor,RARITY_ORDER} from './src/data/recipes';
 export {materialOffers,materialPool} from './src/items/MaterialEconomy';
 export {generateFloor,isWalkable} from './src/world/FloorGenerator';
 export {RunManager} from './src/core/RunManager';
 export {settleRun} from './src/progression/Settlement';
-export {talentPointsForFloor,REQUIRED_OBJECTIVE_IDS} from './src/data/runProgression';
+export {researchXpForFloor,REQUIRED_OBJECTIVE_IDS} from './src/data/runProgression';
 `,resolveDir:fileURLToPath(new URL('..',import.meta.url)),loader:'ts'},bundle:true,write:false,format:'esm',platform:'node'});
 const api = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
+
+test('orange and red monster drop probabilities use exact floor reductions', () => {
+  const gain={common:1,magic:1,rare:1.5,epic:1.7,legendary:1.8,mythic:1};
+  for(const [floor,multiplier] of [[1,.7],[5,.7],[6,.8],[10,.8],[11,.9],[15,.9],[16,1],[25,1]]) {
+    assert.ok(Math.abs(api.deathReaperBossChance(floor)-.03*multiplier)<1e-12);
+    for(const luck of [0,50,200])for(const minimum of ['common','rare','epic']) {
+      const old=api.rarityWeightsForFloor(floor,luck).filter(e=>api.RARITY_ORDER.indexOf(e.rarity)>=api.RARITY_ORDER.indexOf(minimum)).map(e=>({...e,weight:e.weight*gain[e.rarity]}));
+      const next=api.monsterLootWeights(floor,luck,minimum);
+      const chance=(list,rarity)=> (list.find(e=>e.rarity===rarity)?.weight ?? 0)/list.reduce((sum,e)=>sum+e.weight,0);
+      for(const rarity of ['epic','legendary']) assert.ok(Math.abs(chance(next,rarity)-chance(old,rarity)*multiplier)<1e-12);
+      const low=old.filter(e=>api.RARITY_ORDER.indexOf(e.rarity)<3);
+      const lowSum=low.reduce((sum,e)=>sum+e.weight,0);
+      const removed=old.filter(e=>['epic','legendary'].includes(e.rarity)).reduce((sum,e)=>sum+e.weight*(1-multiplier),0);
+      const rare=old.find(e=>e.rarity==='rare')?.weight ?? 0;
+      const previousYellow=lowSum>0?rare+removed*rare/lowSum:removed;
+      const total=old.reduce((sum,e)=>sum+e.weight,0);
+      const yellowMultiplier=floor<=5?.75:floor<=10?.9:1;
+      assert.ok(Math.abs(chance(next,'rare')-previousYellow/total*yellowMultiplier)<1e-12);
+      if(multiplier===1)assert.deepEqual(next,old);
+    }
+  }
+});
 
 test('all nine relic slots reforge ordinary affixes in the chosen direction and preserve identity', () => {
   for (const [i, def] of api.DEATH_REAPER_ITEMS.entries()) {
@@ -35,24 +59,32 @@ test('all nine relic slots reforge ordinary affixes in the chosen direction and 
   }
 });
 
-test('death and victory award full depth points without consuming legacy research remainder', () => {
+test('all outcomes award research XP and preserve legacy balances and remainder', () => {
   const envelope = api.RunManager.startRun(api.RunManager.createEnvelope('legacy-profile'),'run',42,'vanguard',1);
   const run = envelope.activeRun;
   for (const [floor,points] of [[1,10],[5,50],[7,70],[10,100],[12,140],[15,200],[17,260],[20,350],[23,440],[25,500]]) {
     run.snapshot={floor};
-    assert.equal(api.talentPointsForFloor(floor),points);
+    assert.equal(api.researchXpForFloor(floor),points);
     const result = api.settleRun(run,'death',2,73);
-    assert.equal(result.pointsEarned,points);
-    assert.equal(result.researchXp,73);
+    assert.equal(result.record.totalXp,points);
+    assert.equal(result.pointsEarned,Math.floor((73+points)/100));
+    assert.equal(result.researchXp,(73+points)%100);
   }
   run.completedObjectives=[...api.REQUIRED_OBJECTIVE_IDS];
-  assert.equal(api.settleRun(run,'victory',2,73).pointsEarned,500);
+  for (const [floor,xp] of [[5,50],[10,100],[15,200],[20,350]]) {
+    run.snapshot={floor};
+    const result=api.settleRun(run,'extracted',2,0);
+    assert.equal(result.record.totalXp,xp);
+    assert.equal(result.pointsEarned,Math.floor(xp/100));
+    assert.equal(result.researchXp,xp%100);
+  }
+  assert.equal(api.settleRun(run,'victory',2,73).pointsEarned,5);
   assert.equal(api.settleRun(run,'abandoned',2,73).pointsEarned,0);
   envelope.profile.availableMetaPoints=321;
   envelope.profile.researchXp=73;
   envelope.profile.unlockedNodes.push('camp_trunk_1');
   const settled=api.RunManager.finish(envelope,'victory',2);
-  assert.equal(settled.profile.availableMetaPoints,821);
+  assert.equal(settled.profile.availableMetaPoints,326);
   assert.deepEqual(settled.profile.unlockedNodes,envelope.profile.unlockedNodes);
   assert.equal(settled.profile.researchXp,73);
   assert.equal(api.RunManager.finish(settled,'victory',3),settled);

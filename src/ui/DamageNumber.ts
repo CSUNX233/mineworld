@@ -10,6 +10,8 @@ interface Entry {
 
 export class DamageNumberSystem {
   private entries: Entry[] = [];
+  private pool: HTMLDivElement[] = [];
+  private projected = new THREE.Vector3();
 
   constructor(private root: HTMLElement, private camera: THREE.PerspectiveCamera) {}
 
@@ -20,9 +22,10 @@ export class DamageNumberSystem {
     crit = false,
     scale = 1,
   ): void {
-    const element = document.createElement('div');
+    const element = this.pool.pop() ?? document.createElement('div');
     element.className = crit ? 'damage-number damage-critical' : 'damage-number';
-    element.appendChild(pixelText(text, 'damage'));
+    element.replaceChildren(pixelText(text, 'damage'));
+    element.style.cssText = 'left:0;top:0;';
     element.style.color = color;
     element.style.fontSize = `${Math.round((crit ? 28 : 19) * scale)}px`;
     if (crit) {
@@ -38,24 +41,24 @@ export class DamageNumberSystem {
   }
 
   update(dt: number): void {
-    const rendererSize = new THREE.Vector2(window.innerWidth, window.innerHeight);
+    const width = window.innerWidth, height = window.innerHeight;
     for (let i = this.entries.length - 1; i >= 0; i--) {
       const entry = this.entries[i];
       entry.life -= dt;
-      entry.worldPosition.add(entry.velocity.clone().multiplyScalar(dt));
+      entry.worldPosition.addScaledVector(entry.velocity, dt);
       entry.velocity.y += 1.2 * dt;
 
-      const projected = entry.worldPosition.clone().project(this.camera);
+      const projected = this.projected.copy(entry.worldPosition).project(this.camera);
       const visible = projected.z < 1 && projected.z > -1;
       if (!visible || entry.life <= 0) {
         entry.element.remove();
+        if (this.pool.length < 128) this.pool.push(entry.element);
         this.entries.splice(i, 1);
         continue;
       }
-      const x = (projected.x * 0.5 + 0.5) * rendererSize.x;
-      const y = (-projected.y * 0.5 + 0.5) * rendererSize.y;
-      entry.element.style.left = `${x}px`;
-      entry.element.style.top = `${y}px`;
+      const x = (projected.x * 0.5 + 0.5) * width;
+      const y = (-projected.y * 0.5 + 0.5) * height;
+      entry.element.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
       entry.element.style.opacity = String(Math.max(0, Math.min(1, entry.life * 1.6)));
     }
   }
@@ -63,5 +66,6 @@ export class DamageNumberSystem {
   clear(): void {
     this.entries.forEach((entry) => entry.element.remove());
     this.entries = [];
+    this.pool = [];
   }
 }

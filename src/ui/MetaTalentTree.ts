@@ -2,6 +2,8 @@ import './meta-talent-tree.css';
 import './mobile-meta-tree.css';
 import { META_NODES, completedBasicVictoryCount, metaBonusDescription, metaUnlockReason, permanentMetaBonuses, type MetaNode } from '../progression/MetaProgression';
 import type { SaveEnvelopeV3 } from '../progression/types';
+import { BOSS_WEAPONS } from '../data/BossWeapons';
+import { createItemIcon } from './UiAssets';
 import { DEATH_REAPER_ITEMS } from '../data/DeathReaperItems';
 import { kitUrl } from './InterfaceKit';
 
@@ -103,10 +105,16 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
   select(META_NODES.find(n=>n.id===selectedId) ?? META_NODES.find(n=>n.id==='camp_trunk_1')!,!matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches);
   const collection = document.createElement('details');collection.className='meta-relic-collection';
   const discovered = new Set(envelope.profile.discoveredRelics ?? []),summary = document.createElement('summary');
-  summary.textContent=`死亡收割图鉴 · 已发现 ${DEATH_REAPER_ITEMS.filter(item=>discovered.has(item.id)).length} / ${DEATH_REAPER_ITEMS.length} 件`;
-  collection.append(summary,text('p','击败 Boss 时有 3% 概率获得一件死亡收割红装。首次拾取记录身份；死亡与删除单个冒险存档保留发现，不将装备带出，不增加永久属性。','meta-tree-footnote'));
+  const relics=[...DEATH_REAPER_ITEMS,...BOSS_WEAPONS];
+  summary.textContent=`遗物图鉴 · 已发现 ${relics.filter(item=>discovered.has(item.id)).length} / ${relics.length} 件`;
+  collection.append(summary,text('p','Boss 红装共用基础3%掉落池：前5层2.1%、6至10层2.4%、11至15层2.7%、之后3%。命中后各半概率获得该Boss专武或死亡收割遗物。首次拾取永久记录；死亡与删除单个冒险存档保留图鉴，装备不带出。','meta-tree-footnote'));
   const list=document.createElement('ul');list.className='meta-relic-list';
-  for(const item of DEATH_REAPER_ITEMS){const row=document.createElement('li');row.textContent=`${discovered.has(item.id)?'✓ 已发现':'◇ 未发现'} · ${item.name}`;row.classList.toggle('is-discovered',discovered.has(item.id));list.append(row);}
+  for(const item of relics){const row=document.createElement('li');row.textContent=`${discovered.has(item.id)?'✓ 已发现':'◇ 未发现'} · ${item.name}`;row.classList.toggle('is-discovered',discovered.has(item.id));
+    const boss=BOSS_WEAPONS.find(w=>w.id===item.id);
+    row.prepend(createItemIcon({...item,setId:boss?.setId ?? 'death_reaper',equipmentRulesVersion:2}));
+    row.title=`${boss ? `仅${boss.bossName}掉落 · 单件套装\n` : ''}${item.effect}\n${item.flavor}`;
+    if(boss){const detail=document.createElement('details'),label=document.createElement('summary'),body=document.createElement('p');label.textContent=`${boss.bossName}专属 · 查看能力`;body.textContent=`${boss.effect} ${boss.flavor}`;detail.append(label,body);row.append(detail);}
+    list.append(row);}
   collection.append(list);root.append(collection);
   return root;
 }

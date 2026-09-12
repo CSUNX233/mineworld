@@ -261,4 +261,20 @@
 .summon-role-icons .sunlit-icon { width:24px; height:24px; }
 .summon-command-bar button { display:flex; align-items:center; justify-content:center; gap:3px; }
 .summon-command-bar button .sunlit-icon { width:24px; height:24px; flex-shrink:0; }
+@media (orientation: landscape) {
+  .mobile-ui #ui-root .summon-command-bar {
+    position: fixed; left: var(--summon-status-left, 34vw); top: var(--summon-status-top, 80px);
+    transform: none; width: var(--summon-status-width, 110px); gap: 0; pointer-events: none; font-size: 10px;
+  }
+  .mobile-ui #ui-root .summon-role-icons { gap: 3px; }
+  .mobile-ui #ui-root .summon-role-icons .sunlit-icon { width: 16px; height: 16px; }
+  .mobile-ui #ui-root .summon-command-bar > button {
+    position: fixed; right: auto; width: 44px; min-height: 44px;
+    flex-direction: column; gap: 0; padding: 2px; pointer-events: auto; font-size: 11px;
+  }
+  .mobile-ui #ui-root .summon-focus-button { top: var(--summon-action-top, 100px); left: var(--summon-action-left, 60vw); }
+  .mobile-ui #ui-root .summon-recall-button { top: var(--summon-action-top, 100px); left: calc(var(--summon-action-left, 60vw) + 50px); }
+  .has-summon-controls .mobile-ui #ui-root .hud-bars > div:nth-child(4),
+  .has-summon-controls.mobile-ui #ui-root .hud-bars > div:nth-child(4) { max-width: 49%; }
+}
 .build-state-icon { width:18px !important; height:18px !important; vertical-align:middle; margin:0 3px; }

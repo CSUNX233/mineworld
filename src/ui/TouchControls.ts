@@ -1,4 +1,5 @@
 import { JoystickTapJump } from './JoystickTapJump';
+import { skillUsesDirectionalAim } from '../data/skills';
 import type { InputManager } from '../core/InputManager';
 import { isMobileDevice } from '../utils/mobile';
 import { createUiIcon } from './UiAssets';
@@ -330,6 +331,12 @@ export class TouchControls {
       if (!attack && !key) { this.callbacks.onSkillBarPress(); return; }
       if (!attack && button.getAttribute('aria-disabled') === 'true') return;
       this.cancelAim?.();
+      if (!attack && !skillUsesDirectionalAim(button.dataset.icon ?? '')) {
+        this.callbacks.onAimEnd(true);
+        this.callbacks.onSkillPress(key);
+        this.callbacks.onSkillRelease(key);
+        return;
+      }
       pointer = event.pointerId; startX = event.clientX; startY = event.clientY; cancelled = false;
       button.setPointerCapture(pointer);
       this.callbacks.onAimEnd(true);
@@ -344,7 +351,7 @@ export class TouchControls {
       indicator.classList.remove('has-direction');
       indicator.style.color = '#fff0ce';
       button.classList.add('is-aiming');
-      indicator.hidden = false;
+      indicator.hidden = true;
       indicator.textContent = attack ? '拖动调整方向' : '拖动瞄准 · 松手施放';
       attackStarted = false;
       if (attack) holdTimer = setTimeout(() => {
@@ -370,9 +377,10 @@ export class TouchControls {
       thumb.style.transform = 'translate(calc(-50% + ' + dx * factor + 'px), calc(-50% + ' + dy * factor + 'px))';
       button.classList.toggle('is-aim-cancelled', cancelled);
       indicator.style.color = cancelled ? '#ff927b' : '#fff0ce';
-      indicator.textContent = cancelled ? '松手取消 · 拖回继续瞄准' : length < 5 ? '拖动瞄准' : '➤';
+      indicator.textContent = cancelled ? '松手取消 · 拖回继续瞄准' : '';
+      indicator.hidden = !cancelled;
       indicator.style.setProperty('--aim-angle', Math.atan2(dy, dx) + 'rad');
-      indicator.classList.toggle('has-direction', !cancelled && length >= 5);
+      indicator.classList.remove('has-direction');
       if (!cancelled) this.callbacks.onAim(dx, dy);
     };
     button.addEventListener('pointermove', move);
@@ -449,7 +457,11 @@ export class TouchControls {
     this.utilityButtons.push(view);
 
     const skills = this.makeButton('技能配置', 'touch-button touch-utility');
-    skills.textContent = '技能';
+    const skillIcon = document.createElement('img');
+    skillIcon.src = `${import.meta.env.BASE_URL}assets/ui/sunlit/skill-config.png`;
+    skillIcon.alt = ''; skillIcon.draggable = false;
+    skillIcon.style.cssText = 'width:85%;height:85%;object-fit:contain;image-rendering:pixelated;pointer-events:none';
+    skills.replaceChildren(skillIcon);
     skills.title = '技能配置';
     this.bindTap(skills, () => this.callbacks.onSkillBarPress());
     row.appendChild(skills);

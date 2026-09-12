@@ -108,7 +108,7 @@ export class MonsterSpawner {
   }
 
   static baseAttack(monster: Monster, floor: number): number {
-    return monsterAttack(monster.def.attack, floor, monster.def.behavior === 'boss');
+    return monsterAttack(monster.def.attack, floor, monster.def.behavior === 'boss') * (monster.def.id === 'boss' ? 1.1 : 1);
   }
 
   static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG, meleeOnly = false): Monster | null {

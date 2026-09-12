@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { effectTexture } from '../ui/CombatArt';
-import { swingRoll } from '../combat/MeleeSwing';
+import { slashRoll } from '../combat/MeleeSwing';
 
 type EffectTexture = 'slash' | 'impact' | 'fire' | 'ice' | 'lightning' | 'smoke' | 'shockwave' | 'shadow';
 type EffectMaterial = THREE.MeshBasicMaterial | THREE.SpriteMaterial;
@@ -74,6 +74,7 @@ export class Effects {
       const visual = this.visuals[this.visuals.length - 1];
       const orientation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction.clone().normalize());
       visual.object.quaternion.copy(orientation);
+      visual.object.rotateZ(slashRoll(angle, 0));
       visual.swing = { orientation, angle };
     }
 
@@ -214,7 +215,7 @@ export class Effects {
       visual.object.position.addScaledVector(visual.velocity, dt);
       if (visual.swing) {
         visual.object.quaternion.copy(visual.swing.orientation);
-        visual.object.rotateZ(swingRoll(visual.swing.angle, progress));
+        visual.object.rotateZ(slashRoll(visual.swing.angle, progress));
       }
       if (visual.object instanceof THREE.Sprite) {
         (visual.material as THREE.SpriteMaterial).rotation += visual.spin * dt;

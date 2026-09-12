@@ -1,5 +1,6 @@
+import { bossWeaponForBoss } from '../data/BossWeapons';
 import { RNG } from '../utils/RNG';
-import { monsterLootWeights, monsterItemChance, DEATH_REAPER_BOSS_CHANCE } from '../data/MonsterLoot';
+import { monsterLootWeights, monsterItemChance, deathReaperBossChance } from '../data/MonsterLoot';
 import type { EquipmentMechanismTag } from './RewardPreference';
 import type { Item, MonsterDefinition, Rarity, MaterialId } from '../types';
 import { materialPool } from './MaterialEconomy';
@@ -45,7 +46,12 @@ export class LootSystem {
       equipment('rare');
       equipment(floor >= 10 ? 'epic' : 'rare');
       // One independent roll per boss kill; ordinary luck cannot bypass this exclusive source.
-      if (rng.chance(DEATH_REAPER_BOSS_CHANCE)) drops.push({ kind: 'item', item: ItemGenerator.generateDeathReaper(floor,rng,playerLevel) });
+      if (rng.chance(deathReaperBossChance(floor))) {
+        // One shared pool: half the successful rolls choose this Boss's own weapon.
+        const exclusive=bossWeaponForBoss(monster.id) && rng.chance(.5);
+        drops.push({kind:'item',item:exclusive ? ItemGenerator.generateBossWeapon(monster.id,floor,rng,playerLevel)
+          : ItemGenerator.generateDeathReaper(floor,rng,playerLevel)});
+      }
     } else if (rng.chance(itemChance)) equipment('common');
     return drops;
   }

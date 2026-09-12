@@ -37,11 +37,18 @@ export function stepProjectile(projectile: Projectile, dt: number, floor: FloorD
   let hitPlayer = false;
   const ray = new THREE.Ray(origin, direction);
   const impact = new THREE.Vector3();
+  const bounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
   const actorDistance = (position: THREE.Vector3, radius: number, height: number): number => {
-    const bounds = new THREE.Box3(
-      new THREE.Vector3(position.x - radius, position.y - 0.15, position.z - radius),
-      new THREE.Vector3(position.x + radius, position.y + height, position.z + radius),
-    );
+    // Conservative swept broad phase. Keep original actor order and exact ray test
+    // for ties, piercing and actors moved/spawned by earlier impacts this frame.
+    const endX = origin.x + direction.x * travel;
+    const endY = origin.y + direction.y * travel;
+    const endZ = origin.z + direction.z * travel;
+    if (position.x + radius < Math.min(origin.x, endX) || position.x - radius > Math.max(origin.x, endX)
+      || position.z + radius < Math.min(origin.z, endZ) || position.z - radius > Math.max(origin.z, endZ)
+      || position.y + height < Math.min(origin.y, endY) || position.y - 0.15 > Math.max(origin.y, endY)) return Infinity;
+    bounds.min.set(position.x - radius, position.y - 0.15, position.z - radius);
+    bounds.max.set(position.x + radius, position.y + height, position.z + radius);
     if (bounds.containsPoint(origin)) return 0;
     return ray.intersectBox(bounds, impact) ? origin.distanceTo(impact) : Infinity;
   };

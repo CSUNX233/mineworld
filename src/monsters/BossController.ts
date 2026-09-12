@@ -70,8 +70,8 @@ export class BossController {
     }
 
     if (!this.warnings.length && this.dashTime <= 0) boss.faceToward(player.position.x, player.position.z);
-    // One 20% cadence reduction, shared by casts, charges and summons (not compounded).
-    const cadence = boss.def.id === 'boss' ? 1.6 : 2;
+    // Lord gains 10% cadence over its previous 1.6 baseline; other bosses unchanged.
+    const cadence = boss.def.id === 'boss' ? 1.6 * 1.1 : 2;
     this.attackTimer -= dt * cadence * monsterAggression(boss);
     this.dashTimer -= dt * cadence * monsterAggression(boss);
     this.summonTimer -= dt * cadence * monsterAggression(boss);

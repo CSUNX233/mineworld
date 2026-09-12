@@ -1,3 +1,4 @@
+import { bossWeaponDefinition } from '../data/BossWeapons';
 import { deathReaperDefinition } from '../data/DeathReaperItems';
 import { validDeathReaperState } from '../items/DeathReaper';
 import { validAggression } from './AdaptiveAggression';
@@ -166,9 +167,10 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
       || !isNonNegativeNumber(drop.x) || !isNonNegativeNumber(drop.z) || drop.x > 1024 || drop.z > 1024
       || !isRecord(drop.item) || drop.item.rarity!=='mythic' || !isNonEmptyString(drop.item.id)
       || !isNonEmptyString(drop.item.name) || !isNonEmptyString(drop.item.contentId)
-      || deathReaperDefinition(drop.item.contentId)?.slot!==drop.item.slot
+      || (deathReaperDefinition(drop.item.contentId) ?? bossWeaponDefinition(drop.item.contentId))?.slot!==drop.item.slot
       || !isNumericRecord(drop.item.baseStats) || !Array.isArray(drop.item.affixes)
       || !drop.item.affixes.every(a=>isRecord(a)&&isNonEmptyString(a.id)&&isNonEmptyString(a.name)&&isNumericRecord(a.values))))) return false;
+  if (snapshot.runtime?.bossWeaponCooldown !== undefined && (!isNonNegativeNumber(snapshot.runtime.bossWeaponCooldown) || snapshot.runtime.bossWeaponCooldown > 3)) return false;
   if (snapshot.runtime?.deathReaper !== undefined && !validDeathReaperState(snapshot.runtime.deathReaper)) return false;
   if (snapshot.runtime?.aggression !== undefined && !validAggression(snapshot.runtime.aggression)) return false;
   if (snapshot.runtime?.summonSquad !== undefined && !validSummonSnapshot(snapshot.runtime.summonSquad)) return false;
@@ -278,6 +280,14 @@ export function validateSaveEnvelope(value: unknown): ValidationResult<SaveEnvel
   if (!hasUniqueEntries(recentIds)) return { ok: false, error: 'Recent run ids must be unique' };
 
   if (value.activeRun !== null && !validateRun(value.activeRun)) {
+    const run = value.activeRun;
+    if (isRecord(run) && isRecord(run.snapshot) && isRecord(run.snapshot.player)
+      && isFiniteNumber(run.snapshot.player.level) && isStringArray(run.completedObjectives)
+      && isValidRunTalentState(run.snapshot.runTalents)) {
+      const spent = spentTalentPoints(run.snapshot.runTalents);
+      const budget = talentBudget(run.snapshot.player.level, run.completedObjectives);
+      if (spent > budget) return { ok: false, error: `局内天赋已用 ${spent} 点，当前等级和关卡进度仅允许 ${budget} 点；未覆盖已有存档。` };
+    }
     return { ok: false, error: 'Save envelope has an invalid active run' };
   }
   if (value.pendingSettlement !== null && !validateSettlement(value.pendingSettlement)) {

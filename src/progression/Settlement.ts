@@ -3,7 +3,7 @@ import {
   BASIC_RUN_DEFINITION,
   REQUIRED_OBJECTIVE_IDS,
   RUN_REWARDS,
-  talentPointsForFloor,
+  researchXpForFloor,
 } from '../data/runProgression';
 import { XP_PER_POINT } from './MetaProgression';
 import {
@@ -96,7 +96,7 @@ export function settleRun(
     : outcome === 'extracted'
       ? extractionResearchXp(run)
     : outcome === 'death'
-      ? talentPointsForFloor(finalFloor(run, outcome)) * XP_PER_POINT
+      ? researchXpForFloor(finalFloor(run, outcome))
       : 0;
   const totalXp = baseXp;
   const xpPool = Math.max(0, Math.floor(currentResearchXp)) + totalXp;

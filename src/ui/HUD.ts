@@ -30,6 +30,9 @@ export interface SkillHUDState {
 }
 
 export class HUD {
+  private levelMarkup = '';
+  private infoSignature = '';
+  private buildSignature = '';
   private barValues = [0, 0, 0, 0];
   private barTargets = [0, 0, 0, 0];
   private barsReady = false;
@@ -260,8 +263,13 @@ export class HUD {
     this.barLevel = state.level;
     setPixelText(this.hpText, `${Math.ceil(state.health)}/${Math.ceil(maxHealth)}`);
     setPixelText(this.mpText, `${Math.ceil(state.mana)}/${Math.ceil(maxMana)}`);
-    this.levelText.innerHTML = `Lv.${state.level} <span style="font-size:13px;color:#a9c8ff">经验 ${Math.floor(state.xp)}/${Math.ceil(state.xpToNext)}</span>`;
-    this.infoText.innerHTML = `第 ${state.floor} 层 · ${state.floorName}<br><span style="color:#ffd76a">金币 ${pixelText(String(state.gold)).outerHTML}</span> · 怪物 ${pixelText(String(Math.max(0, state.monstersRemaining))).outerHTML} · 击杀 ${pixelText(String(state.kills)).outerHTML}`;
+    const level = `Lv.${state.level} <span style="font-size:13px;color:#a9c8ff">经验 ${Math.floor(state.xp)}/${Math.ceil(state.xpToNext)}</span>`;
+    if (this.levelMarkup !== level) { this.levelMarkup = level; this.levelText.innerHTML = level; }
+    const info = JSON.stringify([state.floor, state.floorName, state.gold, Math.max(0, state.monstersRemaining), state.kills]);
+    if (this.infoSignature !== info) {
+      this.infoSignature = info;
+      this.infoText.innerHTML = `第 ${state.floor} 层 · ${state.floorName}<br><span style="color:#ffd76a">金币 ${pixelText(String(state.gold)).outerHTML}</span> · 怪物 ${pixelText(String(Math.max(0, state.monstersRemaining))).outerHTML} · 击杀 ${pixelText(String(state.kills)).outerHTML}`;
+    }
     this.lowHealth.style.opacity = state.health / state.maxHealth < 0.28 ? '1' : '0';
   }
 
@@ -300,6 +308,9 @@ export class HUD {
   }
 
   setBuildState(state: { meleeCharges: number; guardRemaining: number }, enabled: boolean): void {
+    const signature = `${enabled}:${state.meleeCharges}:${state.guardRemaining > 0}`;
+    if (this.buildSignature === signature) return;
+    this.buildSignature = signature;
     this.buildIndicator.hidden = !enabled;
     this.buildIndicator.textContent = `蓄势 ${state.meleeCharges}/3${state.guardRemaining > 0 ? ' · 反击架势' : ''}`;
     this.buildIndicator.prepend(createUiIcon('melee_momentum', 'build-state-icon'));

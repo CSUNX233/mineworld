@@ -7,10 +7,13 @@ import './ui/sunlit-inventory.css';
 import './ui/sunlit-menus.css';
 import './ui/mobile-layout.css';
 import './ui/interface-kit.css';
+import './ui/scroll-kit.css';
+import { installScrollGuidance } from './ui/ScrollGuidance';
 import { installInterfaceKit } from './ui/InterfaceKit';
 
 installMobileShell();
 installInterfaceKit(document.getElementById('ui-root') as HTMLElement);
+installScrollGuidance(document.getElementById('ui-root') as HTMLElement);
 MobileGestureGuard.install();
 
 const game = new Game(document.getElementById('ui-root') as HTMLElement);
