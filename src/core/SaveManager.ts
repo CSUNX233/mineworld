@@ -12,6 +12,7 @@ const SLOT_COUNT = 5;
 let fallbackProfileCounter = 0;
 
 export interface SaveSlotMeta {
+  name?: string;
   slot: number;
   exists: boolean;
   floor: number;
@@ -73,6 +74,26 @@ function parseRaw(raw: string): SlotReadResult {
 }
 
 export class SaveManager {
+  /** Shared progression uses no adventure slot; active adventures retain their frozen start-of-run unlocks. */
+  static readSharedProgression(): SaveEnvelopeV3 {
+    const envelope = RunManager.createEnvelope('shared-progression-view');
+    SaveManager.attachSharedCamp(envelope);
+    return envelope;
+  }
+
+  /** Only the shared profile changes; every saved adventure string remains byte-for-byte intact. */
+  static saveSharedProgression(envelope: SaveEnvelopeV3): SaveResult {
+    const checked = validateSaveEnvelope(envelope);
+    if (!checked.ok) return {ok:false,error:checked.error};
+    try {
+      const camp = readSharedCamp();
+      if (!camp || (envelope.sharedCampRevision ?? 0) !== camp.revision) return {ok:false,error:'共享营地已更新，请返回后重新打开天赋树。'};
+      camp.profile = structuredClone(envelope.profile);camp.revision += 1;
+      localStorage.setItem(SHARED_CAMP_KEY,JSON.stringify(camp));envelope.sharedCampRevision=camp.revision;
+      return {ok:true};
+    } catch(error) {return {ok:false,error:`营地天赋保存失败：${errorMessage(error)}`};}
+  }
+
   static attachSharedCamp(envelope: SaveEnvelopeV3): void {
     let camp = readSharedCamp();
     if (!camp) {
@@ -250,6 +271,7 @@ export class SaveManager {
           slot,
           exists: true,
           floor: snapshot?.floor ?? envelope.pendingSettlement?.finalFloor ?? 0,
+          name: envelope.adventureName,
           level: snapshot?.player.level ?? envelope.pendingSettlement?.finalLevel ?? 0,
           updatedAt,
           state: envelope.pendingSettlement ? 'summary' : envelope.activeRun ? 'active' : 'camp',

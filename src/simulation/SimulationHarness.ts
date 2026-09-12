@@ -302,6 +302,7 @@ function getEquipmentStatistics(game: SimulationGame, metrics: Metrics): Equipme
     rare: 0,
     epic: 0,
     legendary: 0,
+    mythic: 0,
   };
   const inventory = (game.inventory?.items ?? []) as Item[];
   for (const item of inventory) emptyRarities[item.rarity]++;

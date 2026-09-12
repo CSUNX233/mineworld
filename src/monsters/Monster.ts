@@ -397,6 +397,8 @@ export class Monster {
     const healthBeforeStatuses = this.dead ? 0 : this.health;
     const statusResult = updateStatuses(this, dt, this.def.resistances);
     this.slowMultiplier = statusResult.slowMultiplier;
+    this.group.userData.reaperSlow = Math.max(0,(this.group.userData.reaperSlow ?? 0)-dt);
+    if (this.group.userData.reaperSlow > 0) this.slowMultiplier = Math.min(this.slowMultiplier,this.def.behavior === 'boss' ? .9 : .75);
     this.extraLightningMultiplier = statusResult.extraLightningMultiplier;
     for (const icon of this.statusIcons.values()) icon.visible = false;
     let statusIndex = 0;

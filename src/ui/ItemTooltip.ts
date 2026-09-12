@@ -1,3 +1,4 @@
+import { normalizeSetRingName } from '../items/SetItems';
 import type { Item, Stat, StatMap } from '../types';
 import { UI_RARITY_COLORS as RARITY_COLORS } from './UiAssets';
 import { setDefinition } from '../data/sets';
@@ -85,6 +86,7 @@ function baseStatHTML(item: Item, stat: Stat, value: number): string {
 }
 
 export function itemTooltipHTML(item: Item, equipped?: Item | null): string {
+  item = normalizeSetRingName(item);
   const color = RARITY_COLORS[item.rarity];
   const baseStats = Object.entries(displayedBaseStats(item))
     .map(([stat, value]) => baseStatHTML(item, stat as Stat, value))
@@ -104,10 +106,10 @@ export function itemTooltipHTML(item: Item, equipped?: Item | null): string {
   return `
     <div class="item-tooltip-card">
       <div class="item-tooltip-heading">
-        <span class="item-tooltip-icon-frame">${itemIconHTML(item, 'item-tooltip-icon')}</span>
+        <span class="item-tooltip-icon-frame ${item.rarity === 'mythic' ? 'rarity-mythic' : ''}">${itemIconHTML(item, 'item-tooltip-icon')}</span>
         <div>
           <div class="item-tooltip-name" style="color:${color}">${escapeHTML(item.name)}</div>
-          <div class="item-tooltip-level">等级需求 ${item.requiredLevel}</div>
+          <div class="item-tooltip-level">${item.rarity === 'mythic' ? '暗金传说 · ' : ''}等级需求 ${item.requiredLevel}</div>
         </div>
       </div>
       ${setHTML}${loreText}${mechanisms}

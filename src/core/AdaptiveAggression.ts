@@ -1,5 +1,6 @@
 export interface AggressionSnapshot {
   tier: 0.8 | 1 | 1.2;
+  crowded?: boolean;
   combatSeconds: number;
   healthySeconds: number;
   pressuredSeconds: number;
@@ -10,10 +11,10 @@ export interface AggressionSnapshot {
 export function validAggression(value: unknown): value is AggressionSnapshot {
   if (!value || typeof value !== 'object') return false;
   const s = value as AggressionSnapshot;
-  return [0.8, 1, 1.2].includes(s.tier)
+  return (s.crowded === undefined || typeof s.crowded === 'boolean') && [0.8, 1, 1.2].includes(s.tier)
     && ['combatSeconds', 'healthySeconds', 'pressuredSeconds', 'expectedSeconds', 'encounters']
-      .every(key => typeof s[key as keyof AggressionSnapshot] === 'number'
-        && Number.isFinite(s[key as keyof AggressionSnapshot]) && s[key as keyof AggressionSnapshot] >= 0)
+      .every(key => typeof s[key as 'combatSeconds'] === 'number'
+        && Number.isFinite(s[key as 'combatSeconds']) && s[key as 'combatSeconds'] >= 0)
     && Number.isInteger(s.encounters) && s.encounters <= 100
     && s.healthySeconds <= s.combatSeconds && s.pressuredSeconds <= s.combatSeconds;
 }
@@ -25,7 +26,8 @@ export class AdaptiveAggression {
     return { tier, combatSeconds: 0, healthySeconds: 0, pressuredSeconds: 0, expectedSeconds: 0, encounters: 0 };
   }
   get multiplier(): AggressionSnapshot['tier'] { return this.state.tier; }
-  get label(): string { return this.multiplier === .8 ? '舒缓' : this.multiplier === 1.2 ? '猛烈' : '普通'; }
+  get crowded(): boolean { return this.state.tier === 1.2 && this.state.crowded === true; }
+  get label(): string { return this.multiplier === .8 ? '舒缓' : this.multiplier === 1.2 ? (this.crowded ? '猛烈 · 增援' : '猛烈') : '普通'; }
   restore(saved?: AggressionSnapshot): void { this.state = validAggression(saved) ? { ...saved } : this.empty(1); }
   snapshot(): AggressionSnapshot { return { ...this.state }; }
   encounter(monsters: number, boss: boolean, elite: boolean): void {
@@ -50,6 +52,7 @@ export class AdaptiveAggression {
       if (pace > 1.5 && (pressured >= .2 || healthy < .5)) tier = .8;
       else if (pace < .7 || (s.combatSeconds >= 10 && healthy >= .9)) tier = 1.2;
     }
-    this.state = this.empty(tier);
+    const crowded = s.tier === 1.2 && tier === 1.2;
+    this.state = { ...this.empty(tier), crowded };
   }
 }

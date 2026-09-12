@@ -69,9 +69,10 @@ export class BossController {
       );
     }
 
-    this.attackTimer -= dt * monsterAggression(boss);
-    this.dashTimer -= dt * monsterAggression(boss);
-    this.summonTimer -= dt * monsterAggression(boss);
+    if (!this.warnings.length && this.dashTime <= 0) boss.faceToward(player.position.x, player.position.z);
+    this.attackTimer -= dt * 2 * monsterAggression(boss);
+    this.dashTimer -= dt * 2 * monsterAggression(boss);
+    this.summonTimer -= dt * 2 * monsterAggression(boss);
     this.dashTime -= dt;
 
     if (this.warnings.some(warning => warning.kind === 'dash')) {
@@ -273,7 +274,7 @@ export class BossController {
   private updateWarnings(dt: number, player: Player, host: BossHost): void {
     for (let i = this.warnings.length - 1; i >= 0; i--) {
       const warning = this.warnings[i];
-      warning.life -= dt;
+      warning.life -= dt * 2;
       const progress = 1 - warning.life / warning.maxLife;
       warning.mesh.scale.setScalar(1);
       const material = warning.mesh.material as THREE.MeshBasicMaterial;

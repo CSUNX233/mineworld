@@ -10,6 +10,7 @@ export const DROP_STYLES: Record<Rarity, { height: number; width: number; pickup
   magic: { height: 1.8, width: .17, pickupDelay: .4, sparks: 6 },
   rare: { height: 2.5, width: .22, pickupDelay: .5, sparks: 9 },
   epic: { height: 3.3, width: .3, pickupDelay: .65, sparks: 13 },
+  mythic: { height: 5.5, width: .52, pickupDelay: 1.2, sparks: 32 },
   legendary: { height: 4.5, width: .4, pickupDelay: 1, sparks: 22 },
 };
 const plane = new THREE.PlaneGeometry(1, 1);
@@ -47,12 +48,15 @@ export class EquipmentDropVisual {
   private velocities: Float32Array;
   private materials: THREE.Material[] = [];
   private age = 0;
+  private mythic = false;
+  private soulRings: THREE.Mesh[] = [];
   private phase = Math.random() * Math.PI * 2;
   private style: (typeof DROP_STYLES)[Rarity];
   private burstAlive = true;
   private disposed = false;
 
   constructor(item: Item, lowDetail = false) {
+    this.mythic = item.rarity === 'mythic';
     this.style = DROP_STYLES[item.rarity];
     this.pickupDelay = this.style.pickupDelay;
     const color = new THREE.Color(UI_RARITY_COLORS[item.rarity]);
@@ -85,13 +89,20 @@ export class EquipmentDropVisual {
     this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = .035;
     this.group.add(this.ring);
 
-    if (item.rarity === 'legendary') {
+    if (item.rarity === 'legendary' || this.mythic) {
       const material = new THREE.SpriteMaterial({ map: combatTexture('effects', 'impact'), color: 0xffd58a,
         transparent: true, depthWrite: false, depthTest: true, toneMapped: false,
         blending: THREE.AdditiveBlending });
       this.materials.push(material);
       this.crown = new THREE.Sprite(material); this.crown.position.y = 1.1;
       this.group.add(this.crown);
+    }
+    if (this.mythic) for (let i=0;i<3;i++) {
+      const material = new THREE.MeshBasicMaterial({map:combatTexture('effects','shockwave'),color:i===1?0xffd68a:0xff2857,
+        transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,toneMapped:false});
+      this.materials.push(material);
+      const halo = new THREE.Mesh(plane,material);
+      halo.rotation.x=-Math.PI/2; this.soulRings.push(halo); this.group.add(halo);
     }
     const count = Math.ceil(this.style.sparks * (lowDetail ? .55 : 1));
     const geometry = new THREE.BufferGeometry();
@@ -129,9 +140,22 @@ export class EquipmentDropVisual {
     const pulse = 1 + Math.sin(this.age * 1.8 + this.phase) * .1;
     for (const beam of this.beams) {
       beam.visible = detailed;
+      if (this.mythic) {
+        const wave = Math.sin(this.age*2.8 + beam.userData.band*1.6);
+        (beam.material as THREE.MeshBasicMaterial).color.setRGB(1,.05+Math.max(0,wave)*.5,.16+Math.max(0,-wave)*.35);
+        beam.rotation.y += dt*.45;
+      }
       const band = beam.userData.band as number;
       (beam.material as THREE.MeshBasicMaterial).opacity = (.29 - band * .08) * pulse
         * (1 + Math.max(0, 1 - this.age / .7) * 1.6);
+    }
+    for (let i=0;i<this.soulRings.length;i++) {
+      const halo=this.soulRings[i], cycle=(this.age*.4+i/3)%1;
+      halo.visible=detailed;
+      halo.position.y=.06+cycle*2.4;
+      halo.rotation.z=this.age*(i%2?-.7:.7);
+      halo.scale.setScalar((1.6-cycle*.9)*(1+Math.max(0,1-this.age)*2));
+      (halo.material as THREE.MeshBasicMaterial).opacity=(1-cycle)*.65;
     }
     this.ring.visible = detailed;
     const settle = this.crown ? 1.5 : .9;

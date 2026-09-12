@@ -182,7 +182,7 @@ export class FoundryBossController {
       );
     }
 
-    this.state.cooldown = Math.max(0, this.state.cooldown - dt * monsterAggression(boss));
+    this.state.cooldown = Math.max(0, this.state.cooldown - dt * 2 * monsterAggression(boss));
     this.state.stagger = Math.max(0, this.state.stagger - dt);
     this.state.exposed = Math.max(0, this.state.exposed - dt);
     this.state.pillar1Cooldown = Math.max(0, this.state.pillar1Cooldown - dt);
@@ -245,7 +245,7 @@ export class FoundryBossController {
     }
 
     boss.faceToward(boss.position.x + this.state.directionX, boss.position.z + this.state.directionZ);
-    this.state.attackTimer -= dt;
+    this.state.attackTimer -= dt * 2;
     this.updateWarningOpacity();
     if (this.state.attackTimer > 0) return;
 

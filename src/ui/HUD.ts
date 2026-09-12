@@ -52,6 +52,8 @@ export class HUD {
   private crosshair: HTMLDivElement;
   private skillContainer: HTMLDivElement;
   private statusContainer: HTMLDivElement;
+  private reaperBadge = document.createElement('div');
+  private reaperSignature = '';
   private statusSignature = '';
   private buildIndicator = document.createElement('div');
   private damageLayer: HTMLDivElement;
@@ -163,6 +165,8 @@ export class HUD {
     this.statusContainer.style.gap = '5px';
     this.statusContainer.style.flexWrap = 'wrap';
     bars.appendChild(this.statusContainer);
+    this.reaperBadge.className='hud-reaper-state'; this.reaperBadge.hidden=true;
+    bars.appendChild(this.reaperBadge);
     bars.appendChild(this.objective);
     bars.appendChild(this.buildIndicator);
 
@@ -300,6 +304,15 @@ export class HUD {
     this.buildIndicator.textContent = `蓄势 ${state.meleeCharges}/3${state.guardRemaining > 0 ? ' · 反击架势' : ''}`;
     this.buildIndicator.prepend(createUiIcon('melee_momentum', 'build-state-icon'));
     if (state.guardRemaining > 0) this.buildIndicator.append(createUiIcon('guard_stance', 'build-state-icon'));
+  }
+
+  setReaperState(count:number,souls:number,transformed:boolean):void {
+    this.reaperBadge.hidden=count===0;
+    const signature=`${count}:${souls}:${transformed}`;
+    if(signature===this.reaperSignature)return;
+    this.reaperSignature=signature;
+    setPixelText(this.reaperBadge,transformed ? '死神化身' : `收魂 ${souls}/${count>=2?12:9}`);
+    this.reaperBadge.classList.toggle('is-transformed',transformed);
   }
 
   setStatuses(statuses: ActorStatus[]): void {

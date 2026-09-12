@@ -1,0 +1,45 @@
+.meta-tree { margin: 22px 0; }
+.sunlit-save-navigation { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; }
+.sunlit-save-navigation h2 { margin: 0; }
+#ui-root .sunlit-save-navigation .sunlit-menu-button { margin: 0; min-width: 110px; padding: 8px 10px; font-size: 14px; }
+.sunlit-new-adventure-form label { display: grid; gap: 8px; margin: 18px 0; font-weight: 700; }
+.sunlit-new-adventure-form input,.sunlit-new-adventure-form select { box-sizing: border-box; width: 100%; min-height: 46px; padding: 9px 12px; font: inherit; border: 2px solid #91846a; color: #354b46; background: #f0e6ca; }
+.sunlit-meta-screen { width: min(1100px,96vw)!important; max-width: 1100px!important; }
+.sunlit-meta-screen .sunlit-run-screen { max-width: 1020px; }
+.meta-tree-summary,.meta-tree-qualification { padding: 10px 12px; background: #365c5912; border-left: 3px solid #427c77; font-size: 13px; }
+.meta-tree-qualification { border-color: #a68a49; }
+.meta-tree-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; margin: 10px 0; }
+.meta-tree-toolbar .sunlit-menu-button { min-width: 90px; min-height: 38px; margin: 0; padding: 5px 10px; }
+.meta-tree-layout { display: grid; grid-template-columns: minmax(0,1fr) 225px; border: 2px solid #74694f; background: #e7ddbf; }
+.meta-tree-viewport { height: 470px; overflow: auto; overscroll-behavior: contain; cursor: grab; touch-action: pan-x pan-y; scrollbar-color: #6d8175 #dcd2b4; }
+.meta-tree-viewport.is-dragging { cursor: grabbing; user-select: none; }
+.meta-tree-viewport:focus-visible { outline: 3px solid #397f7b; outline-offset: -3px; }
+.meta-tree-board { position: relative; background: radial-gradient(circle at 49% 44%, #b6c5a436, transparent 58%), repeating-linear-gradient(0deg,transparent 0 89px,#595e4110 90px); }
+.meta-tree-board svg { position: absolute; inset: 0; pointer-events: none; }
+.meta-tree-board line { stroke: #938c77; stroke-width: 3; }
+.meta-tree-board line.is-reachable { stroke: #68908a; }
+.meta-tree-board line.is-unlocked { stroke: #b5964e; stroke-width: 4; }
+.meta-tree-node { position: absolute; transform: translate(-50%,-50%); width: 46px; height: 46px; padding: 0; border: 3px solid #85836f; border-radius: 50%; background: #d5d0b9; color: #4d5549; cursor: pointer; font: inherit; font-size: 16px; font-weight: 700; line-height: 1; touch-action: manipulation; }
+.meta-tree-node.is-ready { background: #d3e3cd; border-color: #3d817a; color: #255f5c; }
+.meta-tree-node.is-unlocked { background: #ead298; border-color: #a48035; color: #68501d; }
+.meta-tree-node.is-notable { width: 52px; height: 52px; border-width: 4px; }
+.meta-tree-node.is-selected { outline: 3px solid #fff9df; box-shadow: 0 0 0 6px #376f6d; z-index: 2; }
+.meta-tree-node:focus-visible { outline: 3px solid #376f6d; outline-offset: 5px; }
+.meta-tree-node-label { display: block; position: absolute; width: 112px; left: 50%; top: calc(100% + 8px); transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 12px; line-height: 1.4; color: #3b463e; text-shadow: 0 1px #fff8d7; pointer-events: none; }
+.meta-tree-detail { border-left: 1px solid #ada383; padding: 14px; font-size: 13px; overflow-wrap: anywhere; }
+.meta-tree-detail h3 { margin: 8px 0 12px; }
+.meta-tree-detail .sunlit-menu-button { width: 100%; min-width: 0; margin: 14px 0; }
+.meta-tree-branch { color: #48716a; font-size: 12px; }
+.meta-tree-status { font-weight: 700; color: #506950; }
+.meta-tree-footnote { font-size: 12px; opacity: .8; line-height: 1.6; }
+.meta-relic-collection { margin-top: 16px; border: 1px solid #9b8e6e; padding: 12px; background: #e4d8b340; }
+.meta-relic-collection summary { cursor: pointer; font-weight: 700; }
+.meta-relic-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; font-size: 12px; color: #767266; }
+.meta-relic-list .is-discovered { color: #9b3d42; font-weight: 700; }
+@media(max-width: 650px) {
+  .meta-tree-layout { grid-template-columns: minmax(0,1fr); }
+  .meta-tree-viewport { height: 380px; }
+  .meta-tree-detail { border-left: 0; border-top: 1px solid #ada383; padding: 12px; }
+  .meta-tree-toolbar { flex-wrap: wrap; }
+  .meta-relic-list { grid-template-columns: minmax(0,1fr); }
+}

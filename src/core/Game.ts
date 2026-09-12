@@ -1,3 +1,7 @@
+import { normalizeSetRingName } from '../items/SetItems';
+import { DeathReaper } from '../items/DeathReaper';
+import { DeathReaperVisual } from '../items/DeathReaperVisual';
+import { applyPermanentMetaBonuses } from '../progression/MetaProgression';
 import { AdaptiveAggression } from './AdaptiveAggression';
 import { EnemyTactics } from '../monsters/EnemyTactics';
 import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
@@ -89,7 +93,7 @@ import { archetypeAllowed, unlockNode, setRewardPreference } from '../progressio
 import { canExtract, extractionResearchXp, hasVictoryObjectives } from '../progression/Settlement';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import type { ArchetypeId, RunOutcome, SaveEnvelopeV3, SettlementRecord } from '../progression/types';
-import { buildCampView, buildMigrationView, buildSettlementView } from '../ui/RunScreens';
+import { buildNewAdventureView, buildMetaProgressionView, buildMigrationView, buildSettlementView } from '../ui/RunScreens';
 import { starterWeapon } from '../items/StarterEquipment';
 import { createUiIcon, UI_RARITY_COLORS } from '../ui/UiAssets';
 import { EquipmentDropVisual } from '../items/EquipmentDropVisual';
@@ -337,6 +341,32 @@ export class Game {
   private comboCount = 0;
   private comboTimer = 0;
   private lowHealthShieldCooldown = 0;
+  private reaperVisual = new DeathReaperVisual(this.scene);
+  private reaper = new DeathReaper({
+    attack: () => this.effectiveStats().attack,
+    maxHealth: () => this.player.maxHealth,
+    maxMana: () => this.player.maxMana,
+    targets: (origin, range) => this.monsters.filter(m => !m.dead
+      && (origin ? m.roomId === origin.roomId : this.encounters?.lockedRoomIds.includes(m.roomId))
+      && m.position.distanceTo(origin?.position ?? this.player.position) <= range
+      && this.hasLineOfSight(this.player.position, m.position)
+      && (!origin || this.hasLineOfSight(origin.position, m.position)))
+      .sort((a,b) => a.position.distanceToSquared(origin?.position ?? this.player.position)-b.position.distanceToSquared(origin?.position ?? this.player.position)),
+    damage: (target, amount, element) => {
+      if (!this.running || !this.player.alive || target.dead) return;
+      this.applyMonsterDamage(target, elementalDamage(amount*(1-defenseMitigation(target.def.armor,this.floor)),
+        element,target.def.resistances,target.statuses), false,.45,undefined,element,false);
+    },
+    shield: amount => this.player.grantShield(amount,this.player.maxHealth*.4),
+    mana: amount => this.player.addMana(amount),
+    slow: (target, seconds) => {
+      if (target.dead || target.def.immunities?.includes('frozen')) return;
+      // A movement slow is not a frozen status: specialised Boss casts must keep running.
+      target.group.userData.reaperSlow = Math.max(target.group.userData.reaperSlow ?? 0,seconds);
+    },
+    message: text => this.hud.showCenterMessage(text,'死亡收割 · 六秒化身',2),
+    effect: (kind,target,radius) => this.reaperVisual.onEffect(kind,target?.position ?? this.player.position,radius),
+  });
   private elapsed = 0;
   private aggression = new AdaptiveAggression();
   private running = false;
@@ -552,7 +582,9 @@ export class Game {
     const title = document.createElement('h2');
     title.textContent = '选择存档';
     title.className = 'sunlit-menu-title';
-    panel.appendChild(title);
+    const navigation = document.createElement('div');navigation.className = 'sunlit-save-navigation';
+    const talents = this.makeMenuButton('营地天赋树');talents.disabled = storageError;
+    talents.onclick = () => this.showMetaTalentScreen();navigation.append(title,talents);panel.append(navigation);
 
     if (message) {
       const notice = document.createElement('div');
@@ -588,9 +620,9 @@ export class Game {
             : state === 'summary'
               ? `存档 ${slot.slot + 1} · 待确认结算`
               : state === 'camp'
-                ? `存档 ${slot.slot + 1} · 营地 · ${slot.metaPoints ?? 0} 天赋点`
+                ? `${slot.name ?? `存档 ${slot.slot + 1}`} · 开始下一局`
                 : state === 'active'
-                  ? `存档 ${slot.slot + 1} · 第 ${slot.floor} 层 · Lv.${slot.level} · 继续游戏`
+                  ? `${slot.name ?? `存档 ${slot.slot + 1}`} · 第 ${slot.floor} 层 · Lv.${slot.level} · 继续游戏`
                   : `存档 ${slot.slot + 1} · 新档案`,
       );
       selectButton.classList.add('sunlit-save-button');
@@ -669,7 +701,11 @@ export class Game {
     if (result.kind === 'ready') {
       this.envelope = result.envelope;
       if (result.envelope.pendingSettlement) this.showSettlement(result.envelope.pendingSettlement, true);
-      else this.showCamp();
+      else if (result.envelope.activeRun) this.resumeActiveRun();
+      else {
+        const chosen = result.envelope.preferredArchetype ?? result.envelope.recentRuns[0]?.archetype ?? result.envelope.profile.rewardPreference ?? 'vanguard';
+        this.startArchetype(archetypeAllowed(result.envelope.profile,chosen) ? chosen : 'vanguard');
+      }
       return;
     }
     if (result.kind === 'legacy') {
@@ -683,29 +719,53 @@ export class Game {
     const candidate = RunManager.createEnvelope(this.newProfileId());
     try { SaveManager.attachSharedCamp(candidate); }
     catch { this.showSaveSlotMenu('共享营地读取失败，请保留存档并重试。', true); return; }
-    this.commitEnvelope(candidate, () => this.showCamp());
+    this.envelope = candidate;
+    this.showNewAdventureSetup();
   }
 
   private showCamp(message = ''): void {
+    this.showNewAdventureSetup(message);
+  }
+
+  private showNewAdventureSetup(message = ''): void {
     const envelope = this.envelope;
     if (!envelope) return this.showSaveSlotMenu('档案尚未载入，请重新选择存档。', true);
     if (envelope.pendingSettlement) return this.showSettlement(envelope.pendingSettlement, true);
+    if (envelope.activeRun) return this.resumeActiveRun();
     this.running = false;
     this.removeStartMenu();
     const { overlay, panel } = this.createStartMenuShell();
-    panel.append(buildCampView(envelope, {
-      start: (archetype, mechanism) => this.startArchetype(archetype, mechanism),
-      resume: () => this.resumeActiveRun(),
-      unlock: (id) => this.unlockArchetype(id),
-      setPreference: (id) => {
-        try {
-          this.commitEnvelope(setRewardPreference(envelope, id), () => this.showCamp('奖励偏好已更新，下次出发时生效。'));
-        } catch (error) { this.showCamp(error instanceof Error ? error.message : '无法更改偏好。'); }
+    panel.append(buildNewAdventureView(envelope, {
+      start: (name,archetype) => {
+        this.envelope = {...envelope,adventureName:name};
+        this.startArchetype(archetype);
       },
       back: () => this.showSaveSlotMenu(),
-      exportLegacy: () => this.exportLegacyArchive(),
-      abandon: () => this.finishRun('abandoned'),
-    }, message));
+    },`冒险 ${this.saveSlot+1}`,message));
+    overlay.append(panel);
+    this.startOverlay = overlay;
+    this.uiRoot.append(overlay);
+    this.setStartMenuBackHandler(() => this.showSaveSlotMenu());
+  }
+
+  private showMetaTalentScreen(message = ''): void {
+    let envelope: SaveEnvelopeV3;
+    try { envelope = SaveManager.readSharedProgression(); }
+    catch(error) { this.showSaveSlotMenu(error instanceof Error ? error.message : '营地天赋无法读取。',true); return; }
+    this.running = false;
+    this.removeStartMenu();
+    const { overlay, panel } = this.createStartMenuShell();panel.classList.add('sunlit-meta-screen');
+    const commit = (change:()=>SaveEnvelopeV3,success:string) => {
+      try {
+        const candidate = change(),result = SaveManager.saveSharedProgression(candidate);
+        this.showMetaTalentScreen(result.ok ? success : result.error);
+      } catch(error) { this.showMetaTalentScreen(error instanceof Error ? error.message : '营地天赋无法保存。'); }
+    };
+    panel.append(buildMetaProgressionView(envelope, {
+      unlock: id => commit(()=>unlockNode(envelope,id),'修习已保存，下次出发时生效。'),
+      setPreference: id => commit(()=>setRewardPreference(envelope,id),'奖励偏好已保存，下次出发时生效。'),
+      back: () => this.showSaveSlotMenu(),
+    },message));
     overlay.append(panel);
     this.startOverlay = overlay;
     this.uiRoot.append(overlay);
@@ -785,7 +845,7 @@ export class Game {
   private acknowledgeSettlement(): void {
     if (!this.envelope?.pendingSettlement) return;
     const candidate = RunManager.acknowledge(this.envelope);
-    this.commitEnvelope(candidate, () => this.showCamp());
+    this.commitEnvelope(candidate, () => this.showSaveSlotMenu());
   }
 
   private exportLegacyArchive(): void {
@@ -923,6 +983,7 @@ export class Game {
     this.equipmentRulesVersion = this.envelope?.activeRun?.equipmentRulesVersion ?? 1;
     this.craftingSequence = 0;
     this.setRuntime.reset();
+    this.reaper.reset();
     this.runTalents = createRunTalents();
     this.runTalents = unlockRunTalent(this.runTalents,
       archetype === 'vanguard' ? 'melee_seed' : archetype === 'summoner' ? 'summon_seed' : 'fire_seed', 1);
@@ -986,6 +1047,7 @@ export class Game {
     this.equipmentRulesVersion = save.equipmentRulesVersion ?? 1;
     this.craftingSequence = save.craftingSequence ?? 0;
     this.setRuntime.restore(save.runtime?.setState);
+    this.reaper.restore(save.runtime?.deathReaper);
     this.runTalents = save.runTalents ? structuredClone(save.runTalents) : createRunTalents();
     this.migratedRunTalents = !save.runTalents;
     this.fireModifiers = deriveFireModifiers(this.runTalents);
@@ -1009,10 +1071,10 @@ export class Game {
     this.shopGambles = save.shopGambles ?? 0;
     this.shopHeals = save.shopHeals ?? 0;
     // Reprice legacy portal stock using the current material recovery floor.
-    this.shopStock.forEach(entry => { entry.price = ShopSystem.itemPrice(entry.item, this.floor); });
+    this.shopStock.forEach(entry => { entry.item = normalizeSetRingName(entry.item); entry.price = ShopSystem.itemPrice(entry.item, this.floor); });
     this.kills = save.kills;
-    this.inventory.items = [...save.inventory];
-    this.equipment.equipment = { ...save.equipment };
+    this.inventory.items = save.inventory.map(normalizeSetRingName);
+    this.equipment.equipment = Object.fromEntries(Object.entries(save.equipment).map(([slot,item])=>[slot,item ? normalizeSetRingName(item) : item]));
     this.skillLoadout = this.skillLoadout.filter(id => this.isSkillUnlocked(id));
     this.player.level = save.player.level;
     this.player.xp = save.player.xp;
@@ -1174,6 +1236,9 @@ export class Game {
         });
       });
     }
+    for (const drop of resume?.runtime?.relicDrops ?? []) {
+      this.spawnDrop(new THREE.Vector3(drop.x,0,drop.z),{kind:'item',item:drop.item});
+    }
     this.portalActive = this.encounters.portalReady;
     for (const key of resume?.openedChests ?? []) {
       this.openedChests.add(key);
@@ -1252,6 +1317,8 @@ export class Game {
       const wave = MonsterSpawner.spawnEncounter(this.floorData, room, this.player.position,
         new RNG(this.currentFloorSeed ^ Number(room.id!.split('-')[1]) * 7919));
       this.aggression.encounter(wave.length, wave.some(m => m.def.behavior === 'boss'), room.kind === 'elite');
+      if (this.aggression.crowded) MonsterSpawner.addPressure(this.floorData, room, wave, this.player.position,
+        new RNG(this.currentFloorSeed ^ Number(room.id!.split('-')[1]) * 15427));
       this.monsters.push(...wave);
       wave.forEach(monster => this.scene.add(monster.group));
       this.playtestRecorder.record('encounter_started', {
@@ -1352,6 +1419,8 @@ export class Game {
         this.encounterMechanics.restore(monster, saved.mechanicState);
         if (saved.sanctumState) this.sanctumController.restore(monster, saved.sanctumState);
         monster.group.userData.chapterReinforcement = saved.chapterReinforcement ?? false;
+        monster.group.userData.pressureXp = saved.pressureXp;
+        monster.group.userData.pressureLoot = saved.pressureLoot;
         this.monsters.push(monster);
         this.scene.add(monster.group);
       }
@@ -1375,10 +1444,14 @@ export class Game {
         mechanicState: this.encounterMechanics.serialize(monster),
         sanctumState: this.sanctumController.snapshot(monster),
         chapterReinforcement: Boolean(monster.group.userData.chapterReinforcement),
+        pressureXp: monster.group.userData.pressureXp,
+        pressureLoot: monster.group.userData.pressureLoot,
       }));
   }
 
   private clearEntities(): void {
+    this.reaper.clearTargets();
+    this.reaperVisual.reset();
     this.foundryPractice.clear();
     this.oathGatekeeper.clear();
     this.sanctumController.clear();
@@ -1516,6 +1589,10 @@ export class Game {
         this.updatePlayerVisibility();
         if (this.input.wasPressed('Space') && wasGrounded) this.audio.jump();
       }
+      this.reaper.update(rawDt, this.equipment.getEquippedItems(),
+        Math.hypot(this.player.position.x-movementStartX,this.player.position.z-movementStartZ),
+        Boolean(this.encounters?.lockedRoomIds.length));
+      this.reaperVisual.update(rawDt,this.equipment.getEquippedItems(),this.player.position,this.reaper.transformed,this.controller.isFirstPerson,this.player.yaw);
       this.setRuntime.update(rawDt, this.equipment.getP5SetCounts(),
         Math.hypot(this.player.position.x - movementStartX, this.player.position.z - movementStartZ),
         Boolean(this.encounters?.lockedRoomIds.length));
@@ -1579,6 +1656,7 @@ export class Game {
       this.hud.updateSkills(skillStates, this.player.mana);
       this.touchControls?.updateSkillStates(skillStates, this.player.mana);
       this.hud.setStatuses(this.player.statuses);
+      this.hud.setReaperState(this.equipment.getDeathReaperCount(),this.reaper.souls,this.reaper.transformed);
       this.minimap.update(this.floorData, this.player, this.monsters, this.encounters?.state);
       const room = this.encounters?.roomAt(this.player.position.x, this.player.position.z);
       this.hud.setObjective(this.portalActive ? '出口已开启 · 可前往传送门' : `主线目标 ${2 - (this.encounters?.remainingObjectives.length ?? 2)}/2 · ${room?.kind ? ROOM_LABELS[room.kind] : '连接通道'}`);
@@ -2535,6 +2613,7 @@ export class Game {
     if (skill.id === 'lightning_chain') this.useLightningChain(stats, skill);
     if (skill.id === 'detonate') this.useDetonate();
     this.setRuntime.onCast(skill.id, skill.manaCost, coldBeforeCast);
+    this.reaper.onCast(skill.id, skill.manaCost);
     this.castingSetSkill = null;
   }
 
@@ -2888,7 +2967,9 @@ export class Game {
     const damage = Math.max(1, Math.round(this.p4Skills.interceptDamage(amount, source)));
     if (!this.running || !this.player.alive) return;
     const wasAlive = this.player.alive;
+    const beforeVitality = this.player.health + this.player.shield;
     this.player.takeDamage(damage);
+    this.reaper.onDamaged(Math.max(0,beforeVitality-this.player.health-this.player.shield));
     if (this.player.lastHitDodged) {
       this.hud.spawnDamage('闪避', '#a7eadc', false, 0.85);
       return;
@@ -3027,6 +3108,7 @@ export class Game {
     if (canLeech) this.player.leech(actualDamage * this.effectiveStats().lifeSteal);
     if (canLeech || setSource) {
       const source = setSource ?? this.castingSetSkill ?? 'melee_attack';
+      this.reaper.onHit(monster,actualDamage,element,source);
       if (killed) this.setRuntime.onKillingHit(element, source);
       else this.setRuntime.onHit(monster, element, source);
     }
@@ -3046,6 +3128,7 @@ export class Game {
   }
 
   private onMonsterKilled(monster: Monster, crit: boolean, allowEquipmentProcs = true): void {
+    this.reaper.onKill(monster);
     if (monster.def.id === 'oath_gatekeeper') this.oathGatekeeper.clear();
     if (this.sanctumController.handles(monster)) this.sanctumController.onDeath(monster, this.sanctumHost);
     if (['furnace_regent', 'oath_gatekeeper', 'bellkeeper'].includes(monster.def.id)) {
@@ -3104,8 +3187,9 @@ export class Game {
     this.comboTimer = 1.8;
     this.hud.setCombo(this.comboCount);
 
-    const xp = Math.round(MonsterSpawner.baseXp(monster, this.floor) * (monster.group.userData.chapterReinforcement ? .5 : 1));
+    const xp = monster.group.userData.pressureXp ?? Math.round(MonsterSpawner.baseXp(monster, this.floor) * (monster.group.userData.chapterReinforcement ? .5 : 1));
     this.addXp(xp);
+    if (monster.group.userData.pressureLoot === false) return;
     if ((monster.def.id === 'sanctum_mourner' || monster.group.userData.chapterReinforcement) && this.sanctumRng.float() > .5) return;
     const drops = LootSystem.rollLoot(
       monster.def,
@@ -3116,7 +3200,13 @@ export class Game {
       this.envelope?.activeRun?.rewardPreference,
       this.equipmentRulesVersion, this.mechanismPreference,
     );
-    drops.forEach((drop) => this.spawnDrop(monster.position, drop));
+    drops.forEach((drop) => {
+      if (this.floor === BASIC_RUN_DEFINITION.floorCount && monster.def.behavior === 'boss' && drop.kind==='item' && drop.item.rarity==='mythic') {
+        // Final victory settles on the next frame; archive its relic before the floor disappears.
+        this.recordItemAcquired(drop.item,'final_boss_relic');
+      }
+      this.spawnDrop(monster.position, drop);
+    });
   }
 
   private addP4Shield(amount: number): void {
@@ -3181,7 +3271,9 @@ export class Game {
           target.def.armor, this.floor, 'physical', target.def.resistances, target.statuses);
         if (source?.source === 'p5-venom') hit.damage = Math.min(Math.floor(amount), elementalDamage(
           amount * (1 - defenseMitigation(target.def.armor, this.floor)), 'physical', target.def.resistances, target.statuses));
+        const reaperDamage = Math.min(target.health,hit.damage);
         this.applyMonsterDamage(target, hit.damage, hit.crit, .4, undefined, 'physical', false);
+        this.reaper.onSummonHit(target,reaperDamage);
         if (!target.dead && source && (!source.temporary || source.source === 'p5-venom')) this.setRuntime.onSummonHit(target, source.role, source.focused, source.temporary);
       },
       shield: amount => this.addP4Shield(amount),
@@ -3231,7 +3323,7 @@ export class Game {
       this.drops.push({ mesh: visual.group, visual, position: pos, kind: 'item', item: drop.item,
         bobPhase: 0, life: Infinity, age: 0, pickupDelay: visual.pickupDelay, retryIn: 0 });
       const nearby = Math.hypot(pos.x - this.player.position.x, pos.z - this.player.position.z) < 18;
-      const red = drop.item.rarity === 'legendary';
+      const red = drop.item.rarity === 'legendary' || drop.item.rarity === 'mythic';
       if (nearby && (red ? this.redLootCooldown <= 0 : this.lootSoundCooldown <= 0)) {
         this.audio.lootDrop(drop.item.rarity);
         this.lootSoundCooldown = .25;
@@ -3313,6 +3405,7 @@ export class Game {
         if (this.hasLineOfSight(this.player.position, drop.position) && this.pickupDrop(drop)) {
           this.disposeDrop(drop);
           this.drops.splice(i, 1);
+          if (drop.item?.rarity === 'mythic' && !this.saveGame()) return;
         }
       }
     }
@@ -3500,6 +3593,7 @@ export class Game {
     const record = candidate.pendingSettlement;
     if (!record) return;
     this.running = false;
+    this.reaper.clearTargets(); this.reaperVisual.reset();
     this.summonSystem.clear();
     this.p4Skills.clear();
     this.summonCommands?.hide();
@@ -3625,7 +3719,7 @@ export class Game {
   }
 
   private effectiveStats(): DerivedStats {
-    return this.equipment.getDerivedStats(this.bonusAttributes);
+    return applyPermanentMetaBonuses(this.equipment.getDerivedStats(this.bonusAttributes), this.envelope?.activeRun?.unlockedNodesAtStart ?? []);
   }
 
   private newGameSeed(): number {
@@ -3674,6 +3768,13 @@ export class Game {
   }
 
   private recordItemAcquired(item: Item, source: string): void {
+    if (item.rarity === 'mythic' && item.contentId && this.envelope) {
+      const found = this.envelope.profile.discoveredRelics ??= [];
+      if (!found.includes(item.contentId)) {
+        found.push(item.contentId);
+        this.hud.showCenterMessage('死亡图鉴已点亮',item.name,2);
+      }
+    }
     this.playtestRecorder.record('item_acquired', {
       source,
       floor: this.floor,
@@ -4036,6 +4137,7 @@ export class Game {
       rare: '稀有',
       epic: '史诗',
       legendary: '传说',
+      mythic: '暗金传说',
     };
     return labels[rarity] ?? rarity;
   }
@@ -4192,10 +4294,13 @@ export class Game {
       equipmentRulesVersion: this.equipmentRulesVersion,
       craftingSequence: this.craftingSequence,
       runtime: {
+        relicDrops: this.drops.filter(drop=>drop.kind==='item' && drop.item?.rarity==='mythic')
+          .map(drop=>({item:drop.item!,x:drop.position.x,z:drop.position.z})),
         aggression: this.aggression.snapshot(),
         oathGatekeeper: this.monsters.some(m => m.def.id === 'oath_gatekeeper' && !m.dead) ? this.oathGatekeeper.snapshot() : undefined,
         usedRituals: this.chapterRituals.snapshot(),
         setState: this.setRuntime.snapshot(),
+        deathReaper: this.reaper.snapshot(),
         summonSquad: this.summonSystem.snapshot(),
         brokenFoundryPanels: this.floorData ? foundryPanels(this.floorData).filter(p => p.broken).map(p => p.id) : [],
         foundryTrialClaimed: this.foundryTrialClaimed,

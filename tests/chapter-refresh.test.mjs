@@ -19,6 +19,11 @@ const compiled = await build({ stdin: { contents: `
   export {rarityWeightsForFloor,RARITY_ORDER} from './src/data/recipes';
   export {OathGatekeeperController} from './src/monsters/OathGatekeeperController';
   export {RNG} from './src/utils/RNG';
+  export {ItemGenerator} from './src/items/ItemGenerator';
+  export {EquipmentManager} from './src/items/EquipmentManager';
+  export {DEATH_REAPER_ITEMS} from './src/data/DeathReaperItems';
+  export {DeathReaper} from './src/items/DeathReaper';
+  export {P5_SETS} from './src/data/sets';
   export {prepareFoundryPanels,foundryPanels} from './src/world/FoundryPanels';
   export {Scene,Vector3} from 'three';`, resolveDir: root, loader: 'ts' },
   bundle: true, write: false, format: 'esm', platform: 'node',
@@ -136,9 +141,74 @@ test('fifth boss has frequent attacks with a visible warning before each strike'
   const hits=[];let time=0;
   const host={damagePlayer:()=>hits.push(time),damageMelee:()=>hits.push(time),summonMinion(){},showMessage(){}};
   for(;time<10;time+=.05)controller.update(.05,boss,player,floor,host,100);
-  assert.ok(hits.length>=4);assert.ok(hits[0]>=1.5);
-  assert.ok(hits.slice(1).every((value,i)=>value-hits[i]>=1.6));
+  assert.ok(hits.length>=8);assert.ok(hits[0]>=.8 && hits[0]<=1.1);
+  assert.ok(hits.slice(1).every((value,i)=>value-hits[i]>=.85 && value-hits[i]<=1.1));
   controller.clear();
 });
 
 test.after(() => { globalThis.document = previousDocument; });
+
+test('pressure adds safely spaced enemies without increasing XP or loot roll count', () => {
+  const floor=api.generateFloor(42,6,5), room=floor.rooms.find(r=>r.id==='room-2');
+  assert.ok(room);
+  const player={x:floor.spawn.x+.5,z:floor.spawn.z+.5};
+  const wave=api.MonsterSpawner.spawnEncounter(floor,room,player,new api.RNG(5));
+  const original=wave.length, xp=wave.reduce((n,m)=>n+api.MonsterSpawner.baseXp(m,6),0);
+  api.MonsterSpawner.addPressure(floor,room,wave,player,new api.RNG(6));
+  assert.ok(wave.length>original);
+  assert.equal(wave.reduce((n,m)=>n+(m.group.userData.pressureXp??api.MonsterSpawner.baseXp(m,6)),0),xp);
+  assert.equal(wave.filter(m=>m.group.userData.pressureLoot!==false).length,original);
+});
+
+test('mythic rewards have one independent three-percent boss roll and no normal-monster source', () => {
+  class ControlledRng extends api.RNG {
+    constructor(win) {super(12);this.win=win;this.relicRolls=0;}
+    chance(p) {if(p===.03){this.relicRolls++;return this.win;}return super.chance(p);}
+  }
+  for(const boss of [false,true]) for(const win of [false,true]) {
+    const rng=new ControlledRng(win);
+    const drops=api.LootSystem.rollLoot({},25,100000,boss,25,undefined,2,undefined,rng);
+    assert.equal(rng.relicRolls,boss?1:0);
+    assert.equal(drops.filter(d=>d.kind==='item'&&d.item.rarity==='mythic').length,boss&&win?1:0);
+  }
+  assert.throws(()=>api.ItemGenerator.generate(25,new api.RNG(1),25,'mythic'));
+});
+test('nine relic identities equip in either ring order and duplicate rings cannot count as nine', () => {
+  const items=api.DEATH_REAPER_ITEMS.map((d,i)=>api.ItemGenerator.generateDeathReaper(25,new api.RNG(i),25,d.slot));
+  const equipment=new api.EquipmentManager();
+  for(const item of [...items].reverse())equipment.equip(item);
+  assert.equal(equipment.getDeathReaperCount(),9);
+  assert.equal(equipment.get('ring').contentId,'death_reaper_harvest_ring');
+  assert.equal(equipment.get('ring2').contentId,'death_reaper_echo_ring');
+  equipment.equipment={...equipment.equipment,ring2:items.find(i=>i.slot==='ring')};
+  assert.equal(equipment.getDeathReaperCount(),8);
+});
+test('relic waves are real damage, reject secondary loops, and nine souls start the nine-piece form', () => {
+  const target={dead:false,health:10000,maxHealth:10000};let hits=0;
+  const runtime=new api.DeathReaper({attack:()=>100,maxHealth:()=>100,maxMana:()=>50,targets:()=>[target],
+    damage:()=>hits++,shield(){},mana(){},slow(){},message(){}});
+  const items=api.DEATH_REAPER_ITEMS.map((d,i)=>api.ItemGenerator.generateDeathReaper(25,new api.RNG(i),25,d.slot));
+  const weapon=items.find(i=>i.slot==='weapon');
+  for(let i=0;i<3;i++){runtime.update(.25,[weapon],0,true);runtime.onHit(target,100,'physical','melee_attack');}
+  assert.ok(hits>0);
+  const before=hits;runtime.onHit(target,100,'shadow','secondary');assert.equal(hits,before);
+  runtime.update(.1,items,0,true);
+  for(let i=0;i<4;i++)runtime.onKill({dead:true});
+  assert.equal(runtime.transformed,true);
+  const saved=runtime.snapshot();const cooldown=saved.cooldowns.form;
+  runtime.restore(saved);assert.equal(runtime.transformed,false);assert.equal(runtime.snapshot().cooldowns.form,cooldown);
+});
+
+test('each regular set can equip nine distinct pieces and duplicate ring one cannot unlock its finale', () => {
+  const slots=['weapon','helmet','chest','legs','boots','ring','ring2','necklace','offhand'];
+  for(const set of Object.values(api.P5_SETS).filter(s=>s.id!=='death_reaper')) {
+    const equipment=new api.EquipmentManager();
+    const items=slots.map((slot,i)=>api.ItemGenerator.generate(20,new api.RNG(i),20,'rare',slot,0,undefined,false,2,undefined,set.id));
+    items.forEach(item=>equipment.equip(item));
+    assert.equal(equipment.getP5SetCounts()[set.id],9,set.id);
+    assert.ok(set.bonuses[9]);
+    assert.match(equipment.get('ring').name,/戒指1/);assert.match(equipment.get('ring2').name,/戒指2/);
+    equipment.equipment={...equipment.equipment,ring2:equipment.get('ring')};
+    assert.equal(equipment.getP5SetCounts()[set.id],8,set.id);
+  }
+});

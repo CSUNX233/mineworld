@@ -127,7 +127,7 @@ export class OathGatekeeperController {
       this.sword.position.z = this.attackKind === 'sword' && this.warning ? .55 + Math.sin(swing * Math.PI) * .6 : .55;
     }
     if (this.warning) {
-      this.timer -= activeDt;
+      this.timer -= activeDt * 2;
       boss.faceToward(boss.position.x + Math.cos(this.state.angle), boss.position.z + Math.sin(this.state.angle));
       if (this.timer > 0) return;
       this.removeWarning();
@@ -151,14 +151,16 @@ export class OathGatekeeperController {
       else { this.second = false; this.state.cooldown = this.state.phase === 1 ? 1.15 : 1.45; }
       return;
     }
-    this.state.cooldown = Math.max(0, this.state.cooldown - activeDt * monsterAggression(boss));
+    this.state.cooldown = Math.max(0, this.state.cooldown - activeDt * 2 * monsterAggression(boss));
+    // Track during recovery as well, while an announced attack still keeps its locked direction.
+    const desired = Math.atan2(player.position.z - boss.position.z, player.position.x - boss.position.x);
+    const difference = Math.atan2(Math.sin(desired - this.state.angle), Math.cos(desired - this.state.angle));
+    this.state.angle += Math.max(-activeDt * 5, Math.min(activeDt * 5, difference));
+    boss.faceToward(boss.position.x + Math.cos(this.state.angle), boss.position.z + Math.sin(this.state.angle));
     if (this.state.cooldown > 0) return;
     // On the frame the phase-transition delay ends, reserve the next cast for
     // the marked summons instead of constructing an immediately replaced sword warning.
     if (this.state.phase === 2 && !this.state.reinforcementUsed) return;
-    const desired = Math.atan2(player.position.z - boss.position.z, player.position.x - boss.position.x);
-    const difference = Math.atan2(Math.sin(desired - this.state.angle), Math.cos(desired - this.state.angle));
-    this.state.angle += Math.max(-activeDt * 2.5, Math.min(activeDt * 2.5, difference));
     if (boss.position.distanceTo(player.position) > 3) {
       boss.state = 'chase'; MonsterAI.update(boss, dt, player, floor);
     } else if (Math.abs(difference) < .35) {

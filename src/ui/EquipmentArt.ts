@@ -8,14 +8,11 @@ const SLOTS = new Set(['weapon', 'helmet', 'chest', 'legs', 'boots', 'ring', 'ri
 
 /** Resolve at display time so existing P5 saves receive artwork without changing item identity. */
 export function equipmentArtPath(item: ItemArtSource): string | undefined {
+  if (item.setId === 'death_reaper' && item.slot && SLOTS.has(item.slot))
+    return `assets/ui/sunlit/death-reaper/${item.slot}.webp`;
   if ((item.equipmentRulesVersion ?? 1) < 2 || !item.setId || !SET_IDS.has(item.setId)
     || !item.slot || !SLOTS.has(item.slot)) return undefined;
-  let slot = item.slot;
-  if ((slot === 'ring' || slot === 'ring2') && item.id) {
-    // Two visual designs, stable across inventory movement, upgrading, reforge and save/load.
-    let hash = 2166136261;
-    for (let i = 0; i < item.id.length; i++) hash = Math.imul(hash ^ item.id.charCodeAt(i), 16777619);
-    slot = (hash >>> 0) % 2 === 0 ? 'ring' : 'ring2';
-  }
+  // Two real ring identities use their own slots; duplicate copies retain the same artwork.
+  const slot = item.slot;
   return `assets/ui/sunlit/equipment/${item.setId}-${slot}.webp`;
 }

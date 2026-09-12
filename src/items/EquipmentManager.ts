@@ -1,5 +1,7 @@
 import type { Item, Slot, StatMap } from '../types';
 import { setDefinition } from '../data/sets';
+import { DEATH_REAPER_SET, deathReaperIdentities } from '../data/DeathReaperItems';
+import { p5UniqueSetPieces } from './SetItems';
 import {
   addBaseStatMap,
   addStatMap,
@@ -77,7 +79,7 @@ export class EquipmentManager {
 
   equip(item: Item): Item | null {
     this.invalidate();
-    if (item.slot === 'ring') {
+    if (item.slot === 'ring' && !item.setId) {
       const target: Slot = this.equipment.ring ? 'ring2' : 'ring';
       const previous = this.equipment[target] ?? null;
       this.equipment[target] = item;
@@ -142,16 +144,34 @@ export class EquipmentManager {
     return counts;
   }
 
+  getDeathReaperCount(): number { return deathReaperIdentities(this.getEquippedItems()).size; }
+
   private groupSetCounts(): Map<string, { setId: string; equipmentRulesVersion: number; count: number }> {
     const groups = new Map<string, { setId: string; equipmentRulesVersion: number; count: number }>();
+    const deathIdentities=deathReaperIdentities(this.getEquippedItems());
+    let deathCounted=false;
     this.getEquippedItems().forEach(item => {
       if (!item.setId) return;
+      if(item.setId===DEATH_REAPER_SET) {
+        if(!deathCounted&&deathIdentities.size>0) groups.set(`2:${DEATH_REAPER_SET}`,{setId:DEATH_REAPER_SET,equipmentRulesVersion:2,count:deathIdentities.size});
+        deathCounted=true;return;
+      }
       const equipmentRulesVersion = (item.equipmentRulesVersion ?? 1) >= 2 ? 2 : 1;
       const key = `${equipmentRulesVersion}:${item.setId}`;
       const group = groups.get(key);
       if (group) group.count++;
       else groups.set(key, { setId: item.setId, equipmentRulesVersion, count: 1 });
     });
+    for (const group of groups.values()) {
+      if (group.setId !== DEATH_REAPER_SET && group.equipmentRulesVersion >= 2 && group.count >= 9) {
+        const correctlyPlaced = ALL_SLOTS.flatMap(slot => {
+          const item = this.equipment[slot];
+          return item?.slot === slot ? [item] : [];
+        });
+        // Old nine-slot saves retain their 2/4 effects, but a copied or missing ring identity cannot unlock nine.
+        group.count = p5UniqueSetPieces(correctlyPlaced, group.setId) === 9 ? 9 : 8;
+      }
+    }
     return groups;
   }
 

@@ -114,6 +114,16 @@ export const SETS: Record<string, SetDefinition> = {
 
 /** New runs use these mechanisms; legacy items continue resolving against SETS. */
 export const P5_SETS: Record<string, SetDefinition> = {
+  death_reaper: {
+    id: 'death_reaper', name: '死亡收割', tags: ['melee', 'shadow', 'summon', 'resource'],
+    lore: '九件葬仪遗物分散在亡者手中。镰、冕、衣、缚、靴、双戒、沙漏与魂灯重聚时，佩戴者成为死者名册上的最后一行。',
+    bonuses: {
+      2: { stats: { attack: .2, maxHealth: .15 }, valueModes: { attack: 'increased', maxHealth: 'increased' }, special: 'death_reaper_2', description: '两件不同遗物：攻击提高20%、生命提高15%；魂上限12，击杀积魂提高，直接命中也能在纯Boss战积魂。' },
+      4: { stats: { armor: 16, cooldown: .1 }, special: 'death_reaper_4', description: '四件不同遗物：每3次直接命中积2魂；镰波、魂波、追击与魂爆最多目标数增加2。' },
+      6: { stats: { attackSpeed: .2, moveSpeed: .1 }, valueModes: { attackSpeed: 'increased', moveSpeed: 'increased' }, special: 'death_reaper_6', description: '六件不同遗物：所有遗物追加伤害提高30%；击杀额外积1魂，收割斩生命门槛提高至25%。' },
+      9: { stats: { attack: .45, maxHealth: .3, critDamage: .3 }, valueModes: { attack: 'increased', maxHealth: 'increased', critDamage: 'increased' }, special: 'death_reaper_9', description: '九件不同遗物：积满9魂自动消耗并化身死神6秒（冷却20秒）；每秒向至多6敌人挥出250%攻击的大镰波，期间遗物伤害再提高50%，收割斩门槛提高至35%。' },
+    },
+  },
   warlord: {
     id: 'warlord', name: '战争领主', tags: ['melee', 'defense'],
     lore: '旧王已死，守门者仍未后退。每一道挡下刀锋的裂痕，都在甲胄深处积成沉默的怒意，等待下一记重击将它归还。',
@@ -212,6 +222,26 @@ export const P5_SETS: Record<string, SetDefinition> = {
   },
 };
 
+
+/** All twelve complete sets receive the same stat and secondary-damage allowance.
+ * Their trigger shapes differ; the shared support allowance never scales with target count. */
+export const P5_NINE_DESCRIPTIONS: Record<string, string> = {
+  warlord: '完整九件：攻击、生命提高8%；有效反击储存两次壁垒，后续两次近战产生范围反震，重击仍提供共享预算内护盾。',
+  warbringer: '完整九件：攻击、生命提高8%；破阵重击释放三段范围余震，覆盖六个目标；三段共同分摊一次伤害预算。',
+  frost: '完整九件：攻击、生命提高8%；寒息上限六层，实付法力返还上限提高至30%；耗蓝消耗寒息后，接下来三次非冰霜直接命中产生范围寒尾伤害与减速。',
+  shadow: '完整九件：攻击、生命提高8%；战斗移动2.5米准备掠影，命中留下两道继承元素的范围残影；两道共同分摊一次伤害预算。',
+  inferno: '完整九件：攻击、生命提高8%；火径最多六处、持续4.5秒、生成冷却0.75秒，扩大灼烧范围；所有火径与传播共用伤害预算。',
+  glacier: '完整九件：攻击、生命提高8%；碎冰上限六层，消耗形成三段大范围冰裂，覆盖六个目标；寒冷窗口与伤害预算限制仍生效。',
+  venom: '完整九件：攻击、生命提高8%；一次孵化最多三具疫骸，逐只检查共同容量，有限毒雾可覆盖六个目标；孵化失败不消耗冷却。',
+  sanguine: '完整九件：攻击、生命提高8%；血契技能形成两段近身血潮，并准备三次实际吸血转盾；满血空吸不触发，护盾仍受共享预算限制。',
+  storm: '完整九件：攻击、生命提高8%；电荷上限九层，主动技能消耗已积电荷释放三段远距放电，覆盖六个目标；三段总伤害共用预算。',
+  soul_banner: '完整九件：攻击、生命提高8%；战士、射手、护卫三类实际集火命中齐备时释放两轮范围齐射与掩护护盾；重复角色不能替代缺失角色。',
+  soul_pyre: '完整九件：攻击、生命提高8%；可分别保留三类主动献祭，耗蓝补编每次消耗一类；完整三类循环奖励六次范围魂火，资源支援仍有共享上限。',
+  embersteel: '完整九件：攻击、生命提高8%；近战可转移最多1.2秒现有燃烧，主动火焰准备三次双段范围热刃波；被转移伤害只结算一次。',
+};
+for (const [id, description] of Object.entries(P5_NINE_DESCRIPTIONS)) {
+  P5_SETS[id].bonuses[9] = { stats: { attack: .08, maxHealth: .08 }, valueModes: { attack: 'increased', maxHealth: 'increased' }, special: `p5_${id}_9`, description };
+}
 
 export function setDefinition(id: string, equipmentRulesVersion = 1): SetDefinition | undefined {
   return (equipmentRulesVersion >= 2 ? P5_SETS : SETS)[id];

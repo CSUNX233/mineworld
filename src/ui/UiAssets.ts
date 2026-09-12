@@ -3,7 +3,7 @@ import { equipmentArtPath, type ItemArtSource } from './EquipmentArt';
 /** Generated Sunlit Quest atlas; positions are shared by every inventory and skill view. */
 export const UI_RARITY_COLORS: Record<string, string> = {
   common: '#55bd69', magic: '#4b9fff', rare: '#f2d14b',
-  epic: '#ee8a35', legendary: '#df4545', unique: '#9a641d',
+  epic: '#ee8a35', legendary: '#df4545', unique: '#9a641d', mythic: '#ff2857',
 };
 
 const ICONS = ['sword', 'axe', 'hammer', 'helmet', 'chest', 'legs',

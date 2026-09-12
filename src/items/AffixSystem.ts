@@ -4,6 +4,7 @@ import { RNG } from '../utils/RNG';
 import { RARITY_AFFIX_COUNT, RARITY_ORDER } from '../data/recipes';
 import { defaultAffixValueMode, statValueMode } from './StatRules';
 import { CRAFTING_TAGS, craftingTagsForStat, type CraftingTag, type CraftingTagDefinition } from './CraftingTags';
+import { deathReaperDefinition } from '../data/DeathReaperItems';
 
 export interface AffixDef {
   id: string;
@@ -191,6 +192,8 @@ export class AffixSystem {
   }
 
   static describe(affix: Affix): string {
+    const deathRelic=deathReaperDefinition(affix.special);
+    if(deathRelic) return deathRelic.effect;
     if (affix.special === 'chainLightning') return '普攻命中时有 15% 概率释放连锁闪电（近战与法杖均可触发）';
     if (affix.special === 'explosiveKill') return '击杀敌人时产生爆炸';
     if (affix.special === 'aegisWalk') return '每个来源增加最大生命 20% 的可回复护盾容量；脱战移动时每秒恢复最大生命 1% 的护盾';

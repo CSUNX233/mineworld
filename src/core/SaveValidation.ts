@@ -1,3 +1,5 @@
+import { deathReaperDefinition } from '../data/DeathReaperItems';
+import { validDeathReaperState } from '../items/DeathReaper';
 import { validAggression } from './AdaptiveAggression';
 import { validSanctumState } from '../monsters/SanctumController';
 import { isValidRunTalentState, spentTalentPoints, talentBudget } from '../progression/RunTalents';
@@ -10,7 +12,7 @@ import type {
 } from '../progression/types';
 import type { SaveData } from '../types';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
-import { BUILD_BRANCH_IDS } from '../progression/MetaProgression';
+import { BUILD_BRANCH_IDS, validPermanentMetaPath } from '../progression/MetaProgression';
 import { validateSnapshot as validSummonSnapshot } from '../summons/validation';
 import { CRAFTING_TAGS } from '../items/CraftingTags';
 
@@ -106,8 +108,12 @@ function validateProfile(value: unknown): value is ProfileData {
     && isNonNegativeInteger(value.researchXp)
     && value.researchXp < 100
     && isNonNegativeInteger(value.availableMetaPoints)
+    && (value.completedBasicVictories === undefined || (Number.isSafeInteger(value.completedBasicVictories) && (value.completedBasicVictories as number) >= 0))
+    && (value.discoveredRelics === undefined || (isStringArray(value.discoveredRelics) && hasUniqueEntries(value.discoveredRelics)
+      && value.discoveredRelics.length <= 256 && value.discoveredRelics.every(id=>id.length>0&&id.length<=128)))
     && isStringArray(value.unlockedNodes)
     && hasUniqueEntries(value.unlockedNodes)
+    && validPermanentMetaPath(value.unlockedNodes)
     && isStringArray(value.unlockedMapPools)
     && hasUniqueEntries(value.unlockedMapPools)
     && isNumericRecord(value.mastery)
@@ -153,6 +159,15 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
   const snapshot = legacy.value;
   const player = snapshot.player;
   const runtime: unknown = snapshot.runtime;
+  if (snapshot.runtime?.relicDrops !== undefined && (!Array.isArray(snapshot.runtime.relicDrops)
+    || snapshot.runtime.relicDrops.length > 40 || snapshot.runtime.relicDrops.some(drop => !isRecord(drop)
+      || !isNonNegativeNumber(drop.x) || !isNonNegativeNumber(drop.z) || drop.x > 1024 || drop.z > 1024
+      || !isRecord(drop.item) || drop.item.rarity!=='mythic' || !isNonEmptyString(drop.item.id)
+      || !isNonEmptyString(drop.item.name) || !isNonEmptyString(drop.item.contentId)
+      || deathReaperDefinition(drop.item.contentId)?.slot!==drop.item.slot
+      || !isNumericRecord(drop.item.baseStats) || !Array.isArray(drop.item.affixes)
+      || !drop.item.affixes.every(a=>isRecord(a)&&isNonEmptyString(a.id)&&isNonEmptyString(a.name)&&isNumericRecord(a.values))))) return false;
+  if (snapshot.runtime?.deathReaper !== undefined && !validDeathReaperState(snapshot.runtime.deathReaper)) return false;
   if (snapshot.runtime?.aggression !== undefined && !validAggression(snapshot.runtime.aggression)) return false;
   if (snapshot.runtime?.summonSquad !== undefined && !validSummonSnapshot(snapshot.runtime.summonSquad)) return false;
   if (runtime !== undefined && (!isRecord(runtime)
@@ -174,6 +189,8 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
   if (snapshot.runtime?.shieldRechargeElapsed !== undefined && !isNonNegativeNumber(snapshot.runtime.shieldRechargeElapsed)) return false;
   if (snapshot.runTalents !== undefined && !isValidRunTalentState(snapshot.runTalents)) return false;
   if (snapshot.monsters !== undefined && (!Array.isArray(snapshot.monsters) || snapshot.monsters.some(monster => !isRecord(monster) || (monster.mechanicState !== undefined && !validMechanicState(monster.mechanicState))))) return false;
+  if (snapshot.monsters?.some(monster => (monster.pressureXp !== undefined && !isNonNegativeInteger(monster.pressureXp))
+    || (monster.pressureLoot !== undefined && typeof monster.pressureLoot !== 'boolean'))) return false;
   if (snapshot.monsters?.some(monster => monster.difficultyStatMultiplier !== undefined && (!isFiniteNumber(monster.difficultyStatMultiplier) || monster.difficultyStatMultiplier <= 0 || monster.difficultyStatMultiplier > 10))) return false;
   if (snapshot.monsters?.some(monster => (monster.sanctumState !== undefined && !validSanctumState(monster.sanctumState))
     || (monster.chapterReinforcement !== undefined && typeof monster.chapterReinforcement !== 'boolean'))) return false;
@@ -227,6 +244,7 @@ function validateRun(value: unknown): value is RunState {
     && (value.archetype === 'vanguard' || value.archetype === 'arcanist' || value.archetype === 'summoner')
     && isStringArray(value.unlockedNodesAtStart)
     && hasUniqueEntries(value.unlockedNodesAtStart)
+    && validPermanentMetaPath(value.unlockedNodesAtStart)
     && isNonNegativeNumber(value.startedAt)
     && snapshotIsValid
     && isStringArray(value.completedObjectives)
@@ -242,6 +260,8 @@ function validateRun(value: unknown): value is RunState {
 export function validateSaveEnvelope(value: unknown): ValidationResult<SaveEnvelopeV3> {
   if (!isRecord(value)) return { ok: false, error: 'Save envelope must be an object' };
   if (value.version !== 3) return { ok: false, error: 'Unsupported save envelope version' };
+  if (value.adventureName !== undefined && (typeof value.adventureName !== 'string' || !value.adventureName.trim() || value.adventureName.length > 24)) return {ok:false,error:'Save has an invalid adventure name'};
+  if (value.preferredArchetype !== undefined && !['vanguard','arcanist','summoner'].includes(value.preferredArchetype as string)) return {ok:false,error:'Save has an invalid preferred archetype'};
   if (!Number.isInteger(value.revision) || (value.revision as number) < 0) {
     return { ok: false, error: 'Save envelope has an invalid revision' };
   }

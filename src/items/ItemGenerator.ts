@@ -1,4 +1,4 @@
-import type { ElementType, Item, Rarity, StatMap } from '../types';
+import type { ElementType, Item, Rarity, Slot, StatMap } from '../types';
 import itemData from '../data/items.json';
 import { RARITY_AFFIX_COUNT, rarityWeightsForFloor } from '../data/recipes';
 import { AffixSystem } from './AffixSystem';
@@ -6,8 +6,9 @@ import { baseDefenseFromArmor } from './StatRules';
 import { RNG } from '../utils/RNG';
 import type { ArchetypeId } from '../progression/types';
 import { matchesRewardPreference, p5PreferredCandidates, REWARD_PREFERENCE_CHANCE, type EquipmentMechanismTag } from './RewardPreference';
-import { P5_BASE_ITEMS } from './SetItems';
+import { P5_BASE_ITEMS, normalizeSetRingName } from './SetItems';
 import { equipmentSellPrice } from './ItemValue';
+import { DEATH_REAPER_ITEMS, DEATH_REAPER_SET } from '../data/DeathReaperItems';
 
 interface BaseItemDef {
   id: string;
@@ -32,6 +33,22 @@ const LEGENDARY_FLAVORS = [
 ];
 
 export class ItemGenerator {
+  /** The sole creation path: callers decide the explicit rare Boss reward roll. */
+  static generateDeathReaper(floor: number, rng: RNG, playerLevel = floor, slotOverride?: Slot): Item {
+    const candidates = slotOverride ? DEATH_REAPER_ITEMS.filter(base => base.slot === slotOverride) : DEATH_REAPER_ITEMS;
+    if (!candidates.length) throw new Error('死亡收割没有此装备部位');
+    const base = rng.pick(candidates);
+    const itemLevel = Math.max(1, floor + rng.int(0, 2));
+    const baseStats: StatMap = {};
+    for (const [key, value] of Object.entries(base.baseStats)) baseStats[key as keyof StatMap] = this.scaleBaseStat(key, value, itemLevel);
+    if (baseStats.armor && !baseStats.defense) baseStats.defense = baseDefenseFromArmor(baseStats.armor);
+    const affixes = AffixSystem.generateAffixes(base.slot, 'mythic', itemLevel, rng, RARITY_AFFIX_COUNT.mythic[0], { includeSpecial: false });
+    affixes.unshift({ id: `core_${base.id}`, name: '死亡遗物', tier: 1, values: {}, special: base.id });
+    return normalizeSetRingName({ id: `${base.id}_mythic_${itemLevel}_${rng.int(0,999999)}`, contentId: base.id, equipmentRulesVersion: 2,
+      name: base.name, slot: base.slot, rarity: 'mythic', baseStats, affixes, requiredLevel: Math.max(1,Math.min(itemLevel,playerLevel)),
+      icon: base.icon, itemLevel, sellPrice: equipmentSellPrice('mythic',itemLevel), setId: DEATH_REAPER_SET,
+      element: 'shadow', flavor: base.flavor });
+  }
   static generate(
     floor: number,
     rng: RNG = new RNG((Math.random() * 0xffffffff) >>> 0),
@@ -45,8 +62,9 @@ export class ItemGenerator {
     mechanism?: EquipmentMechanismTag,
     setOverride?: string,
   ): Item {
+    if(rarityOverride==='mythic') throw new Error('暗金传说仅由专属奖励入口生成');
     const pool = equipmentRulesVersion >= 2 ? P5_BASE_ITEMS : BASE_ITEMS;
-    const baseSlot = equipmentRulesVersion >= 2 && slotOverride === 'ring2' ? 'ring' : slotOverride;
+    const baseSlot = equipmentRulesVersion < 2 && slotOverride === 'ring2' ? 'ring' : slotOverride;
     const candidates = baseSlot ? pool.filter(base => base.slot === baseSlot) : pool;
     let base = rng.pick(candidates);
     const rarity = rarityOverride ?? rng.weighted(rarityWeightsForFloor(floor, luck)).rarity;
@@ -79,7 +97,7 @@ export class ItemGenerator {
     const element = this.elementForBase(base);
     const statusChance = element === 'physical' ? undefined : 0.08;
 
-    return {
+    return normalizeSetRingName({
       id: `${base.id}_${rarity}_${itemLevel}_${rng.int(0, 999999)}`,
       ...(equipmentRulesVersion >= 2 ? { contentId: base.id, equipmentRulesVersion: 2 } : {}),
       name,
@@ -95,7 +113,7 @@ export class ItemGenerator {
       element,
       statusChance,
       flavor: rarity === 'legendary' ? rng.pick(LEGENDARY_FLAVORS) : undefined,
-    };
+    });
   }
 
   private static elementForBase(base: BaseItemDef): ElementType {

@@ -291,7 +291,7 @@ export class AudioManager {
 
   lootDrop(rarity: string): void {
     this.ensure();
-    const tier = ['common', 'magic', 'rare', 'epic', 'legendary'].indexOf(rarity);
+    const tier = ['common', 'magic', 'rare', 'epic', 'legendary', 'mythic'].indexOf(rarity);
     if (tier === 4) {
       this.tone(110, .35, 'triangle', .10, 55);
       this.tone(660, .65, 'sine', .075, 880);

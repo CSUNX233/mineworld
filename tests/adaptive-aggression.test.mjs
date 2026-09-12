@@ -34,3 +34,14 @@ test('no combat samples do not raise difficulty and a suspended frame is capped'
   ai.encounter(5, false, false); ai.sample(60, .5);
   assert.equal(ai.snapshot().combatSeconds, .25);
 });
+
+test('extra population requires an easy floor already at 1.2, persists, and resets when pressure settles', () => {
+  const ai = new AdaptiveAggression();
+  ai.encounter(5,false,false); fight(ai,8,.8); ai.advance();
+  assert.equal(ai.multiplier,1.2); assert.equal(ai.crowded,false);
+  ai.encounter(5,false,false); fight(ai,8,.8); ai.advance();
+  assert.equal(ai.crowded,true);
+  const resumed = new AdaptiveAggression(); resumed.restore(ai.snapshot()); assert.equal(resumed.crowded,true);
+  resumed.encounter(5,false,false); fight(resumed,20,.7); resumed.advance();
+  assert.equal(resumed.crowded,false); assert.equal(resumed.multiplier,1);
+});

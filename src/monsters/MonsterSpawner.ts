@@ -1,3 +1,4 @@
+import { canSealEncounterRoom } from '../world/EncounterBarriers';
 import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
 import { foundryOpeningEncounter } from '../data/FoundryChapter';
 import { RUINS_MONSTERS } from '../data/RuinsMonsters';
@@ -49,6 +50,29 @@ export class MonsterSpawner {
       monster.state = 'chase';
       return monster;
     });
+  }
+  /** Add bodies, not reward rolls. Each duplicate shares its donor's exact XP budget. */
+  static addPressure(floor: FloorData, room: Room, wave: Monster[], player: {x:number;z:number}, rng: RNG): void {
+    if (room.kind !== 'battle' && room.kind !== 'elite' || wave.length < 2 || wave.some(m => m.def.behavior === 'boss')) return;
+    const donors = rng.shuffle(wave.filter(m => !m.def.role && !m.elite && m.def.behavior !== 'boss'));
+    const count = Math.min(donors.length, Math.ceil(wave.length * .2), 3);
+    const cells = rng.shuffle(this.roomWalkableCells(floor, room));
+    for (let i = 0; i < count; i++) {
+      const spot = cells.find(c => canSealEncounterRoom(floor, room, c.x+.5, c.z+.5, .45)
+        && Math.hypot(c.x+.5-player.x,c.z+.5-player.z)>3
+        && wave.every(m => Math.hypot(m.position.x-c.x-.5,m.position.z-c.z-.5)>1.5));
+      if (!spot) break;
+      const donor = donors[i], extra = new Monster(donor.def, spot.x+.5, spot.z+.5);
+      extra.roomId = donor.roomId; extra.state = 'chase';
+      extra.maxHealth = donor.maxHealth; extra.health = extra.maxHealth;
+      const xp = this.baseXp(donor, floor.floor);
+      donor.group.userData.pressureXp = Math.ceil(xp/2);
+      extra.group.userData.pressureXp = Math.floor(xp/2);
+      const donorRoll = rng.chance(.5);
+      donor.group.userData.pressureLoot = donorRoll;
+      extra.group.userData.pressureLoot = !donorRoll;
+      wave.push(extra);
+    }
   }
   static availableForFloor(floor: number): MonsterDefinition[] {
     return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss' && !['valve_overseer','ram_beast','chain_smith','prism_sentry'].includes(def.id) && !SANCTUM_MONSTERS.some(s => s.id === def.id));

@@ -602,7 +602,7 @@ export class InventoryUI {
   }
 
   private comparisonItem(item: Item): Item | null | undefined {
-    const slot = item.slot === 'ring' && this.equipment?.get('ring') ? 'ring2' : item.slot;
+    const slot = item.slot === 'ring' && !item.setId && this.equipment?.get('ring') ? 'ring2' : item.slot;
     return this.equipment?.get(slot);
   }
 

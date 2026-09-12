@@ -1,7 +1,7 @@
 import type { FoundryBossState } from './monsters/FoundryBossController';
 import type { FinalBossState } from './monsters/FinalBossController';
 import type { RunTalentState } from './progression/RunTalents';
-export type Rarity = 'common' | 'magic' | 'rare' | 'epic' | 'legendary';
+export type Rarity = 'common' | 'magic' | 'rare' | 'epic' | 'legendary' | 'mythic';
 
 export type Slot =
   | 'weapon'
@@ -157,6 +157,8 @@ export interface ShopStockEntry {
 }
 
 export interface SavedMonster {
+  pressureXp?: number;
+  pressureLoot?: boolean;
   difficultyStatMultiplier?: number;
   sanctumState?: import('./monsters/SanctumController').SanctumState;
   chapterReinforcement?: boolean;
@@ -187,6 +189,8 @@ export interface SaveData {
   mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {
+    relicDrops?: { item: Item; x: number; z: number }[];
+    deathReaper?: import('./items/DeathReaper').DeathReaperState;
     aggression?: import('./core/AdaptiveAggression').AggressionSnapshot;
     oathGatekeeper?: import('./monsters/OathGatekeeperController').OathGatekeeperState;
     usedRituals?: string[];

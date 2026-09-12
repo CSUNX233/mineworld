@@ -148,7 +148,7 @@ export class SanctumController {
     }
     // Frost slows preparation and locomotion; committed ground echoes retain their announced rhythm.
     const preparationDt = dt * Math.max(0.2, Math.min(1, monster.slowMultiplier));
-    state.cooldown = Math.max(0, state.cooldown - preparationDt * monsterAggression(monster));
+    state.cooldown = Math.max(0, state.cooldown - preparationDt * (monster.def.behavior === 'boss' ? 2 : 1) * monsterAggression(monster));
     state.stagger = Math.max(0, state.stagger - dt); state.exposed = Math.max(0, state.exposed - dt);
     for (const slot of state.slots) slot.cooldown = Math.max(0, slot.cooldown - dt);
     this.updateSlotAppearance(runtime);
@@ -244,7 +244,14 @@ export class SanctumController {
   private updateAttack(dt: number, runtime: Runtime, player: Player, floor: FloorData, room: Room, host: SanctumHost,
     previous: { x: number; y: number; z: number } | null): void {
     const state = runtime.state;
-    const time = Math.min(dt, Math.max(0, state.remaining));
+    // Halve boss preparation only. Bone-ridge travel and moving blades keep their real speed.
+    const boss = runtime.owner.def.behavior === 'boss';
+    let preparationTime = dt;
+    if (boss && state.attack === 'ridge') {
+      const realPreparation = Math.min(dt, Math.max(0, 1.2 - state.elapsed) / 2);
+      preparationTime += realPreparation;
+    } else if (boss && !['blade_out', 'blade_back'].includes(state.attack)) preparationTime *= 2;
+    const time = Math.min(preparationTime, Math.max(0, state.remaining));
     state.remaining -= time; state.elapsed += time;
     if (state.attack === 'mark_follow') {
       state.originX = player.position.x; state.originZ = player.position.z;

@@ -1,6 +1,6 @@
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import { archetypeAllowed } from '../progression/MetaProgression';
-import { BUILD_BRANCH_IDS } from '../progression/MetaProgression';
+import { BUILD_BRANCH_IDS, completedBasicVictoryCount } from '../progression/MetaProgression';
 import { settleRun } from '../progression/Settlement';
 import type {
   ArchetypeId,
@@ -44,6 +44,8 @@ export class RunManager {
         profileId,
         researchXp: 0,
         availableMetaPoints: 0,
+        completedBasicVictories: 0,
+        discoveredRelics: [],
         unlockedNodes: ['vanguard'],
         unlockedMapPools: ['basic'],
         mastery: {},
@@ -73,6 +75,7 @@ export class RunManager {
 
     const next = structuredClone(envelope);
     next.revision += 1;
+    next.preferredArchetype = archetype;
     next.activeRun = {
       equipmentRulesVersion: 2,
       runId,
@@ -157,6 +160,8 @@ export class RunManager {
     next.revision += 1;
     next.profile.researchXp = settlement.researchXp;
     next.profile.availableMetaPoints += settlement.pointsEarned;
+    next.profile.completedBasicVictories = completedBasicVictoryCount(envelope)
+      + Number(record.outcome === 'victory' && record.rulesVersion === 2 && record.finalFloor === 25 && record.completedObjectives === 50);
     for (const branchId of record.masteredBranches ?? []) {
       if (!(next.profile.mastery[branchId] > 0)) next.profile.mastery[branchId] = 1;
     }

@@ -782,3 +782,33 @@
   #ui-root .mobile-inventory .inventory-equipment > .equipment-slot { height: 44px !important; min-height: 44px; }
   #ui-root .mobile-inventory .inventory-set-summary { max-height: 32px; }
 }
+
+/* Red-gold chromatic relic frames: the glint is clipped to the rim, never the icon. */
+#ui-root .inventory-item-slot.rarity-mythic,
+.item-tooltip-icon-frame.rarity-mythic {
+  position: relative;
+  border: 3px solid transparent;
+  background: linear-gradient(#172238,#172238) padding-box,
+    linear-gradient(115deg,#651332,#ff2857,#ffd58a,#9d1848,#ff65aa,#f0ba61,#651332) border-box;
+  background-size: 100% 100%, 300% 300%;
+  animation: reaper-border-flow 4s linear infinite;
+  box-shadow: inset 0 0 6px #8d173f,0 0 7px #dc245655;
+}
+.inventory-item-slot.rarity-mythic::after,
+.item-tooltip-icon-frame.rarity-mythic::after {
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:3;
+  background: radial-gradient(circle at 4% 4%,#fff0c7 0 1px,transparent 2px),
+    radial-gradient(circle at 96% 70%,#ff6eae 0 1px,transparent 2px),
+    radial-gradient(circle at 30% 96%,#ffc574 0 1px,transparent 2px);
+  animation: reaper-rim-sparks 1.8s steps(4,end) infinite;
+}
+@keyframes reaper-border-flow { 0%,100% {background-position:0 0,0% 50%} 50% {background-position:0 0,100% 50%} }
+@keyframes reaper-rim-sparks { 0%,100% {opacity:.3} 50% {opacity:1} }
+@media (prefers-reduced-motion:reduce) {
+  #ui-root .inventory-item-slot.rarity-mythic,.item-tooltip-icon-frame.rarity-mythic,
+  .inventory-item-slot.rarity-mythic::after,.item-tooltip-icon-frame.rarity-mythic::after {animation:none;}
+}
+
+.hud-reaper-state { width:fit-content; max-width:100%; margin:3px 0; padding:2px 5px; color:#f3c493; background:#36152ae6; border-left:2px solid #ec325e; font-size:11px; line-height:18px; pointer-events:none; }
+.hud-reaper-state[hidden] { display:none; }
+.hud-reaper-state.is-transformed { color:#ffdfae; box-shadow:inset 0 0 9px #f43658; }

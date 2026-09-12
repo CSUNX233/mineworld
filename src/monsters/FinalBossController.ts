@@ -51,11 +51,11 @@ export class FinalBossController {
     }
     (core.material as THREE.MeshBasicMaterial).color.setHex(this.state.recovery > 0 ? 0xff9b39 : 0x74bad8);
     core.rotation.y += dt;
-    this.state.recovery = Math.max(0, this.state.recovery - dt);
-    this.state.cooldown = Math.max(0, this.state.cooldown - dt * monsterAggression(boss));
+    this.state.recovery = Math.max(0, this.state.recovery - dt * 2);
+    this.state.cooldown = Math.max(0, this.state.cooldown - dt * 2 * monsterAggression(boss));
     let resolved = false;
     for (const warning of [...this.state.warnings]) {
-      warning.remaining = Math.max(0, warning.remaining - dt);
+      warning.remaining = Math.max(0, warning.remaining - dt * 2);
       const mesh = this.meshes.get(warning);
       if (mesh) (mesh.material as THREE.MeshBasicMaterial).opacity = .15 + .22 * (1 - warning.remaining / warning.duration);
       if (warning.remaining > 0) continue;

@@ -7,9 +7,10 @@ export const RARITY_COLORS: Record<Rarity, string> = {
   rare: '#ffe14d',
   epic: '#c05bff',
   legendary: '#ff8a1e',
+  mythic: '#ff2857',
 };
 
-export const RARITY_ORDER: Rarity[] = ['common', 'magic', 'rare', 'epic', 'legendary'];
+export const RARITY_ORDER: Rarity[] = ['common', 'magic', 'rare', 'epic', 'legendary', 'mythic'];
 
 export const RARITY_AFFIX_COUNT: Record<Rarity, [number, number]> = {
   common: [0, 0],
@@ -17,6 +18,7 @@ export const RARITY_AFFIX_COUNT: Record<Rarity, [number, number]> = {
   rare: [2, 4],
   epic: [4, 5],
   legendary: [5, 6],
+  mythic: [6, 6],
 };
 
 export function monsterHealth(base: number, floor: number, isBoss = false): number {

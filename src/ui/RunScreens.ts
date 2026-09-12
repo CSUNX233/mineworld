@@ -9,9 +9,11 @@ import {
   MASTERY_NODES,
   MASTERY_USE_REQUIREMENT,
   XP_PER_POINT,
+  archetypeAllowed,
 } from '../progression/MetaProgression';
 import { BASIC_RUN_DEFINITION } from '../data/runProgression';
 import { createUiIcon } from './UiAssets';
+import { buildMetaTalentTree } from './MetaTalentTree';
 
 interface CampActions {
   start: (id: ArchetypeId, mechanism?: EquipmentMechanismTag) => void;
@@ -74,6 +76,31 @@ const ARCHETYPE_ICONS: Record<ArchetypeId, string> = {
   summoner: 'summon',
 };
 
+export function buildNewAdventureView(envelope: SaveEnvelopeV3, actions: { start:(name:string,archetype:ArchetypeId)=>void;back:()=>void }, defaultName: string, message = ''): HTMLDivElement {
+  const root=panel('新的冒险','为这个存档取名并选择已解锁流派，然后直接出发。营地天赋在存档界面的独立入口修习。');
+  notice(root,message);
+  const form=document.createElement('form');form.className='sunlit-new-adventure-form';
+  const nameLabel=element('label','冒险名称');const name=element('input');name.type='text';name.maxLength=24;name.required=true;name.value=envelope.adventureName ?? defaultName;name.autocomplete='off';nameLabel.append(name);
+  const archetypeLabel=element('label','起始流派');const archetype=element('select');archetype.required=true;
+  for(const node of ARCHETYPE_NODES) if(archetypeAllowed(envelope.profile,node.id)){const option=element('option',node.name);option.value=node.id;archetype.append(option);}
+  archetype.value=envelope.preferredArchetype ?? envelope.profile.rewardPreference ?? 'vanguard';if(!archetype.value)archetype.selectedIndex=0;
+  archetypeLabel.append(archetype);const submit=button('开始冒险',()=>undefined);submit.type='submit';
+  const error=paragraph('');error.setAttribute('role','alert');
+  form.onsubmit=event=>{event.preventDefault();const chosenName=name.value.trim();if(!chosenName){error.textContent='请填写冒险名称。';name.focus();return;}submit.disabled=true;actions.start(chosenName,archetype.value as ArchetypeId);};
+  form.append(nameLabel,archetypeLabel,error,submit);root.append(form,row(button('返回存档界面',actions.back)));return root;
+}
+
+export function buildMetaProgressionView(envelope:SaveEnvelopeV3,actions:{unlock:(id:string)=>void;setPreference:(id:RewardPreference)=>void;back:()=>void},message = ''):HTMLDivElement {
+  const root=panel('营地天赋树','本机五个存档共用修习、掌握和图鉴。选择节点查看详情，修习后在下一局出发时生效。');
+  notice(root,message);root.append(row(button('返回存档界面',actions.back)));
+  root.append(element('div',`可用天赋点 ${envelope.profile.availableMetaPoints} · 研究经验 ${envelope.profile.researchXp} / ${XP_PER_POINT}`));
+  root.append(paragraph('进行中的对局保留出发时天赋，新的修习与奖励偏好在下次出发时生效。'));
+  root.append(buildMetaTalentTree(envelope,actions.unlock));
+  const preferences=MASTERY_NODES.filter(n=>envelope.profile.unlockedNodes.includes(n.id));
+  if(preferences.length){root.append(element('h3','下一局奖励偏好'),row(...preferences.map(n=>button(`${n.name}${envelope.profile.rewardPreference===n.archetype?' · 已选择':''}`,()=>actions.setPreference(n.archetype),!!envelope.activeRun||!!envelope.pendingSettlement||envelope.profile.rewardPreference===n.archetype))));}
+  root.append(row(button('返回存档界面',actions.back)));return root;
+}
+
 export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, message?: string): HTMLDivElement {
   const profile = envelope.profile;
   const root = panel('营地', '练成新的流派，再向深渊出发。每局的等级、装备与金币独立；营地天赋点、解锁与专精由本机五个存档共享，删除冒险存档也会保留。');
@@ -125,6 +152,7 @@ export function buildCampView(envelope: SaveEnvelopeV3, actions: CampActions, me
     }
   }
 
+  root.append(buildMetaTalentTree(envelope,actions.unlock));
   root.append(element('h3', '流派掌握'));
   for (const node of MASTERY_NODES) {
     const unlocked = profile.unlockedNodes.includes(node.id);
@@ -218,7 +246,7 @@ export function buildSettlementView(
   root.append(totals);
   notice(root, message);
   root.append(paragraph(saved ? '奖励已保存。再次打开这份结算不会重复发放。' : '结算尚未保存，奖励未确认到账。请重试保存后再离开。'));
-  root.append(row(saved ? button('确认结算，返回营地', actions.confirm) : button('重试保存', actions.retry)));
+  root.append(row(saved ? button('确认结算，返回存档界面', actions.confirm) : button('重试保存', actions.retry)));
   return root;
 }
 

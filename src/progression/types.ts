@@ -26,6 +26,10 @@ export interface EncounterInvestment {
   checkpoint?: InvestmentSample;
 }
 export interface ProfileData {
+  /** Claimed full 25-floor victories; absent on legacy profiles until conservatively recovered. */
+  completedBasicVictories?: number;
+  /** Stable content IDs first discovered by acquiring relics; no item instances or stat rewards. */
+  discoveredRelics?: string[];
   profileId: string;
   researchXp: number;
   availableMetaPoints: number;
@@ -77,6 +81,8 @@ export interface SettlementRecord {
   masteredBranches?: BuildBranchId[];
 }
 export interface SaveEnvelopeV3 {
+  adventureName?: string;
+  preferredArchetype?: ArchetypeId;
   sharedCampRevision?: number;
   version: 3;
   revision: number;
