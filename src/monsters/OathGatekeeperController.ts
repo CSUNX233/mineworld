@@ -29,7 +29,7 @@ export class OathGatekeeperController {
   private shield: THREE.Mesh | null = null;
   private sword: THREE.Mesh | null = null;
   private actor: Monster | null = null;
-  private decoration: THREE.Group | null = null;
+  private decoration: THREE.Object3D | null = null;
   private attackKind: 'sword' | 'shield' = 'sword';
   private summonPositions: THREE.Vector3[] = [];
   constructor(private scene: THREE.Scene) {}
@@ -52,7 +52,6 @@ export class OathGatekeeperController {
   }
   clear(): void {
     this.removeWarning(); this.timer = 0; this.duration = 0; this.second = false; this.summoning = false;
-    if (this.decoration) disposeFoundryObject(this.decoration);
     this.decoration = null; this.summonPositions = [];
     this.actor = null; this.shield = this.sword = null; this.state = initial();
   }
@@ -63,15 +62,11 @@ export class OathGatekeeperController {
   }
   private attach(boss: Monster): void {
     if (this.actor === boss) return;
-    if (this.decoration) disposeFoundryObject(this.decoration);
     this.actor = boss;
-    this.decoration = new THREE.Group(); this.decoration.name = 'oath-gatekeeper-arms'; boss.group.add(this.decoration);
-    this.shield = new THREE.Mesh(new THREE.BoxGeometry(.9, 1.25, .18), new THREE.MeshLambertMaterial({ color: 0x8c8262 }));
-    this.shield.position.set(-.75, 1.15, .65); this.decoration.add(this.shield);
-    this.sword = new THREE.Mesh(new THREE.BoxGeometry(.16, 1.6, .25), new THREE.MeshLambertMaterial({ color: 0xb3b4a0 }));
-    this.sword.position.set(.8, 1.2, .55); this.sword.rotation.z = -.25; this.decoration.add(this.sword);
-    const banner = new THREE.Mesh(new THREE.BoxGeometry(.8, .65, .06), new THREE.MeshLambertMaterial({ color: 0x6a3635 }));
-    banner.position.set(0, 2.45, -.3); this.decoration.add(banner);
+    this.decoration = boss.visual;
+    this.shield = boss.visual.getObjectByName('oath-shield') as THREE.Mesh;
+    this.sword = boss.visual.getObjectByName('oath-sword') as THREE.Mesh;
+
   }
   private queue(boss: Monster, duration: number): void {
     this.removeWarning();

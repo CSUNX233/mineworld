@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { effectTexture } from '../ui/CombatArt';
-import { slashRoll } from '../combat/MeleeSwing';
 
-type EffectTexture = 'slash' | 'impact' | 'fire' | 'ice' | 'lightning' | 'smoke' | 'shockwave' | 'shadow';
+type EffectTexture = 'impact' | 'fire' | 'ice' | 'lightning' | 'smoke' | 'shockwave' | 'shadow';
 type EffectMaterial = THREE.MeshBasicMaterial | THREE.SpriteMaterial;
 
 interface Particle {
@@ -24,7 +23,6 @@ interface Visual {
   spin: number;
   baseOpacity: number;
   fadeIn: number;
-  swing?: { orientation: THREE.Quaternion; angle: number };
 }
 
 const MAX_PARTICLES = 160;
@@ -54,43 +52,6 @@ export class Effects {
     });
   }
 
-  slash(position: THREE.Vector3, color = 0xdff4ff): void {
-    this.addBillboard('slash', position.clone().add(new THREE.Vector3(0, 1.25, 0)), 1.55, 0.24, {
-      color,
-      rotation: -0.35,
-      startScale: 0.78,
-      endScale: 1.18,
-      opacity: 0.96,
-      spin: 1.2,
-    });
-  }
-
-  meleeSlash(position: THREE.Vector3, direction: THREE.Vector3, color = 0xdff4ff, scale = 1, angle = 0.65, duration = 0.22): void {
-    const before = this.visuals.length;
-    this.addPlane('slash', position, 1.7 * scale, duration, {
-      color,
-      startScale: 0.72,
-      endScale: 1.14,
-      opacity: 0.98,
-    });
-    if (this.visuals.length > before) {
-      const visual = this.visuals[this.visuals.length - 1];
-      const orientation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction.clone().normalize());
-      visual.object.quaternion.copy(orientation);
-      visual.object.rotateZ(slashRoll(angle, 0));
-      visual.swing = { orientation, angle };
-    }
-
-    const accent = this.elementAccent(color);
-    if (accent) {
-      this.addBillboard(accent, position.clone().addScaledVector(direction, 0.18), 0.72 * scale, 0.2, {
-        startScale: 0.35,
-        endScale: 1.08,
-        opacity: 0.78,
-      });
-    }
-  }
-
   whirlwind(position: THREE.Vector3, direction: THREE.Vector3): void {
     const yaw = -Math.atan2(direction.x, direction.z);
     this.addGroundPlane('shockwave', position.clone().add(new THREE.Vector3(0, -0.92, 0)), 2.4, 0.42, {
@@ -99,14 +60,6 @@ export class Effects {
       endScale: 1.55,
       opacity: 0.84,
       spin: 2.4,
-    });
-    this.addBillboard('slash', position, 2.35, 0.34, {
-      color: 0x9ee7ff,
-      rotation: yaw,
-      startScale: 0.68,
-      endScale: 1.2,
-      opacity: 0.82,
-      spin: -2.8,
     });
     this.emitDebris(position, 0x9ee7ff, 18, 3.6);
   }
@@ -207,10 +160,6 @@ export class Effects {
       const eased = 1 - (1 - progress) * (1 - progress);
       visual.object.scale.lerpVectors(visual.startScale, visual.endScale, eased);
       visual.object.position.addScaledVector(visual.velocity, dt);
-      if (visual.swing) {
-        visual.object.quaternion.copy(visual.swing.orientation);
-        visual.object.rotateZ(slashRoll(visual.swing.angle, progress));
-      }
       if (visual.object instanceof THREE.Sprite) {
         (visual.material as THREE.SpriteMaterial).rotation += visual.spin * dt;
       } else {
@@ -254,7 +203,6 @@ export class Effects {
   }
 
   private recycleVisual(visual:Visual):void {
-    visual.swing=undefined;
     (visual.object instanceof THREE.Sprite ? this.freeSprites : this.freePlanes).push(visual);
   }
 
@@ -272,7 +220,7 @@ export class Effects {
     if(!visual.material.map)visual.material.needsUpdate=true;
     visual.material.map=texture;visual.material.color.setHex(color);visual.material.opacity=opacity;
     if(sprite)(visual.material as THREE.SpriteMaterial).rotation=0;
-    visual.object.quaternion.identity();visual.object.visible=true;visual.object.renderOrder=3;visual.swing=undefined;
+    visual.object.quaternion.identity();visual.object.visible=true;visual.object.renderOrder=3;
     return visual;
   }
 
@@ -416,19 +364,6 @@ export class Effects {
       }
     }
     return closest[0];
-  }
-
-  private elementAccent(color: number): EffectTexture | null {
-    const element = this.closestElementTexture(color);
-    const canonical: Partial<Record<EffectTexture, number>> = {
-      fire: 0xff7a2a,
-      ice: 0x8ed4ff,
-      lightning: 0xffe14d,
-      smoke: 0x66d17a,
-      shadow: 0x9b5bff,
-    };
-    const canonicalColor = canonical[element];
-    return canonicalColor !== undefined && this.colorDistanceSquared(color, canonicalColor) < 70 * 70 ? element : null;
   }
 
   private colorDistanceSquared(a: number, b: number): number {

@@ -68,7 +68,7 @@ export function validSanctumState(value: unknown): value is SanctumState {
 interface Runtime {
   state: SanctumState;
   warnings: THREE.Group | null;
-  decoration: THREE.Group | null;
+  decoration: THREE.Object3D | null;
   slotsVisual: THREE.Group | null;
   owner: Monster;
   previousPlayer: { x: number; y: number; z: number } | null;
@@ -419,7 +419,6 @@ export class SanctumController {
 
   private disposeRuntime(runtime: Runtime): void {
     this.cancel(runtime, 2.5);
-    if (runtime.decoration) disposeSanctumObject(runtime.decoration);
     if (runtime.slotsVisual) disposeSanctumObject(runtime.slotsVisual);
     runtime.decoration = null; runtime.slotsVisual = null;
   }
@@ -544,43 +543,8 @@ export class SanctumController {
     }
   }
 
-  private decorate(monster: Monster): THREE.Group {
-    const group = new THREE.Group(); group.name = 'sanctum-silhouette'; monster.group.add(group);
-    const add = (geometry: THREE.BufferGeometry, color: number, x: number, y: number, z: number): THREE.Mesh => {
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color })); mesh.position.set(x, y, z); group.add(mesh); return mesh;
-    };
-    const id = monster.def.id;
-    if (id === 'sanctum_mourner') {
-      add(new THREE.ConeGeometry(0.34, 0.6, 4), 0xaaa38e, 0, 1.7, 0.15).rotation.x = 0.3;
-      add(new THREE.BoxGeometry(0.08, 0.65, 0.08), 0x506966, 0.35, 0.7, 0.22);
-    } else if (id === 'bell_acolyte' || id === 'bellkeeper') {
-      const boss = id === 'bellkeeper';
-      const bell = add(new THREE.CylinderGeometry(boss ? 0.45 : 0.2, boss ? 0.65 : 0.34, boss ? 1.1 : 0.5, 8, 1, true), 0xa08048,
-        boss ? 0 : -0.52, boss ? 1.7 : 1.25, boss ? -0.45 : 0.1);
-      (bell.material as THREE.Material).dispose();
-      bell.material = new THREE.MeshLambertMaterial({ color: 0xa08048, side: THREE.DoubleSide });
-      add(new THREE.BoxGeometry(0.1, boss ? 1.4 : 0.7, 0.1), 0xaaa38e, 0.52, 1.05, 0.3);
-      add(new THREE.BoxGeometry(boss ? 0.6 : 0.32, 0.2, 0.24), 0xaaa38e, 0.52, boss ? 1.75 : 1.4, 0.3);
-      if (boss) {
-        add(new THREE.ConeGeometry(0.28, 0.3, 5, 1, true), 0xa08048, 0, 1.7, -0.5);
-        add(new THREE.BoxGeometry(0.15, 0.8, 0.08), 0x20262b, 0.1, 1.7, -1.03).rotation.z = 0.3;
-      }
-    } else if (id === 'epitaph_attendant') {
-      const veil = add(new THREE.BoxGeometry(0.65, 1.2, 0.08), 0x506966, 0, 1.45, -0.25);
-      (veil.material as THREE.Material).dispose();
-      veil.material = new THREE.MeshLambertMaterial({ color: 0x506966, transparent: true, opacity: 0.75 });
-      add(new THREE.BoxGeometry(0.33, 0.5, 0.08), 0xaaa38e, 0.55, 1.55, 0.08).rotation.z = -0.2;
-    } else if (id === 'returning_blade') {
-      const blade = add(new THREE.TorusGeometry(0.6, 0.11, 4, 14, Math.PI * 1.5), 0xaaa38e, 0, 1.1, 0.4);
-      blade.rotation.z = Math.PI / 4; blade.name = 'held-blade';
-    } else if (id === 'coffin_bearer') {
-      add(new THREE.BoxGeometry(0.75, 1.45, 0.38), 0x20262b, 0, 1.35, -0.45);
-      add(new THREE.BoxGeometry(0.52, 1.2, 0.07), 0xaaa38e, 0, 1.35, -0.68);
-      for (const x of [-0.43, 0.43]) add(new THREE.BoxGeometry(0.08, 1.6, 0.08), 0xa08048, x, 1.05, -0.4);
-    } else {
-      add(new THREE.BoxGeometry(0.65, 0.08, 0.4), 0x506966, 0, 0.13, 0.5);
-      add(new THREE.BoxGeometry(0.1, 1.1, 0.1), 0xaaa38e, 0.35, 0.65, 0.5).rotation.z = -0.18;
-    }
-    return group;
+  private decorate(monster: Monster): THREE.Object3D {
+    // The actor owns its model; controller only toggles the returning blade.
+    return monster.visual;
   }
 }

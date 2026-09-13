@@ -70,3 +70,26 @@ This is an asset count, not a phone performance claim.
 - `check_starfire_views.playwright.js` is prepared but not yet completed; its equipment getter
   must use `equipment.get('weapon')`, not `getWeapon()`.
 - No Stage C claim, save migration, balance change, commit or push.
+
+## Simplified skill presentation (user-requested scope change)
+
+- User replaced the complex casting choreography requirement with palm energy for
+  spell-related skills and a right-hand slash for blade-related skills.
+- Successful `tryUseSkill` calls now trigger presentation after rejection/refund
+  checks. Melee skills excluding defense use the right-hand slash (whirlwind,
+  dash, seismic_slam, ember_blade); all others use left-palm energy, including guard.
+- Reusable six-sprite/two-material bank uses cached combat textures, lasts 0.58s,
+  and moves between world/camera sockets without restarting. Slash lasts 0.34s;
+  it takes visual priority over ordinary attack overlays without stopping attacks.
+- Recalibrated both inherited skill sockets to rigged hand-local palm center
+  (0.001, 0.065, -0.045), measured from the actual loaded hand. Visual socket only;
+  projectile origins, collision, ranges, damage, mana and cooldowns are unchanged.
+- Death and floor reset clear the effects; disposing the actor releases its sprite
+  materials while preserving shared combat textures. No per-frame particle creation.
+- Browser check script exercises real successful fireball/whirlwind, rejected
+  cooldown cast, view-switch timer/pose continuity, expiration and cleanup.
+  Screenshots: skill-palm-fp/tp.png and skill-slash-fp-contact/followthrough.png.
+  TP inspection uses an unobstructed camera boom so the model is visible.
+- Blender MCP connection was refused during this pass; no Blender was launched.
+  Socket correction is in runtime presentation and verified in actual game views.
+  This does not claim completion of the earlier full Stage C/hit-reaction checklist.

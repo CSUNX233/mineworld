@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Item } from '../types';
 import { HeroMotionState } from './HeroMotionState';
+import { HeroSkillVisual } from './HeroSkillVisual';
+import type { SkillDefinition } from '../data/skills';
 
 const BASE = `${(import.meta.env?.BASE_URL ?? '/')}assets/actors/starfire/`;
 const STAFF_IDS = ['starter_staff', 'weapon_staff', 'staff_inferno', 'staff_glacier'];
@@ -65,6 +67,8 @@ export class StarfirePresentation {
   private visualMoving = 0;
   private visualLanding = 0;
   private swingProgress = -1;
+  private skillVisual: HeroSkillVisual | null = null;
+  private readonly slashAxis = new THREE.Vector3(0,0,1);
   constructor(private parent: THREE.Group, private onReady: () => void) {
     this.cameraMount.matrixAutoUpdate = false;
     this.foreground.add(this.cameraMount, new THREE.HemisphereLight(0xffeed8, 0x69738b, 2));
@@ -139,6 +143,13 @@ export class StarfirePresentation {
         for (const m of Array.isArray(o.material) ? o.material : [o.material]) this.materials.add(m);
       }
     });
+    // The inherited socket predates the rigged hand replacement. Place its visual
+    // origin at the measured palm center, just outside the palm-facing surface.
+    for (const [root,bones,name] of [[this.root,this.bones,'SF_Skill_L'],[this.fpRoot,this.fpBones,'FP_Skill_L']] as const) {
+      const socket=root.getObjectByName(name),hand=bones.get('handL');
+      if(socket && hand) {hand.add(socket);socket.position.set(.001,.065,-.045);socket.quaternion.identity();}
+    }
+    this.skillVisual = new HeroSkillVisual();
     this.ready = true; this.onReady(); this.setWeapon(this.item); this.setView(this.fp, this.opacity);
   }
   setWeapon(item: Item | null): void {
@@ -164,6 +175,7 @@ export class StarfirePresentation {
     const weapon=this.kind ? this.weapons.get(this.kind) : null;
     const grip=firstPerson ? this.fpRoot?.getObjectByName('FP_Grip_R') : this.root.getObjectByName('SF_Grip_R');
     if (weapon && grip && weapon.parent!==grip) grip.add(weapon);
+    this.skillVisual?.attach((firstPerson ? this.fpRoot : this.root)?.getObjectByName(firstPerson ? 'FP_Skill_L' : 'SF_Skill_L'));
     for (const mesh of this.meshes) {
       mesh.visible = true;
       mesh.castShadow = !firstPerson; mesh.renderOrder = firstPerson ? 1000 : 0;
@@ -175,7 +187,6 @@ export class StarfirePresentation {
     }
     // Sample the shared clock immediately: switching cannot expose a stale hidden pose.
     this.poseVisible();
-    if (changed && this.swingProgress >= 0) this.swing(this.swingProgress, 0);
   }
   /** Separate final pass keeps world transparency behind correctly occluded fingers. */
   renderFirstPerson(renderer: THREE.WebGLRenderer): void {
@@ -187,10 +198,16 @@ export class StarfirePresentation {
     renderer.render(this.foreground, this.camera);
     renderer.autoClear = autoClear;
   }
-  resetMotion(): void { this.motion.reset(); this.initialized = false; this.phase = 0; }
+  resetMotion(): void { this.motion.reset(); this.initialized = false; this.phase = 0; this.stopSkillVisual(); }
+  stopSkillVisual(): void { this.skillVisual?.reset(); }
+  playSkill(skill: SkillDefinition): void {
+    if(!this.ready)return;
+    this.skillVisual?.trigger(skill);this.poseVisible();
+  }
   update(dt: number, player: MotionPlayer): void {
     if (!this.ready || !this.root || !this.mixer) return;
-    if (!player.alive) return; // Retain last pose; no recovery after death.
+    if (!player.alive) { this.stopSkillVisual(); return; } // Retain last pose; no recovery after death.
+    this.skillVisual?.update(dt);
     const distance = this.initialized ? Math.hypot(player.position.x-this.previous.x, player.position.z-this.previous.z) : 0;
     this.previous.copy(player.position); this.initialized = true;
     const speed = dt > 0 && distance < 2 ? distance/dt : 0;
@@ -240,18 +257,27 @@ export class StarfirePresentation {
       }
       this.fpRoot.position.y = -1.55 + Math.sin(this.phase*Math.PI*4)*.008*this.visualMoving - this.visualLanding*.035;
     }
+    const arm=(this.fp ? this.fpBones : this.bones).get(this.fp ? 'forearmR' : 'upper_armR');
+    const slash=this.skillVisual?.slashAmount ?? 0;
+    if(arm && slash>0) {
+      const strike=this.fp ? this.fpBones.get('handR')! : arm;
+      strike.quaternion.multiply(this.q.setFromAxisAngle(this.axis,-slash*.6));
+      strike.quaternion.multiply(this.q.setFromAxisAngle(this.slashAxis,-slash*1.2));
+    } else if(arm && this.swingProgress>=0) {
+      arm.quaternion.multiply(this.q.setFromAxisAngle(this.axis,-Math.sin(this.swingProgress*Math.PI)*.65));
+    }
     (this.fp ? this.fpRoot : this.root)?.updateMatrixWorld(true);
   }
   /** Stage B compatibility with the existing attack timer; authored combat is Stage C. */
   swing(progress: number, angle: number): void {
     if (!this.root) return;
     this.swingProgress = progress;
-    const arm = (this.fp ? this.fpBones : this.bones).get(this.fp ? 'forearmR' : 'upper_armR');
-    if (arm) arm.quaternion.multiply(this.q.setFromAxisAngle(this.axis, -Math.sin(progress*Math.PI)*.65));
+    this.poseVisible();
     void angle;
   }
   dispose(): void {
     if (this.disposed) return; this.disposed = true;
+    this.skillVisual?.dispose();this.skillVisual=null;
     this.mixer?.stopAllAction();
     if (this.root) { this.mixer?.uncacheRoot(this.root); for (const w of this.weapons.values()) w.removeFromParent();disposeHeroObject(this.root); }
     if (this.fpRoot) disposeHeroObject(this.fpRoot);this.fpRoot=null;this.fpBones.clear();

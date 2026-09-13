@@ -1,0 +1,27 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>敌人简化模型 · 游戏实时渲染</title>
+<style>body{margin:0;background:#242c32;color:#eee2c7;font:16px system-ui}header{padding:24px 32px}h1{margin:0 0 10px;font-size:24px}p{color:#a9b7b5}button{background:#40555b;color:#eee2c7;border:1px solid #849997;padding:9px 16px;border-radius:5px;margin-right:8px}#gallery{position:relative;width:1200px;margin:auto}canvas{display:block}#labels{position:absolute;inset:0;display:grid;grid-template-columns:repeat(5,240px);grid-auto-rows:280px;pointer-events:none}#labels div{align-content:end;text-align:center;padding-bottom:18px}small{display:block;font-size:11px;color:#9aabab}</style>
+<header><h1>Sunlit Quest · 全敌人几何模型</h1><p>35 种小怪 + 5 个 Boss · 使用游戏内同一模型工厂、同一像素贴图。前七行为小怪，最后一行为 Boss。</p><button id="front">正面</button><button id="three">三分之四视角</button><button id="back">背面</button><button id="flash">受击闪白</button><span id="status">正在加载贴图…</span></header>
+<div id="gallery"><div id="labels"></div></div>
+<script type="module">
+import * as THREE from 'three';
+import {createEnemyAppearance,ENEMY_DESIGNS} from '/src/monsters/EnemyAppearance.ts';
+import {MonsterSpawner} from '/src/monsters/MonsterSpawner.ts';
+import {prepareTrackedTextures} from '/src/core/AssetLoading.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(1);renderer.setSize(1200,2240);renderer.setClearColor(0x303b40);renderer.outputColorSpace=THREE.SRGBColorSpace;
+document.querySelector('#gallery').prepend(renderer.domElement);
+const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight(0xfff4dc,0x617781,2.5));
+const key=new THREE.DirectionalLight(0xffe0b3,2.5);key.position.set(-3,6,5);scene.add(key);
+const rim=new THREE.DirectionalLight(0x95cedf,1.6);rim.position.set(3,4,-4);scene.add(rim);
+const floor=new THREE.Mesh(new THREE.CylinderGeometry(.85,.9,.1,8),new THREE.MeshLambertMaterial({color:0x465258}));floor.position.y=-.07;scene.add(floor);
+const camera=new THREE.PerspectiveCamera(35,240/280,.1,40);camera.position.set(3.5,2.6,5.6);camera.lookAt(0,1.3,0);
+const models=Object.keys(ENEMY_DESIGNS).map(id=>{const mesh=createEnemyAppearance(id); const e=document.createElement('div');e.textContent=MonsterSpawner.definitionById(id).name;const sub=document.createElement('small');sub.textContent=id;e.append(sub);document.querySelector('#labels').append(e);return mesh});
+let angle=0;
+function render(){renderer.setScissorTest(true);renderer.info.autoReset=false;renderer.info.reset();models.forEach((m,i)=>{camera.position.set(i>=35?4.2:3.5,i>=35?3.1:2.6,i>=35?6.72:5.6);camera.lookAt(0,i>=35?1.65:1.3,0);m.rotation.y=angle;scene.add(m);const x=i%5*240,y=2240-(Math.floor(i/5)+1)*280;renderer.setViewport(x,y,240,280);renderer.setScissor(x,y,240,280);renderer.render(scene,camera);scene.remove(m)});renderer.setScissorTest(false)}
+await prepareTrackedTextures(renderer);render();document.querySelector('#status').textContent='已加载 · 可切换角度';
+document.querySelector('#front').onclick=()=>{angle=-Math.atan2(3.5,5.6);render()};
+document.querySelector('#three').onclick=()=>{angle=0;render()};
+document.querySelector('#back').onclick=()=>{angle=Math.PI;render()};
+document.querySelector('#flash').onclick=()=>{models.forEach(m=>m.material.userData.enemyFlash.value=1);render();setTimeout(()=>{models.forEach(m=>m.material.userData.enemyFlash.value=0);render()},90)};
+window.enemyReview={models,renderer,render,scene,camera,ready:true};
+</script></html>

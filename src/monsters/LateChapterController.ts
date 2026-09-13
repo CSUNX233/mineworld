@@ -1,3 +1,4 @@
+import { createEnemyAppearance, setEnemyOpacity } from './EnemyAppearance';
 import * as THREE from 'three';
 import type { FloorData,ElementType,Room } from '../types';
 import type { Monster } from './Monster';
@@ -234,11 +235,10 @@ export class LateChapterController {
   }
   private ghosts(m:Monster,b:Brain):void {
     if(b.ghosts.length||!this.devices.some(d=>d.anchor.kind==='mirror'&&!d.used&&d.anchor.roomId===m.roomId))return;
-    for(const sign of [-1,1]){const ghost=createDeepChapterProp(this.data!.floor,'enemy_facet_mage');if(!ghost)continue;const mat=ghost.material as THREE.MeshPhongMaterial;mat.transparent=true;mat.opacity=.3;mat.depthWrite=false;ghost.position.copy(m.position).x+=sign*1.5;this.group.add(ghost);b.ghosts.push(ghost);}
+    for(const sign of [-1,1]){const ghost=createEnemyAppearance('facet_mage');if(!ghost)continue;const mat=ghost.material as THREE.MeshPhongMaterial;mat.transparent=true;mat.opacity=.3;mat.depthWrite=false;ghost.position.copy(m.position).x+=sign*1.5;this.group.add(ghost);b.ghosts.push(ghost);}
   }
   private show(m:Monster,b:Brain,opacity:number):void {
-    const mesh=m.group.getObjectByName('late-enemy-model') as THREE.Mesh|undefined;
-    if(mesh){const mat=mesh.material as THREE.MeshPhongMaterial;mat.transparent=opacity<1;mat.opacity=opacity;mat.depthWrite=opacity===1;}
+    setEnemyOpacity(m.visual, opacity);
     if(opacity<1&&this.data){
       if(!b.footprint){b.footprint=new THREE.Mesh(new THREE.RingGeometry(.12,.2,12),new THREE.MeshBasicMaterial({color:0xb9a8cf,transparent:true,opacity:.45,depthWrite:false,side:THREE.DoubleSide}));b.footprint.rotation.x=-Math.PI/2;this.group.add(b.footprint);}
       b.footprint.position.set(m.position.x,lateGroundHeight(this.data,m.position.x,m.position.z)+.06,m.position.z);
@@ -256,7 +256,7 @@ export class LateChapterController {
     if(['eye','mirror'].includes(d.anchor.kind)&&d.used)d.mesh.scale.y=.28;
     d.ring.scale.setScalar(d.anchor.kind==='lamp'&&d.active>0?7:1);
   }
-  private disposeMesh(mesh:THREE.Mesh):void {mesh.removeFromParent();mesh.geometry.dispose();for(const m of Array.isArray(mesh.material)?mesh.material:[mesh.material]){(m as THREE.MeshPhongMaterial).map?.dispose();m.dispose();}}
+  private disposeMesh(mesh:THREE.Mesh):void {mesh.removeFromParent();if(!mesh.geometry.userData.sharedEnemyGeometry)mesh.geometry.dispose();for(const m of Array.isArray(mesh.material)?mesh.material:[mesh.material]){if(!mesh.userData.enemyAppearance)(m as THREE.MeshPhongMaterial).map?.dispose();m.dispose();}}
   private cancel(b:Brain):void {if(b.cast){this.disposeMesh(b.cast.mesh);b.cast=undefined;}for(const g of b.ghosts)this.disposeMesh(g);b.ghosts=[];}
   clear():void {for(const [m,b]of this.brains){this.cancel(b);this.show(m,b,1);}this.brains.clear();this.roomsById.clear();this.captainRooms.clear();this.bannerRooms.clear();this.trialWaves.clear();for(const d of this.devices){this.disposeMesh(d.mesh);this.disposeMesh(d.ring);}this.devices=[];this.group.removeFromParent();this.data=null;}
 }

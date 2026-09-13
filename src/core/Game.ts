@@ -182,7 +182,7 @@ export class Game {
       const def=MonsterSpawner.definitionById(this.floor<=20?'ash_wanderer':'lost_soldier');if(!def)return;
       const m=MonsterSpawner.createActor(def,spot.x,spot.z,this.floorData);m.roomId=source.roomId;m.state='chase';
       m.maxHealth=monsterHealth(def.health,this.floor)*.55;m.health=m.maxHealth;m.group.userData.pressureXp=0;m.group.userData.pressureLoot=false;
-      MonsterSpawner.attachLateModel(m,this.floorData);this.monsters.push(m);this.scene.add(m.group);
+      MonsterSpawner.alignLateGround(m,this.floorData);this.monsters.push(m);this.scene.add(m.group);
     },
     message:(title,sub)=>this.hud.showCenterMessage(title,sub,1.8),
   };
@@ -1553,7 +1553,7 @@ export class Game {
     this.scene.remove(root);
     root.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh) {
-        child.geometry.dispose();
+        if (!child.geometry.userData.sharedEnemyGeometry) child.geometry.dispose();
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((material: THREE.Material) => material.dispose());
       } else if (child instanceof THREE.Sprite) {
@@ -2541,15 +2541,7 @@ export class Game {
     const profile = this.getMeleeProfile(weapon);
     const targets = this.getTargetsInFront(aim, profile.range, 1.0);
     this.audio.swing();
-    const visualAim = this.controller.isFirstPerson ? this.controller.getProjectileDirection() : aim;
-    this.effects.meleeSlash(
-      this.player.position.clone().add(new THREE.Vector3(0, this.controller.isFirstPerson ? 1.5 : 1.1, 0)).addScaledVector(visualAim, 1.4),
-      visualAim,
-      profile.color,
-      profile.scale,
-      this.attackSwingAngle,
-      this.attackAnimDuration,
-    );
+    // Sword motion comes from the hero; no swing slash overlay.
 
     targets.slice(0, 3).forEach((target, index) => {
       const falloff = Math.max(0.65, 1 - index * 0.12);
@@ -2740,6 +2732,8 @@ export class Game {
       }
     }
     this.recordBuildSkillUse(skill.id);
+    const presentationSkill = skillById(skill.id);
+    if (presentationSkill) this.player.presentation.playSkill(presentationSkill);
     if (skill.id === 'whirlwind') this.useWhirlwind(stats, skill);
     if (skill.id === 'dash') this.useDash(stats, skill);
     if (skill.id === 'fireball') this.useFireball(stats, skill);
@@ -3267,7 +3261,7 @@ export class Game {
       else this.setRuntime.onHit(monster, element, source);
     }
     const hitImpact = Math.max(0.25, Math.min(1.3, impact));
-    monster.hitFlash = Math.max(monster.hitFlash, 0.05 + hitImpact * 0.07);
+    monster.hitFlash = Math.max(monster.hitFlash, 0.09);
     this.hitstopTimer = Math.max(this.hitstopTimer, 0.012 + hitImpact * 0.03);
     this.controller.addHitShake(hitImpact, crit);
     const color = DAMAGE_COLORS[element];
@@ -3381,7 +3375,6 @@ export class Game {
           event.kind === 'seismic-slam' ? 0xd5bb83 : 0xff6629, 3, .5);
       if (event.kind === 'seismic-slam') this.controller.addShake(.11);
     } else if (event.kind === 'ember-blade') {
-      this.effects.meleeSlash(position, new THREE.Vector3(event.direction.x, 0, event.direction.z), 0xff743c, 1.25);
       this.controller.addShake(.08);
     } else {
       this.effects.burst(position, event.kind === 'soul-burst' ? 0x9dcc9f : 0xc2dbde, 10, 1.4);
@@ -3957,6 +3950,7 @@ export class Game {
 
   private recordDeathTransition(wasAlive: boolean, cause: string, incomingDamage?: number): void {
     if (!wasAlive || this.player.alive) return;
+    this.player.presentation.stopSkillVisual();
     this.playtestRecorder.record('player_died', {
       cause,
       incomingDamage,

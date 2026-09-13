@@ -24,61 +24,13 @@ export function attachMechanicVisual(monster: Monster): void {
   let signal: THREE.Object3D;
   let material: THREE.Material;
 
-  if (['ram_beast','chain_smith','prism_sentry'].includes(monster.def.id)) {
-    const accent = basicMaterial(monster.def.id === 'prism_sentry' ? 0xbde5ff : monster.def.id === 'chain_smith' ? 0x77e5bc : 0xf0bd7c);
-    if(monster.def.id === 'ram_beast') {
-      const head = new THREE.Mesh(new THREE.BoxGeometry(1.4,.65,.7),new THREE.MeshLambertMaterial({color:0x8a6141}));
-      head.position.set(0,.7,.55);root.add(head);
-      for(const x of [-.65,.65]) {const horn=new THREE.Mesh(new THREE.ConeGeometry(.16,.65,5),accent);horn.rotation.x=Math.PI/2;horn.position.set(x,.85,1);root.add(horn);}
-      signal=head;
-    } else if(monster.def.id === 'chain_smith') {
-      for(const x of [-.65,.65]) {const spool=new THREE.Mesh(new THREE.TorusGeometry(.3,.11,5,12),accent);spool.position.set(x,1.4,0);root.add(spool);}
-      const crown=new THREE.Mesh(new THREE.BoxGeometry(.7,.15,.7),accent);crown.position.y=2.15;root.add(crown);signal=crown;
-    } else {
-      const lens=new THREE.Mesh(new THREE.OctahedronGeometry(.4),accent);lens.scale.set(1.6,.6,.8);lens.position.set(0,1.75,.45);root.add(lens);signal=lens;
-      for(let i=0;i<3;i++) {const leg=new THREE.Mesh(new THREE.BoxGeometry(.13,.9,.13),accent);leg.position.set(Math.sin(i*Math.PI*2/3)*.6,.45,Math.cos(i*Math.PI*2/3)*.6);root.add(leg);}
-    }
-    material=accent;
-  } else if (monster.def.id === 'valve_overseer') {
-    const tank = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, 1.3, 8), new THREE.MeshLambertMaterial({color: 0x896844}));
-    tank.position.set(0, 1.1, -.4);
-    const rod = new THREE.Mesh(new THREE.BoxGeometry(.12, 1.8, .12), basicMaterial(0xd6bb86));
-    rod.position.set(.65, 1.25, 0);
-    const wheelMaterial = basicMaterial(0xffb84c);
-    const wheel = new THREE.Mesh(new THREE.TorusGeometry(.3, .075, 5, 8), wheelMaterial);
-    wheel.position.set(.65, 2.1, 0);
-    root.add(tank, rod, wheel);
-    signal = wheel; material = wheelMaterial;
-  } else if (monster.def.role === 'guardian') {
-    const shieldMaterial = new THREE.MeshLambertMaterial({ color: 0x77c9e8, emissive: 0x153b55, emissiveIntensity: 0.35, transparent: true });
-    const shield = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.35, 0.14), shieldMaterial);
-    shield.position.set(0, 1.05, 0.62);
-    const crest = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), basicMaterial(0xd9f7ff));
-    crest.position.set(0, 1.05, 0.72);
-    root.add(shield, crest);
-    signal = shield;
-    material = shieldMaterial;
-  } else if (monster.def.role === 'support') {
-    const haloMaterial = basicMaterial(0x75f0a5, 0.78);
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.07, 6, 20), haloMaterial);
-    halo.position.y = 2.25;
-    halo.rotation.x = Math.PI / 2;
-    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.45, 6), new THREE.MeshLambertMaterial({ color: 0xe6d98d }));
-    staff.position.set(0.48, 1.12, 0.12);
-    root.add(halo, staff);
-    signal = halo;
-    material = haloMaterial;
-  } else {
-    const focusMaterial = basicMaterial(0xe080ff, 0.82);
-    const focus = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0), focusMaterial);
-    focus.position.y = 2.15;
-    const orbit = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.045, 5, 20), focusMaterial.clone());
-    orbit.position.y = 2.15;
-    orbit.rotation.x = Math.PI / 2;
-    root.add(focus, orbit);
-    signal = focus;
-    material = focusMaterial;
-  }
+  // Held equipment is part of the textured model. Keep only the combat signal.
+  const color = monster.def.role === 'support' ? 0x8ee5b6 : monster.def.role === 'guardian' ? 0x9edce5 : 0xd6adf4;
+  const cueMaterial = basicMaterial(color, .78);
+  const cue = new THREE.Mesh(new THREE.TorusGeometry(.28, .035, 4, 12), cueMaterial);
+  cue.position.y = (monster.visual.geometry.boundingBox?.max.y ?? 1.8) + .14;
+  cue.rotation.x = Math.PI / 2;
+  root.add(cue); signal = cue; material = cueMaterial;
   monster.group.add(root);
   visuals.set(monster, { role: monster.def.role, root, signal, material });
 }

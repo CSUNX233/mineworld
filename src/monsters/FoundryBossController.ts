@@ -114,7 +114,7 @@ export class FoundryBossController {
   private state: FoundryBossState = initialState();
   private attackMeshes: THREE.Mesh[] = [];
   private pillarMeshes: THREE.Group[] = [];
-  private bossDecoration: THREE.Group | null = null;
+  private bossDecoration: THREE.Object3D | null = null;
   private coreMesh: THREE.Mesh | null = null;
 
   constructor(private scene: THREE.Scene) {}
@@ -732,36 +732,9 @@ export class FoundryBossController {
   }
 
   private ensureBossDecoration(boss: Monster): void {
-    if (this.bossDecoration?.parent === boss.group) return;
-    if (this.bossDecoration) disposeFoundryObject(this.bossDecoration);
-    const group = new THREE.Group();
-    group.name = 'foundry-furnace-core';
-    const furnace = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.62, 0.72, 1.25, 10, 1, true),
-      new THREE.MeshLambertMaterial({ color: 0x382b27, side: THREE.DoubleSide }),
-    );
-    furnace.rotation.x = Math.PI / 2;
-    furnace.position.set(0, 1.65, 0.38);
-    group.add(furnace);
-    const core = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.42, 1),
-      new THREE.MeshBasicMaterial({ color: 0xff6a1f }),
-    );
-    core.name = 'furnace-core';
-    core.position.set(0, 1.65, 0.78);
-    group.add(core);
-    for (const y of [1.18, 2.12]) {
-      const band = new THREE.Mesh(
-        new THREE.TorusGeometry(0.7, 0.09, 8, 20),
-        new THREE.MeshLambertMaterial({ color: 0x8b684c }),
-      );
-      band.rotation.x = Math.PI / 2;
-      band.position.set(0, y, 0.38);
-      group.add(band);
-    }
-    boss.group.add(group);
-    this.bossDecoration = group;
-    this.coreMesh = core;
+    if (this.bossDecoration === boss.visual) return;
+    this.bossDecoration = boss.visual;
+    this.coreMesh = boss.visual.getObjectByName('furnace-core') as THREE.Mesh;
   }
 
   private updateDecoration(dt: number): void {
@@ -902,7 +875,6 @@ export class FoundryBossController {
     this.removeAttackMeshes();
     for (const pillar of this.pillarMeshes) disposeFoundryObject(pillar);
     this.pillarMeshes = [];
-    if (this.bossDecoration) disposeFoundryObject(this.bossDecoration);
     this.bossDecoration = null;
     this.coreMesh = null;
   }

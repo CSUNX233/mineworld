@@ -1,6 +1,5 @@
 import { LATE_MONSTERS } from '../data/LateMonsters';
 import { lateEncounter, hasLateContent } from '../data/LateChapter';
-import { createDeepChapterProp } from '../world/DeepChapterAssets';
 import { lateGroundHeight } from '../world/LateElevation';
 import { cloneData } from '../utils/cloneData';
 import { canSealEncounterRoom } from '../world/EncounterBarriers';
@@ -24,16 +23,13 @@ const MONSTER_DEFS = [...monsterData as unknown as MonsterDefinition[], ...RUINS
 export class MonsterSpawner {
   /** Build only the model that will actually be displayed. */
   static createActor(def:MonsterDefinition,x:number,z:number,data:FloorData):Monster {
-    const appearance=hasLateContent(data)?createDeepChapterProp(data.floor,`enemy_${def.id}`):null;
-    const monster=new Monster(def,x,z,appearance);
+    const monster=new Monster(def,x,z);
     if(hasLateContent(data))monster.position.y=lateGroundHeight(data,x,z);
     return monster;
   }
 
-  static attachLateModel(monster:Monster,data:FloorData):void {
-    if(!hasLateContent(data)||monster.group.getObjectByName('late-enemy-model'))return;
-    const mesh=createDeepChapterProp(data.floor,`enemy_${monster.def.id}`);
-    if(mesh)monster.replaceAppearance(mesh);
+  static alignLateGround(monster:Monster,data:FloorData):void {
+    if(!hasLateContent(data))return;
     monster.position.y=lateGroundHeight(data,monster.position.x,monster.position.z);
   }
 
@@ -63,7 +59,7 @@ export class MonsterSpawner {
       const def = revised?.monsterIds[i] ? this.definitionById(revised.monsterIds[i])! : chapter?.monsterIds?.[i] ? this.definitionById(chapter.monsterIds[i])! : teaching ? this.definitionById('valve_overseer')! : bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
       const monster = this.createActor(def, spot.x + .5, spot.z + .5, floor);
       attachMechanicVisual(monster);
-      this.attachLateModel(monster,floor);
+      this.alignLateGround(monster,floor);
       monster.roomId = room.id!;
       monster.maxHealth = monsterHealth(def.health, floor.floor, def.behavior === 'boss');
       monster.health = monster.maxHealth;
@@ -155,7 +151,7 @@ export class MonsterSpawner {
     if (saved.elite && saved.eliteModifiers.length > 0) monster.setElite(saved.eliteModifiers);
     monster.statuses = cloneData(saved.statuses ?? []);
     monster.roomId = saved.roomId ?? '';
-    this.attachLateModel(monster,floorData);
+    this.alignLateGround(monster,floorData);
     const previousScale = Number.isFinite(saved.difficultyStatMultiplier) && saved.difficultyStatMultiplier! > 0 ? saved.difficultyStatMultiplier! : 1;
     const ratio = GLOBAL_MONSTER_STAT_MULTIPLIER / previousScale;
     monster.maxHealth = Math.max(1, Math.round(saved.maxHealth * ratio));
