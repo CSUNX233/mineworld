@@ -1,6 +1,6 @@
 param(
-    [string]$VersionName = '1.0.0',
-    [int]$VersionCode = 1,
+    [string]$VersionName = '1.0.2',
+    [int]$VersionCode = 3,
     [string]$JavaPath = $env:JAVA_HOME,
     [string]$SdkPath = $env:ANDROID_HOME
 )
