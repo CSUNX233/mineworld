@@ -1,7 +1,7 @@
 import type { Vector3 } from 'three';
-import type { FloorData } from '../types';
-import { BlockKind } from './Block';
-import { encounterBarrierRayDistance } from './EncounterBarriers';
+import type { FloorData } from '../../src/types';
+import { BlockKind } from '../../src/world/Block';
+import { encounterBarrierRayDistance } from '../../src/world/EncounterBarriers';
 
 /** Distance to the first solid wall (height 2), map edge or ground.
  * Expanding the boxes gives the camera clearance for its near clipping plane. */
@@ -23,12 +23,12 @@ export function worldRayDistance(
       if (kind !== BlockKind.Wall && kind !== BlockKind.Obstacle) continue;
       let entry = 0;
       let exit = nearest;
-      // Preserve X/Y/Z slab order without allocating four arrays per solid cell.
-      for (let axis = 0; axis < 3; axis++) {
-        const start = axis === 0 ? origin.x : axis === 1 ? origin.y : origin.z;
-        const delta = axis === 0 ? direction.x : axis === 1 ? direction.y : direction.z;
-        const lo = axis === 0 ? x - radius : axis === 1 ? (outside ? -Infinity : -radius) : z - radius;
-        const hi = axis === 0 ? x + 1 + radius : axis === 1 ? (outside ? Infinity : 2 + radius) : z + 1 + radius;
+      const bounds = [
+        [origin.x, direction.x, x - radius, x + 1 + radius],
+        [origin.y, direction.y, outside ? -Infinity : -radius, outside ? Infinity : 2 + radius],
+        [origin.z, direction.z, z - radius, z + 1 + radius],
+      ];
+      for (const [start, delta, lo, hi] of bounds) {
         if (Math.abs(delta) < 1e-8) {
           if (start < lo || start > hi) { exit = -1; break; }
         } else {

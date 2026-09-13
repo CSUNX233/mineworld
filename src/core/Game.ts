@@ -1758,7 +1758,6 @@ export class Game {
         const wasGrounded = this.player.onGround;
         this.controller.update(dt, this.floorData, stats, rawDt);
         this.updatePlayerVisibility();
-        if (this.input.wasPressed('Space') && wasGrounded) this.audio.jump();
         if (!wasGrounded && this.player.onGround) this.audio.play('land');
       }
       this.reaper.update(rawDt, this.equipment.getEquippedItems(),

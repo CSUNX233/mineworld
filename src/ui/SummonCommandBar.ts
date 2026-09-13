@@ -7,6 +7,7 @@ export class SummonCommandBar {
   private label = document.createElement('span');
   private counts = new Map<string, HTMLElement>();
   private layoutKey = '';
+  private nextLayoutCheck = 0;
   constructor(parent: HTMLElement, focus: () => void, recall: () => void) {
     this.root.className = 'summon-command-bar';
     this.root.setAttribute('aria-label', '召唤编队');
@@ -35,10 +36,14 @@ export class SummonCommandBar {
     parent.append(this.root);
   }
   update(status: SummonStatus, unlocked: boolean): void {
-    this.root.hidden = !unlocked;
-    document.documentElement.classList.toggle('has-summon-controls', unlocked);
+    if (this.root.hidden !== !unlocked) this.root.hidden = !unlocked;
+    const classes = document.documentElement.classList;
+    if (classes.contains('has-summon-controls') !== unlocked) classes.toggle('has-summon-controls', unlocked);
+    if (!unlocked) { this.layoutKey = ''; return; }
     const key = `${unlocked}:${window.innerWidth}:${window.innerHeight}`;
-    if (unlocked && key !== this.layoutKey) {
+    if (key !== this.layoutKey && performance.now() >= this.nextLayoutCheck) {
+      // Desktop has no touch skill button; retry without forcing layout every frame.
+      this.nextLayoutCheck = performance.now() + 250;
       const xp = document.querySelector('.experience-bar')?.getBoundingClientRect();
       const skill = document.querySelector('.touch-utility-row [title="技能配置"]')?.getBoundingClientRect();
       if (xp) {
@@ -52,9 +57,14 @@ export class SummonCommandBar {
         this.root.style.setProperty('--summon-action-left', `${skill.right + 6}px`);
       }
     }
-    for (const [id,count] of this.counts) count.textContent = String(status.roles[id as keyof typeof status.roles]);
-    this.label.textContent = `编队 ${status.capacityUsed}/${status.capacity} · ${status.mode === 'focus' ? '集火' : status.mode === 'recall' ? '召回' : '自主'}`;
-    this.root.title = `战士 ${status.roles.warrior} · 守卫 ${status.roles.guardian} · 射手 ${status.roles.archer}；G 集火 / H 召回`;
+    for (const [id,count] of this.counts) {
+      const value = String(status.roles[id as keyof typeof status.roles]);
+      if (count.textContent !== value) count.textContent = value;
+    }
+    const label = `编队 ${status.capacityUsed}/${status.capacity} · ${status.mode === 'focus' ? '集火' : status.mode === 'recall' ? '召回' : '自主'}`;
+    if (this.label.textContent !== label) this.label.textContent = label;
+    const title = `战士 ${status.roles.warrior} · 守卫 ${status.roles.guardian} · 射手 ${status.roles.archer}；G 集火 / H 召回`;
+    if (this.root.title !== title) this.root.title = title;
   }
   hide(): void { this.root.hidden = true; this.layoutKey = ''; document.documentElement.classList.remove('has-summon-controls'); }
 }

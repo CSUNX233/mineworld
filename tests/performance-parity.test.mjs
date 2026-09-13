@@ -7,6 +7,8 @@ const { buildSync } = createRequire(require.resolve('vite/package.json'))('esbui
 const built = buildSync({ define: { 'import.meta.env.BASE_URL': '"/"' }, stdin: { contents: `
 export {stepProjectile as before} from './tests/fixtures/ProjectileBaseline';
 export {stepProjectile as after} from './src/combat/ProjectileSystem';
+export {worldRayDistance as rayBefore} from './tests/fixtures/SpatialQueriesBaseline';
+export {worldRayDistance as rayAfter} from './src/world/SpatialQueries';
 export {MonsterSpatialIndex} from './src/combat/MonsterSpatialIndex';
 export {updateProjectileRuntime} from './src/combat/ProjectileRuntime';
 export {EffectiveStatsCache} from './src/progression/EffectiveStatsCache';
@@ -19,6 +21,18 @@ export {DamageNumberSystem as NewNumbers} from './src/ui/DamageNumber';
 export {Vector3,PerspectiveCamera} from 'three';
 `, loader: 'ts', resolveDir: fileURLToPath(new URL('..', import.meta.url)) }, bundle: true, write: false, platform: 'node', format: 'esm' });
 const api = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
+
+test('allocation-free world rays preserve walls, edges, parallel axes and clearance', () => {
+  let seed = 31415;
+  const random = () => ((seed = (Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  const floor = {size:24,rooms:[],grid:Array.from({length:24},()=>Array.from({length:24},()=>random()<.25?2:1))};
+  for (let i=0;i<1000;i++) {
+    const origin=new api.Vector3(random()*28-2,random()*5-1,random()*28-2);
+    const direction=new api.Vector3(i%4?random()-.5:0,i%3?random()-.5:0,i%2?random()-.5:0).normalize();
+    const distance=random()*16,radius=random()*.6;
+    assert.equal(api.rayAfter(floor,origin,direction,distance,radius),api.rayBefore(floor,origin,direction,distance,radius));
+  }
+});
 
 test('optimized collision matches frozen baseline across walls, ties, piercing and moving actors', () => {
   let seed = 42;

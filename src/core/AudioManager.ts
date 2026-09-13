@@ -228,6 +228,6 @@ export class AudioManager {
   portal(): void { this.play('portal'); } shoot(): void { this.play('shoot'); }
   explosion(): void { this.play('earth'); } warn(): void { this.play('warn'); }
   uiClick(): void { this.play('uiClick'); } uiConfirm(): void { this.play('uiConfirm'); }
-  uiError(): void { this.play('uiError'); } jump(): void { this.play('jump'); }
+  uiError(): void { this.play('uiError'); }
   startWalk(): void { this.walking = true; } stopWalk(): void { this.walking = false; this.walkTime = 0; }
 }
