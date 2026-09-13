@@ -47,6 +47,14 @@ Weapon proportion pass: sword blade/guard width reduced 35%, upper length reduce
 and lower shaft shortened 18% beyond the grip. Contact origin/radius preserved.
 Exported both weapon GLBs and saved `starfire-weapons.blend`; inspected camera sword
 and staff captures. These are presentation dimensions, not attack-distance changes.
+Follow-up staff shortening: exposed upper/lower shaft spans reduced another 25%,
+overall length 1.1134 -> 0.91865 Blender units (17.5% shorter). Grip region unchanged;
+head translated rigidly with its muzzle marker. Verified MCP viewport and actual game
+capture `review/stage-b/game-staff-shortened.png`; saved weapon blend and runtime GLB.
+Second requested reduction: total length 0.91865 -> 0.73492 (exactly another 20%),
+removed from exposed shaft spans while preserving the grip and rigid head shape.
+Muzzle follows the head. Verified `game-staff-shortened-20.png` and MCP viewport;
+updated GLB, editable weapon blend, and repeatable revision-guarded script.
 This is an asset count, not a phone performance claim.
 
 ## Checks and outstanding work
