@@ -628,6 +628,12 @@ export class Game {
     };
     panel.appendChild(exitButton);
 
+    const privacyButton = document.createElement('button');
+    privacyButton.className = 'privacy-menu-link';
+    privacyButton.textContent = '隐私政策';
+    privacyButton.onclick = () => { void import('../ui/Privacy').then(({ showPrivacyPolicy }) => showPrivacyPolicy(true)); };
+    panel.appendChild(privacyButton);
+
     overlay.appendChild(panel);
     this.startOverlay = overlay;
     this.uiRoot.appendChild(overlay);

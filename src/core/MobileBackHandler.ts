@@ -16,6 +16,8 @@ export class MobileBackHandler {
     if (this.mobile) {
       if (Capacitor.isNativePlatform()) {
         void App.addListener('backButton', () => {
+          const privacy = document.querySelector<HTMLDialogElement>('dialog.privacy-dialog[open]');
+          if (privacy) { privacy.close(); return; }
           const top = this.stack[this.stack.length - 1];
           if (top) top.close();
           else this.rootHandler?.();
@@ -56,6 +58,9 @@ export class MobileBackHandler {
 
   private onPopState = (): void => {
     if (!this.mobile) return;
+
+    const privacy = document.querySelector<HTMLDialogElement>('dialog.privacy-dialog[open]');
+    if (privacy) { privacy.close(); this.pushGuard(); return; }
 
     if (this.stack.length > 0) {
       const action = this.stack[this.stack.length - 1];
