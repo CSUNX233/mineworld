@@ -43,7 +43,7 @@ export async function preloadInteractionProps(): Promise<void> {
       for (const m of Array.isArray(node.material) ? node.material : [node.material]) oldMaterials.add(m);
     });
     oldMaterials.forEach(m => m.dispose());
-    const required = ['chest_body', 'chest_lid', 'rack_frame', 'rack_supplies', 'merchant_stall', 'supply_crate'];
+    const required = ['chest_body', 'chest_lid', 'rack_frame', 'rack_supplies', 'merchant_stall', 'supply_crate', 'portal_frame', 'portal_runes'];
     if (required.some(name => !loaded.has(name))) {
       loaded.forEach(g => g.dispose());
       throw new Error('Interaction prop kit is incomplete');
@@ -157,7 +157,8 @@ export function createMerchantProp(floor = 1): THREE.Mesh { return mesh('merchan
 
 export function createSupplyRack(cells: {x: number; z: number}[], floor = 1): THREE.Group {
   const group = new THREE.Group(); group.name = 'ruins-supply-rack'; group.userData.interactionProp = true;
-  const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+  // Exported front is +Z; the supply interaction cell lies west of the rack (-X).
+  const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
   const scale = new THREE.Vector3(.67, .67, .67), matrix = new THREE.Matrix4();
   for (const name of ['rack_frame', 'rack_supplies']) {
     const module = interactionModule(name, floor);

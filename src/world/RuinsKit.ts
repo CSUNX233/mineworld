@@ -8,6 +8,7 @@ import { placeRuinsRooms, ruinsObstacleArt } from './RuinsRoomArt';
 import { roomContainsCell } from './RoomGeometry';
 import type { FloorData } from '../types';
 import { BlockKind } from './Block';
+import { bakeScenery, applySceneryBake } from './SceneryBake';
 
 const geometries = new Map<string, THREE.BufferGeometry>();
 let material: THREE.MeshLambertMaterial | null = null;
@@ -247,13 +248,19 @@ export function createRuinsKit(data: FloorData, excluded: Set<string>): THREE.Gr
   });
   // A shallow foundation reaches past the grid, so distant ruins stand on land.
   const ground=new THREE.Mesh(new THREE.BoxGeometry(data.size+32,3,data.size+32),new THREE.MeshLambertMaterial({color:0x69744c}));
-  ground.position.set(data.size/2,-1.65,data.size/2);ground.name='ruins-land-foundation';ground.receiveShadow=true;group.add(ground);
+  ground.position.set(data.size/2,-2.5,data.size/2);ground.name='ruins-land-foundation';ground.receiveShadow=true;group.add(ground);
+  const baked=bakeScenery(data,fires.map(f=>({...f,color:0xffa94b,strength:f.camp?7:5.5})));
+  const litMaterial=material.clone();litMaterial.onBeforeCompile=material.onBeforeCompile;
+  const litPaving=pavingMaterial!.clone();
+  applySceneryBake(litMaterial,baked,data.size,false);applySceneryBake(litPaving,baked,data.size,false);
+  group.userData.bakedScenery=baked;group.userData.litMaterial=litMaterial;
+  group.userData.atmosphereLights=fires.map(f=>({...f,color:0xffad53}));
   for(const [key,batch] of batches) {
     if(!batch.matrices.length) continue;
     const interactive = batch.name === 'supply_crate' ? interactionModule('supply_crate') : null;
     const geometry = interactive?.geometry ?? geometries.get(batch.name);
     if(!geometry) throw new Error(`Missing ruins module: ${batch.name}`);
-    const mesh = new THREE.InstancedMesh(geometry,interactive?.material ?? material,batch.matrices.length);
+    const mesh = new THREE.InstancedMesh(geometry,interactive?.material ?? litMaterial,batch.matrices.length);
     mesh.name=key;
     mesh.castShadow = !['moss','flowers'].includes(batch.name);
     mesh.receiveShadow = true;
@@ -265,7 +272,7 @@ export function createRuinsKit(data: FloorData, excluded: Set<string>): THREE.Gr
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(floorPositions,3));
     geometry.setAttribute('uv',new THREE.Float32BufferAttribute(floorUV,2));
     geometry.computeVertexNormals();
-    const mesh=new THREE.Mesh(geometry,pavingMaterial);
+    const mesh=new THREE.Mesh(geometry,litPaving);
     mesh.name='ruins-paving'; mesh.receiveShadow=true; group.add(mesh);
   }
   if(shadowPositions.length) {
@@ -277,7 +284,7 @@ export function createRuinsKit(data: FloorData, excluded: Set<string>): THREE.Gr
   group.userData.archCount=arches.length;
   group.userData.floorDecorations=floorDecorations;
   if(fires.length) {
-    const firelight=new RuinsFirelight(fires);
+    const firelight=new RuinsFirelight(fires,data.rooms);
     group.add(firelight.group);group.userData.firelight=firelight;
   }
   group.userData.fireCount=fires.length;
@@ -290,6 +297,8 @@ export function updateRuinsFirelight(group:THREE.Object3D,elapsed:number):void {
 
 /** Release floor-specific buffers only; module geometry/atlas stay warm for next floor. */
 export function disposeRuinsKit(group: THREE.Object3D): void {
+  (group.userData.bakedScenery as THREE.Texture|undefined)?.dispose();
+  (group.userData.litMaterial as THREE.Material|undefined)?.dispose();
   const firelight=group.userData.firelight as RuinsFirelight|undefined;
   if(firelight){firelight.group.removeFromParent();firelight.dispose();}
   group.traverse(node=>{

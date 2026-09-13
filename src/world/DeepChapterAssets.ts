@@ -5,7 +5,7 @@ import { applySceneryCutaway } from './SceneryCutaway';
 
 export interface DeepKit {
   geometries: Map<string, THREE.BufferGeometry>;
-  material: THREE.MeshLambertMaterial;
+  material: THREE.MeshPhongMaterial;
 }
 const kits = new Map<DeepChapter, DeepKit>();
 const pending = new Map<DeepChapter, Promise<void>>();
@@ -40,7 +40,10 @@ export async function preloadDeepChapterKit(floor: number): Promise<void> {
     const texture = new THREE.Texture(image);
     texture.colorSpace = THREE.SRGBColorSpace; texture.flipY = false;
     texture.magFilter = THREE.NearestFilter; texture.minFilter = THREE.LinearMipmapLinearFilter; texture.needsUpdate = true;
-    const material = new THREE.MeshLambertMaterial({ map: texture, vertexColors: true });
+    // Atlas lower-left is metal. Stone/cloth keep a very weak, broad highlight.
+    const specular = new THREE.DataTexture(new Uint8Array([12,12,12,255, 10,10,10,255, 210,210,210,255, 6,6,6,255]),2,2);
+    specular.magFilter=specular.minFilter=THREE.NearestFilter;specular.needsUpdate=true;
+    const material = new THREE.MeshPhongMaterial({ map: texture, vertexColors: true, specularMap: specular, specular:0xbdb8a5, shininess:28 });
     applySceneryCutaway(material); kits.set(id, { geometries, material });
   })().finally(() => pending.delete(id)));
   await pending.get(id);

@@ -5,9 +5,11 @@
     "rack_frame": 524,
     "rack_supplies": 640,
     "supply_crate": 156,
-    "merchant_stall": 1496
+    "merchant_stall": 1496,
+    "portal_frame": 1244,
+    "portal_runes": 432
   },
-  "total": 3792,
+  "total": 5468,
   "palette": [
     128,
     64

@@ -1,24 +1,26 @@
 import * as THREE from 'three';
-import { PerformanceTierDetector } from '../core/Performance';
+import type { Room } from '../types';
+import { RoomLightSelection } from './RoomLightSelection';
 
 export interface ChapterLightSource { x: number; y: number; z: number; color: number; strength?: number }
-/** Static luminous props are always visible; only the nearest few need dynamic lights. */
+/** Activate all light sources belonging to the nearest room. */
 export class ChapterLightPool {
   readonly group = new THREE.Group();
   private lights: THREE.PointLight[];
   private slots: number[] = [];
   private nextSelection = -1;
-  constructor(readonly sources: ChapterLightSource[]) {
+  private selection: RoomLightSelection;
+  constructor(readonly sources: ChapterLightSource[], rooms: readonly Room[]) {
     this.group.name = 'chapter-light-pool';
-    this.lights = Array.from({ length: PerformanceTierDetector.tier === 'low' ? 1 : 3 }, () => {
+    this.selection = new RoomLightSelection(sources, rooms);
+    this.lights = Array.from({ length: this.selection.capacity }, () => {
       const light = new THREE.PointLight(0xffffff, 0, 9, 2); this.group.add(light); return light;
     });
   }
   update(elapsed: number, viewer: THREE.Vector3): void {
     if (elapsed >= this.nextSelection || elapsed === 0) {
       this.nextSelection = elapsed + .4;
-      this.slots = this.sources.map((s, i) => ({ i, d: (s.x - viewer.x) ** 2 + (s.z - viewer.z) ** 2 }))
-        .filter(s => s.d < 16 ** 2).sort((a, b) => a.d - b.d).slice(0, this.lights.length).map(s => s.i);
+      this.slots = this.selection.select(viewer);
     }
     this.lights.forEach((light, i) => {
       const s = this.sources[this.slots[i]];

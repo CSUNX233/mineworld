@@ -3,29 +3,35 @@ import type { FloorData } from '../types';
 import { PerformanceTierDetector } from '../core/Performance';
 import { deepChapterStyle } from './DeepChapterStyle';
 
-/** A single static sunlight shadow for architecture; no per-prop lights or bloom. */
+/** Outdoor sunlight; the enclosed foundry receives only ambient bounce and practical lamps. */
 export function configureChapterLighting(scene: THREE.Scene, renderer: THREE.WebGLRenderer, data: FloorData): void {
   const ruins = data.floor <= 5;
   const chapter = deepChapterStyle(data.floor), modeled = ruins || !!chapter;
-  const fogColor = chapter?.fog ?? (ruins ? 0xc3cfbf : 0x090c12);
+  const indoor = chapter?.chapter === 'foundry';
+  const fogColor = indoor ? 0x171c25 : chapter ? 0x566a66 : ruins ? 0xb2b79a : 0x090c12;
   scene.background = new THREE.Color(fogColor);
   scene.fog = new THREE.Fog(fogColor, modeled ? 28 : 18, modeled ? 80 : 62);
   const sun = scene.getObjectByName('chapter-sun') as THREE.DirectionalLight;
   const hemi = scene.getObjectByName('chapter-hemi') as THREE.HemisphereLight;
-  hemi.intensity = chapter?.ambient ?? (ruins ? 1.05 : .9);
-  hemi.groundColor.setHex(chapter?.ground ?? (ruins ? 0x555a50 : 0x2a2f36));
-  sun.intensity = chapter?.sunIntensity ?? (ruins ? 2.6 : 1.4);
-  sun.color.setHex(chapter?.sun ?? (ruins ? 0xffe6bd : 0xfff0d0));
+  let fill=scene.getObjectByName('chapter-fill') as THREE.AmbientLight|undefined;
+  if(!fill){fill=new THREE.AmbientLight();fill.name='chapter-fill';scene.add(fill);}
+  fill.color.setHex(indoor?0xb7c5d8:ruins?0xe0d9bb:0xd4ded5);
+  fill.intensity=indoor?.65:modeled?.4:0;
+  hemi.intensity = indoor ? 1.65 : modeled ? 1.1 : .9;
+  hemi.color.setHex(indoor ? 0x9aaac2 : ruins ? 0xc5d9d1 : 0xc7dde0);
+  hemi.groundColor.setHex(indoor ? 0x9c8977 : ruins ? 0x9ca382 : chapter ? 0x9a9e8b : 0x2a2f36);
+  sun.intensity = indoor ? 0 : modeled ? 3.1 : 1.4;
+  sun.color.setHex(ruins ? 0xffdf9d : chapter ? 0xffedcc : 0xfff0d0);
   renderer.toneMapping=modeled?THREE.ACESFilmicToneMapping:THREE.NoToneMapping;
-  renderer.toneMappingExposure=chapter?.exposure ?? (ruins?1.12:1);
-  const shadows = modeled && PerformanceTierDetector.tier !== 'low';
+  renderer.toneMappingExposure=indoor?1.4:modeled?1.14:1;
+  const shadows = modeled && !indoor && PerformanceTierDetector.tier !== 'low';
   renderer.shadowMap.enabled = shadows;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate = false;
   sun.castShadow = shadows;
   if (modeled) {
     const c=data.size/2;
-    sun.position.set(c-18,32,c-14); sun.target.position.set(c,0,c);
+    sun.position.set(c-24,27,c-20); sun.target.position.set(c,0,c);
     if(!sun.target.parent) scene.add(sun.target);
     const reach=data.size*.75;
     Object.assign(sun.shadow.camera,{left:-reach,right:reach,top:reach,bottom:-reach,near:1,far:150});

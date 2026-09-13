@@ -25,7 +25,10 @@ import { createReforgePanel } from '../ui/ReforgePanel';
 import type { ReforgeOptions } from '../items/CraftingSystem';
 import { meleeSwingAngle } from '../combat/MeleeSwing';
 import { preloadDeepChapterKit } from '../world/DeepChapterAssets';
-import { preloadRuinsKit, updateRuinsCutaway } from '../world/RuinsKit';
+import { preloadRuinsKit } from '../world/RuinsKit';
+import { updateSceneryCutaway } from '../world/SceneryCutaway';
+import { trialInteractionPosition } from '../world/TrialInteraction';
+import { updateWaterReflection } from '../world/WaterReflection';
 import { configureChapterLighting } from '../world/ChapterLighting';
 import { FoundryBossController } from '../monsters/FoundryBossController';
 import { prepareFoundryPanels, foundryPanels } from '../world/FoundryPanels';
@@ -1570,6 +1573,7 @@ export class Game {
     if (document.hidden || this.graphicsLost || this.renderer.getContext().isContextLost()) { this.input.endFrame(); return; }
     if (this.running) this.updateGame(dt);
     this.updateAimIndicator();
+    updateWaterReflection(this.world.group,this.renderer,this.scene,this.camera,now/1000,this.running);
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
   };
@@ -1690,7 +1694,7 @@ export class Game {
       this.updateSkills(rawDt);
     }
 
-    updateRuinsCutaway(this.player.position, this.controller.isFirstPerson);
+    updateSceneryCutaway(this.player.position, this.controller.isFirstPerson, this.camera, this.world.group, rawDt);
     this.world.update(rawDt, this.elapsed);
     if (this.world.shadowDirty) {
       this.renderer.shadowMap.needsUpdate = true;
@@ -3586,17 +3590,17 @@ export class Game {
       if (distance <= 2) candidates.push({ label: '进入商店', distance });
     }
     const room = this.encounters?.roomAt(p.x,p.z);
-    if ((room && isOptionalTrial(room.template)) && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
+    const trialAnchor = room && isOptionalTrial(room.template) ? trialInteractionPosition(room) : null;
+    if (room && trialAnchor && Math.hypot(p.x-trialAnchor.x,p.z-trialAnchor.z)<2) {
       const cleared=this.encounters!.state.cleared.includes(room.id!);
       const started=this.encounters!.state.started.includes(room.id!);
-      if (!started || (cleared && !this.foundryTrialClaimed)) candidates.push({label:cleared?'选择试炼奖励':`启动${trialTitle(room.template)}`,distance:Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)});
+      if (!started || (cleared && !this.foundryTrialClaimed)) candidates.push({label:cleared?'选择试炼奖励':`启动${trialTitle(room.template)}`,distance:Math.hypot(p.x-trialAnchor.x,p.z-trialAnchor.z)});
     }
     if (room?.kind === 'sanctuary' && !this.encounters!.state.usedSanctuaries.includes(room.id!)
       && Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z)<2) {
       candidates.push({ label: '圣所恢复', distance: Math.hypot(p.x-roomCenter(room).x,p.z-roomCenter(room).z) });
     }
-    if (this.portalActive && Math.abs(Math.floor(p.x) - this.floorData.portal.x) <= 1
-      && Math.abs(Math.floor(p.z) - this.floorData.portal.z) <= 1) {
+    if (this.portalActive && this.world.canEnterPortal(p)) {
       candidates.push({ label: '进入传送门', distance: Math.hypot(p.x-this.floorData.portal.x-.5,p.z-this.floorData.portal.z-.5) });
     }
     for (const chest of this.floorData.chests) {
@@ -3641,13 +3645,8 @@ export class Game {
       this.saveGame();
       return true;
     }
-    const playerX = Math.floor(this.player.position.x);
-    const playerZ = Math.floor(this.player.position.z);
-
     if (label === '进入传送门' && this.portalActive) {
-      const dx = playerX - this.floorData.portal.x;
-      const dz = playerZ - this.floorData.portal.z;
-      if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) {
+      if (this.world.canEnterPortal(this.player.position)) {
         this.showFloorRestMenu();
         return true;
       }

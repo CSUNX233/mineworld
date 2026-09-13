@@ -1,6 +1,7 @@
 import type { FloorData, Room } from '../types';
 import { BlockKind } from './Block';
 import { roomContainsCell, roomCenter } from './RoomGeometry';
+import { trialInteractionPosition } from './TrialInteraction';
 
 export type RuinsPlace=(name:string,x:number,z:number,y?:number,angle?:number,sx?:number,sy?:number,sz?:number,tint?:number)=>void;
 
@@ -10,7 +11,7 @@ export function ruinsObstacleArt(room:Room|undefined,x:number,z:number):string {
     case 'ruins-barracks': case 'ruins-armory':return 'weapon_rack';
     case 'ruins-chapel': case 'ruins-ring':return 'reliquary';
     case 'ruins-supply':return 'supply_crate';
-    case 'ruins-trial':return (x+z)%2?'broken_pier':'guardian_statue';
+    case 'ruins-trial':return 'broken_pier';
     case 'ruins-gate-arena':return 'guardian_statue';
     case 'ruins-double-path':return (x+z)%2?'wall':'broken_pier';
     default:return 'wall';
@@ -26,6 +27,12 @@ export function placeRuinsRooms(data:FloorData,place:RuinsPlace,replacePlinth:(x
   const reserved:{x:number;z:number}[]=[];
   for(const room of data.rooms) {
     const c=roomCenter(room),template=room.template??room.kind??'court';
+    if (template === 'ruins-trial') {
+      const anchor = trialInteractionPosition(room);
+      const entrance = room.entrances?.[0];
+      const angle = entrance ? Math.atan2(anchor.x - entrance.x, anchor.z - entrance.z) : 0;
+      place('guardian_statue', anchor.x, anchor.z, 0, angle, .85, .85, .85);
+    }
     const candidates:{x:number;z:number;angle:number}[]=[];
     for(let z=room.z-1;z<=room.z+room.depth;z++)for(let x=room.x-1;x<=room.x+room.width;x++) {
       if(!solid(x,z))continue;
@@ -43,7 +50,7 @@ export function placeRuinsRooms(data:FloorData,place:RuinsPlace,replacePlinth:(x
     const name=template==='ruins-chapel'||template==='ruins-ring'||room.kind==='sanctuary'?'reliquary'
       :template==='ruins-armory'||template==='ruins-barracks'?'weapon_rack'
       :template==='ruins-bulwark'?'shield_barricade'
-      :template==='ruins-trial'||template==='ruins-gate-arena'?'guardian_statue'
+      :template==='ruins-gate-arena'?'guardian_statue'
       :template==='ruins-supply'||room.kind==='treasure'?'supply_crate'
       :room.kind==='start'?'shield_barricade':'broken_pier';
     for(const p of selected) {

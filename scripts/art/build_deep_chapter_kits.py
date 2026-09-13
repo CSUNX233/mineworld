@@ -42,6 +42,11 @@ for chapter in ['foundry','sanctum']:
     def cylinder(x,y,z,r,h,tile=2,top=None):
         bpy.ops.mesh.primitive_cone_add(vertices=8,radius1=r,radius2=r if top is None else top,depth=h,location=(x,y,z));return surface(bpy.context.object,tile,(1,1,1))
     def finish(name):
+        if name in ['furnace','throne','tablet','tank','bell_gantry','broken_bell']:
+            for p in parts:
+                bpy.context.view_layer.objects.active=p
+                bevel=p.modifiers.new('Small_light_catching_bevel','BEVEL');bevel.width=.009;bevel.segments=1
+                bpy.ops.object.modifier_apply(modifier=bevel.name)
         bpy.ops.object.select_all(action='DESELECT')
         for p in parts:p.select_set(True)
         bpy.context.view_layer.objects.active=parts[0]
@@ -53,6 +58,15 @@ for chapter in ['foundry','sanctum']:
         for z,w,hh in [(.15,.96,.3),(.42,.83,.13),(h-.22,.83,.12),(h,.96,.25)]:box(x,y,z,w,w,hh,2 if foundry and z>.3 else 1)
         if not foundry:
             for dx in [-.25,.25]:box(x+dx,y-.39,h*.5,.1,.15,h*.75,1,(1.13,1.13,1.09))
+            # Framed recessed relief with a stepped funerary diamond; four readable faces.
+            for side in [-1,1]:
+                box(x,y+side*.348,h*.70,.35,.022,.57,3,(.56,.58,.53))
+                for xx in [-.20,.20]:box(x+xx,y+side*.37,h*.70,.045,.045,.64,0)
+                for zz in [-.32,.32]:box(x,y+side*.37,h*.70+zz,.44,.045,.045,0)
+                for zz,ww in [(-.12,.09),(0,.22),(.12,.09)]:box(x,y+side*.383,h*.70+zz,ww,.025,.09,2)
+        else:
+            for zz in [.5,h-.55]:
+                for xx in [-.24,.24]:box(x+xx,y-.355,zz,.07,.035,.07,2)
     def bell(x,y,z,r=.5,h=.9):
         # Hollow faceted bell shell and open mouth, not a solid capped cone.
         levels=[(-h/2,r),(0,r*.78),(h*.35,r*.51),(h*.5,r*.25)]
@@ -61,11 +75,20 @@ for chapter in ['foundry','sanctum']:
             verts.extend((x+rr*math.cos(i*math.pi/4),y+rr*math.sin(i*math.pi/4),z+zz) for i in range(8))
         faces=[(j*8+i,j*8+(i+1)%8,(j+1)*8+(i+1)%8,(j+1)*8+i) for j in range(3) for i in range(8)]
         mesh=bpy.data.meshes.new('bell_shell');mesh.from_pydata(verts,[],faces);mesh.update();o=bpy.data.objects.new('bell_part',mesh);bpy.context.collection.objects.link(o);surface(o,2,(1,1,1))
-        cylinder(x,y,z-h/2,r*1.04,.10,2,top=r*1.04);box(x,y,z-h*.25,.12,.12,h*.75,3)
+        # Open rim, with raised inscribed bands and eight small funerary seals.
+        for i in range(8):
+            a=i*math.pi/4;b=(i+1)*math.pi/4
+            for zz,rr in [(-h*.47,r*1.02),(-h*.14,r*.84),(h*.22,r*.64)]:
+                beam((x+rr*math.cos(a),y+rr*math.sin(a),z+zz),(x+rr*math.cos(b),y+rr*math.sin(b),z+zz),.035,.035,2)
+            o=box(x+r*.84*math.cos(a),y+r*.84*math.sin(a),z-h*.20,.075,.055,h*.18,3);o.rotation_euler.z=a
+        box(x,y,z-h*.25,.12,.12,h*.75,3)
     def niche(z=0):
         box(0,-.495,z+1.05,.69,.022,1.25,3,(.55,.55,.55))
         for x in [-.38,.38]:box(x,-.53,z+1.1,.13,.14,1.5)
         for zz in [.36,1.81]:box(0,-.53,z+zz,.9,.16,.14)
+        for x in [-.28,.28]:
+            for zz in [.43,1.72]:box(x,-.625,z+zz,.075,.035,.075,2)
+        for zz,ww in [(1.10,.09),(1.22,.24),(1.34,.09)]:box(0,-.525,z+zz,ww,.025,.08,2)
         for x in [-.19,0,.19]:
             box(x,-.55,z+.61,.13,.1,.15,0);box(x,-.55,z+.46,.18,.11,.07,0)
     # Seam-free full-cell walls; joints are painted, no holes between instances.
@@ -139,6 +162,10 @@ for chapter in ['foundry','sanctum']:
         box(0,-.33,2.3,2.6,.07,2.7,3)
         for x in [-1.1,-.55,0,.55,1.1]:box(x,-.45,2.3,.13,.22,2.75,2)
         for z in [.8,3.8,4.15]:box(0,-.35,z,3.15,.35,.19,2)
+        for x in [-1.42,1.42]:
+            for z in [1.1,1.8,2.5,3.2,4.05]:box(x,-.55,z,.09,.045,.09,2)
+        box(0,-.58,4.57,.92,.09,.45,2)
+        for x,h in [(-.26,.15),(0,.30),(.26,.15)]:box(x,-.635,4.57,.095,.025,h,3)
         finish('furnace')
         box(0,-.382,2.3,2.5,.022,2.6,0);finish('furnace_glow')
         cylinder(0,0,3,.8,6,1)
@@ -158,6 +185,8 @@ for chapter in ['foundry','sanctum']:
         o=box(0,.06,1.18,.62,.21,1.6,0);o.rotation_euler.x=-.12
         box(0,-.095,1.28,.42,.025,1.06,3)
         for i in range(5):box(0,-.118,.88+i*.16,.20+(i%2)*.08,.012,.025,2)
+        for x in [-.255,.255]:box(x,-.095,1.27,.04,.055,1.28,1)
+        for z in [.63,1.91]:box(0,-.095,z,.55,.055,.05,1)
         finish('tablet')
         box(0,0,.30,.93,.94,.60);box(0,0,.67,.96,.96,.14,0)
         box(0,-.48,.35,.46,.02,.24,3);box(0,-.5,.35,.11,.02,.09,2);finish('tomb')

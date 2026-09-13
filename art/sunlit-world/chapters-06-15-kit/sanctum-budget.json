@@ -2,22 +2,22 @@
   "modules": {
     "wall": 192,
     "plinth": 24,
-    "pillar": 84,
-    "arch": 288,
+    "pillar": 276,
+    "arch": 672,
     "banner": 120,
     "lamp": 84,
     "lamp_glow": 12,
     "rubble": 48,
-    "wall_niche": 156,
-    "ossuary": 348,
-    "tablet": 108,
+    "wall_niche": 240,
+    "ossuary": 708,
+    "tablet": 572,
     "tomb": 48,
     "altar": 84,
-    "bell_gantry": 316,
-    "broken_bell": 88,
-    "throne": 520,
+    "bell_gantry": 3792,
+    "broken_bell": 1548,
+    "throne": 4540,
     "rock": 36,
     "puddle": 12
   },
-  "triangles": 2568
+  "triangles": 13008
 }

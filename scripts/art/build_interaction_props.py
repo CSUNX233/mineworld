@@ -147,6 +147,29 @@ box(1.66,-.65,1.74,.04,.04,.53,1)
 box(1.66,-.65,1.61,.32,.08,.39,1,.012);box(1.66,-.697,1.61,.26,.02,.32,2)
 o=box(1.66,-.714,1.61,.105,.018,.105,1);o.rotation_euler.y=math.pi/4
 finish('merchant_stall')
+# Ancient waygate: same stone frame in both states, glow runes separate for runtime switching.
+box(0,0,.08,2.4,.8,.16,4,.012)
+for side in [-1,1]:
+    x=side*.91
+    for z,w,d,h in [(.22,.58,.72,.28),(.46,.46,.58,.2),(1.38,.40,.48,1.65),(2.27,.56,.60,.22)]:box(x,0,z,w,d,h,4,.009)
+    for face in [-1,1]:
+        box(x,face*.252,1.4,.27,.025,1.5,2)
+        for dx in [-.16,.16]:box(x+dx,face*.278,1.4,.035,.035,1.6,1)
+        for z in [.61,2.18]:box(x,face*.28,z,.37,.05,.055,1)
+    # Recessed continuous arch backing closes seams between stepped facing stones.
+    beam((side*.88,0,2.36),(0,0,3.24),.34,.44,4)
+    for i in range(6):
+        box(side*(.83-i*.166),0,2.43+i*.165,.34,.48,.32,4,.008)
+o=box(0,-.275,2.99,.32,.09,.32,1,.009);o.rotation_euler.y=math.pi/4
+o=box(0,-.332,2.99,.19,.025,.19,2);o.rotation_euler.y=math.pi/4
+finish('portal_frame')
+for x in [-.91,.91]:
+    for face in [-1,1]:
+        for z,flip in [(.98,1),(1.38,-1),(1.78,1)]:
+            box(x-.06*flip,face*.279,z,.035,.024,.18,1)
+            box(x,face*.279,z+.07,.15,.024,.035,1)
+            box(x+.06*flip,face*.279,z+.015,.035,.024,.095,1)
+finish('portal_runes')
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=str(OUT/'interaction-props.glb'),export_format='GLB',use_selection=True,export_yup=True,export_materials='NONE')
 stats={n:sum(len(p.vertices)-2 for p in o.data.polygons) for n,o in modules.items()}
@@ -156,6 +179,7 @@ for name,o in modules.items():
     if name.startswith('chest'):o.location.x=-2.6
     elif name.startswith('rack'):o.location.x=2.6
     elif name=='supply_crate':o.hide_render=True;o.hide_viewport=True
+    elif name.startswith('portal'):o.location.x=5.5
 lid=modules['chest_lid'];body=modules['chest_body']
 for src in [body,lid]:
     c=src.copy();c.data=src.data.copy();bpy.context.collection.objects.link(c);c.location=(-2.6,-1.6,0)
@@ -174,11 +198,11 @@ bpy.ops.wm.save_as_mainfile(filepath=str(ART/'interaction-props.blend'))
 bpy.ops.render.render(write_still=True)
 # Genuine orthographic renders from the finished meshes for reference comparison.
 all_meshes=[o for o in scene.objects if o.type=='MESH']
-for name, selected in [('chest',['chest_body','chest_lid']),('rack',['rack_frame','rack_supplies']),('merchant',['merchant_stall'])]:
+for name, selected in [('chest',['chest_body','chest_lid']),('rack',['rack_frame','rack_supplies']),('merchant',['merchant_stall']),('portal',['portal_frame','portal_runes'])]:
     for o in all_meshes:o.hide_render=True
     for n in selected:modules[n].hide_render=False;modules[n].location=(0,0,0)
-    centre=Vector((0,0,1.35 if name=='merchant' else .8 if name=='rack' else .45))
-    camera.data.ortho_scale=3.6 if name=='merchant' else 2.1 if name=='rack' else 1.75
+    centre=Vector((0,0,1.7 if name=='portal' else 1.35 if name=='merchant' else .8 if name=='rack' else .45))
+    camera.data.ortho_scale=3.9 if name=='portal' else 3.6 if name=='merchant' else 2.1 if name=='rack' else 1.75
     scene.render.resolution_x=900;scene.render.resolution_y=900
     for view,offset in [('front',(0,-10,0)),('right',(10,0,0)),('top',(0,0,10))]:
         camera.location=centre+Vector(offset)

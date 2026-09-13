@@ -2,6 +2,7 @@ import { createChest, createMerchantProp, createSupplyRack, fitInteractionProp, 
 import { createDeepChapterScenery, disposeDeepChapterScenery, updateDeepChapterScenery } from './DeepChapterScenery';
 import { createDeepChapterProp } from './DeepChapterAssets';
 import { deepChapterStyle } from './DeepChapterStyle';
+import { createChapterAtmosphere, updateChapterAtmosphere, disposeChapterAtmosphere } from './ChapterAtmosphere';
 import { createRuinsKit, disposeRuinsKit, updateRuinsFirelight } from './RuinsKit';
 import { foundryPanels, breakFoundryPanel } from './FoundryPanels';
 import { createFoundryPipes } from './FoundryGeometry';
@@ -13,6 +14,8 @@ import type { FloorData } from '../types';
 import { BlockKind } from './Block';
 import { getBlock, initBlockRegistry } from './BlockRegistry';
 import { ROOM_COLORS } from '../data/rooms';
+import { preparePortalPlacement } from './PortalPlacement';
+import { PortalVisual } from './PortalVisual';
 import {
   clearEncounterBarriers,
   ENCOUNTER_BARRIER_HEIGHT,
@@ -24,7 +27,7 @@ export class World {
   private panelMeshes = new Map<string, THREE.InstancedMesh>();
   private supplyMeshes = new Map<string, THREE.Group>();
   private floorData: FloorData | null = null;
-  private portalMesh: THREE.Mesh | null = null;
+  private portalVisual: PortalVisual | null = null;
   private encounterBarrierMesh: THREE.InstancedMesh | null = null;
   /** One-shot invalidation; static shadows stay cached when nothing moves. */
   shadowDirty = false;
@@ -47,6 +50,8 @@ export class World {
   generate(data: FloorData): void {
     this.clear();
     this.floorData = data;
+    const portalPlacement=preparePortalPlacement(data);
+    const portalPosts=new Set(portalPlacement.posts.map(p=>`${p.x},${p.z}`));
     const theme = data.theme;
     const size = data.size;
 
@@ -96,18 +101,20 @@ export class World {
       for (let x = 0; x < size; x++) {
         const kind = data.grid[z][x];
         if (kind === BlockKind.Wall || kind === BlockKind.Obstacle) {
-          if (!panelCells.has(`${x},${z}`) && !supplyCells.has(`${x},${z}`)) wallCells.push({ x, z });
+          if (!panelCells.has(`${x},${z}`) && !supplyCells.has(`${x},${z}`) && !portalPosts.has(`${x},${z}`)) wallCells.push({ x, z });
         }
       }
     }
 
-    const ruins = createRuinsKit(data, supplyCells) ?? createDeepChapterScenery(data, new Set([...supplyCells, ...panelCells]));
+    const ruins = createRuinsKit(data, new Set([...supplyCells,...portalPosts])) ?? createDeepChapterScenery(data, new Set([...supplyCells, ...panelCells,...portalPosts]));
     if (ruins) {
       this.group.add(ruins);
       floorMaterial.map = null;
       floorTexture.dispose();
       floorMaterial.color.setHex(deepChapterStyle(data.floor)?.ground ?? 0x727950);
       floor.position.y = -.13;
+      floor.visible = false;
+      this.group.add(createChapterAtmosphere(data, ruins.userData.atmosphereLights));
     }
     if (!ruins && wallCells.length > 0) {
       const wallDef = getBlock(theme.wallType);
@@ -127,18 +134,12 @@ export class World {
       this.group.add(walls);
     }
 
-    const portalPosition = this.portalWorldPosition!;
-    const portalMaterial = new THREE.MeshBasicMaterial({
-      color: 0xb56bff,
-      transparent: true,
-      opacity: 0.85,
-    });
-    this.portalMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2, 0.8), portalMaterial);
-    this.portalMesh.position.copy(portalPosition);
-    this.portalMesh.name = 'portal';
-    this.group.add(this.portalMesh);
+    this.portalVisual=new PortalVisual(portalPlacement,data.floor);
+    this.group.add(this.portalVisual.group);
     for (const room of data.rooms) {
-      if (!room.kind || room.kind === 'start') continue;
+      if (!room.kind || room.kind === 'start' || room.kind === 'exit') continue;
+      // The central statue is the trial's interaction landmark, not a floor ring.
+      if (room.template === 'ruins-trial') continue;
       const marker = new THREE.Mesh(new THREE.RingGeometry(0.9,1.12,32),
         new THREE.MeshBasicMaterial({color:ROOM_COLORS[room.kind],transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide}));
       marker.rotation.x = -Math.PI/2;
@@ -176,8 +177,9 @@ export class World {
   }
 
   setPortalActive(active: boolean): void {
-    if (this.portalMesh) (this.portalMesh.material as THREE.MeshBasicMaterial).color.setHex(active ? 0xb56bff : 0x444958);
+    this.portalVisual?.setActive(active);
   }
+  canEnterPortal(position:THREE.Vector3):boolean{return this.portalVisual?.canEnter(position)??false;}
 
   /** Synchronizes visible doors and the collision/raycast barrier registry. */
   setEncounterBarriers(roomIds: Iterable<string>): void {
@@ -231,10 +233,7 @@ export class World {
   }
 
   update(dt: number, elapsed: number): void {
-    if (this.portalMesh) {
-      this.portalMesh.rotation.y += dt * 1.6;
-      this.portalMesh.position.y = 1 + Math.sin(elapsed * 2.5) * 0.08;
-    }
+    this.portalVisual?.update(dt,elapsed);
     if (this.encounterBarrierMesh) {
       const material = this.encounterBarrierMesh.material as THREE.MeshBasicMaterial;
       material.opacity = 0.5 + Math.sin(elapsed * 4) * 0.1;
@@ -242,6 +241,7 @@ export class World {
     this.group.children.forEach((child) => {
       if (child.name === 'ruins-kit') updateRuinsFirelight(child,elapsed);
       if (child.name === 'deep-chapter-scenery') updateDeepChapterScenery(child,elapsed);
+      if (child.name === 'chapter-atmosphere') updateChapterAtmosphere(child,elapsed);
       if (child.name === 'chest') {
         if (child.userData.opened && child.userData.openProgress < 1) this.shadowDirty = true;
         updateChestVisual(child, dt);
@@ -272,6 +272,7 @@ export class World {
   }
 
   private clear(): void {
+    if(this.portalVisual){this.portalVisual.group.removeFromParent();this.portalVisual.dispose();this.portalVisual=null;}
     this.panelMeshes.clear();
     this.supplyMeshes.clear();
     if (this.floorData) clearEncounterBarriers(this.floorData);
@@ -281,6 +282,7 @@ export class World {
       this.group.remove(child);
       if (child.name === 'ruins-kit') disposeRuinsKit(child);
       if (child.name === 'deep-chapter-scenery') { disposeDeepChapterScenery(child); continue; }
+      if (child.name === 'chapter-atmosphere') { disposeChapterAtmosphere(child); continue; }
       if (child.userData.interactionProp) { disposeInteractionProp(child); continue; }
       if(child.name==='merchant')child.traverse(part=>{
         if(part instanceof THREE.Mesh && !part.userData.interactionProp){part.geometry.dispose();for(const m of Array.isArray(part.material)?part.material:[part.material]){m.map?.dispose();m.dispose();}}
@@ -295,7 +297,6 @@ export class World {
         });
       }
     }
-    this.portalMesh = null;
   }
 
   private removeEncounterBarrierMesh(): void {

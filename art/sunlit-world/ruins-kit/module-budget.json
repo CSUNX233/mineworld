@@ -3,9 +3,9 @@
     "wall": 176,
     "wall_high": 260,
     "wall_joint": 12,
-    "pillar": 476,
+    "pillar": 692,
     "broken_pier": 240,
-    "arch": 216,
+    "arch": 264,
     "banner": 120,
     "ivy": 384,
     "shrub": 156,
@@ -25,6 +25,6 @@
     "distant_tower": 248,
     "brazier": 72
   },
-  "total": 4164,
+  "total": 4428,
   "atlas": 512
 }

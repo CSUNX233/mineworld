@@ -8,6 +8,7 @@ import { deepChapterStyle } from './DeepChapterStyle';
 import { ChapterLightPool, type ChapterLightSource } from './ChapterLightPool';
 import { sceneryFocus } from './SceneryCutaway';
 import { interactionModule } from './InteractionProps';
+import { bakeScenery, applySceneryBake } from './SceneryBake';
 
 const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 function hash(seed: number, x: number, z: number): number {
@@ -177,7 +178,7 @@ export function createDeepChapterScenery(data: FloorData, excluded: Set<string>)
     if ((x + z) % 4 === 1 && safeDecor(x, z)) {
       const lx = x + .5 + edge[0] * .62, lz = z + .5 + edge[1] * .62;
       place('lamp', lx, lz, 1.45, angle);
-      sources.push({x: lx, y: 1.85, z: lz, color: style.light});
+      sources.push({x: lx, y: 1.85, z: lz, color: foundry ? 0xffab56 : style.light, strength: foundry ? 13 : 7});
     }
   }
 
@@ -210,6 +211,11 @@ export function createDeepChapterScenery(data: FloorData, excluded: Set<string>)
     if (!foundry) place('rock', x + 1.8, z, -1.4, i, 1.5, 1, 1.5);
   }
 
+  const baked = bakeScenery(data, sources);
+  applySceneryBake(material, baked, data.size, foundry);
+  applySceneryBake(floorMaterial, baked, data.size, foundry);
+  group.userData.bakedScenery = baked;
+  group.userData.atmosphereLights = sources;
   for (const [chunk, floor] of floors) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(floor.positions, 3));
@@ -228,8 +234,8 @@ export function createDeepChapterScenery(data: FloorData, excluded: Set<string>)
   }
   const foundationMat = new THREE.MeshLambertMaterial({color: style.ground}); ownedMaterials.push(foundationMat);
   const foundation = new THREE.Mesh(new THREE.BoxGeometry(data.size + 24, 3, data.size + 24), foundationMat);
-  foundation.position.set(data.size / 2, -1.65, data.size / 2); foundation.receiveShadow = true; group.add(foundation);
-  const lights = new ChapterLightPool(sources); group.add(lights.group);
+  foundation.position.set(data.size / 2, -2.5, data.size / 2); foundation.receiveShadow = true; group.add(foundation);
+  const lights = new ChapterLightPool(sources, data.rooms); group.add(lights.group);
   group.userData.lightPool = lights; group.userData.ownedMaterials = ownedMaterials;
   group.userData.chapterArt = {floor: data.floor, theme: style.name, rooms: report, arches, corridorTiles, decorations: decor, lights: sources.length};
   return group;
@@ -239,6 +245,7 @@ export function updateDeepChapterScenery(group: THREE.Object3D, elapsed: number)
   (group.userData.lightPool as ChapterLightPool).update(elapsed, sceneryFocus.value);
 }
 export function disposeDeepChapterScenery(group: THREE.Object3D): void {
+  (group.userData.bakedScenery as THREE.Texture).dispose();
   (group.userData.lightPool as ChapterLightPool).dispose();
   group.traverse(node => {
     if (node instanceof THREE.InstancedMesh) node.dispose();
