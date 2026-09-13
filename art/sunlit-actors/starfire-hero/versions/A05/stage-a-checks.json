@@ -1,0 +1,168 @@
+{
+  "stage": "A",
+  "revision": "A05 reference refinement: unified mask, hood emblem, cloth edging, wrapped knees and belt hardware; A04 proportions retained",
+  "boneCount": 30,
+  "deformBoneCount": 29,
+  "atlas": [
+    256,
+    256
+  ],
+  "bodyMeshes": [
+    {
+      "name": "SF_Body",
+      "vertices": 720,
+      "triangles": 1200,
+      "materialSlots": 1,
+      "maxInfluences": 2,
+      "invalidWeights": [],
+      "firstPersonVisible": false
+    },
+    {
+      "name": "SF_Head",
+      "vertices": 126,
+      "triangles": 211,
+      "materialSlots": 1,
+      "maxInfluences": 1,
+      "invalidWeights": [],
+      "firstPersonVisible": false
+    },
+    {
+      "name": "SF_Arm_L",
+      "vertices": 217,
+      "triangles": 394,
+      "materialSlots": 1,
+      "maxInfluences": 2,
+      "invalidWeights": [],
+      "firstPersonVisible": true
+    },
+    {
+      "name": "SF_Arm_R",
+      "vertices": 244,
+      "triangles": 444,
+      "materialSlots": 1,
+      "maxInfluences": 2,
+      "invalidWeights": [],
+      "firstPersonVisible": true
+    }
+  ],
+  "sockets": {
+    "SF_Grip_R": {
+      "parent": "SF_Rig",
+      "bone": "hand.R",
+      "localPosition": [
+        0.00788968801498413,
+        -0.027387425303459167,
+        0.030758999288082123
+      ],
+      "worldPosition": [
+        -0.5659999847412109,
+        -0.05300000309944153,
+        1.011199951171875
+      ]
+    },
+    "SF_Skill_L": {
+      "parent": "SF_Rig",
+      "bone": "hand.L",
+      "localPosition": [
+        -0.003545999526977539,
+        -0.05700455605983734,
+        0.04164011403918266
+      ],
+      "worldPosition": [
+        0.5550000667572021,
+        -0.06100001186132431,
+        1.0399999618530273
+      ]
+    },
+    "SF_AttackAxis_R": {
+      "parent": "SF_Rig",
+      "bone": "hand.R",
+      "localPosition": [
+        0.00788968801498413,
+        -0.027387425303459167,
+        0.030758999288082123
+      ],
+      "worldPosition": [
+        -0.5659999847412109,
+        -0.05300000309944153,
+        1.011199951171875
+      ]
+    },
+    "SF_StaffMuzzle": {
+      "parent": "SF_Proxy_Staff",
+      "bone": "",
+      "localPosition": [
+        0.0,
+        0.0,
+        0.699999988079071
+      ],
+      "worldPosition": [
+        -0.5660000443458557,
+        -0.053000085055828094,
+        0.31119996309280396
+      ]
+    },
+    "SF_BladeTip": {
+      "parent": "SF_Proxy_Sword",
+      "bone": "",
+      "localPosition": [
+        0.0,
+        0.0,
+        0.6100000143051147
+      ],
+      "worldPosition": [
+        -0.5660000443458557,
+        -0.0530000776052475,
+        0.40119993686676025
+      ]
+    }
+  },
+  "inspectionPoses": [
+    {
+      "name": "rest",
+      "amount": 1,
+      "nonFiniteMeshes": [],
+      "gripOriginErrorMeters": 0.0
+    },
+    {
+      "name": "flex",
+      "amount": 0.5,
+      "nonFiniteMeshes": [],
+      "gripOriginErrorMeters": 0.0
+    },
+    {
+      "name": "flex",
+      "amount": 1,
+      "nonFiniteMeshes": [],
+      "gripOriginErrorMeters": 0.0
+    },
+    {
+      "name": "reach",
+      "amount": 1,
+      "nonFiniteMeshes": [],
+      "gripOriginErrorMeters": 0.0
+    },
+    {
+      "name": "staff",
+      "amount": 1,
+      "nonFiniteMeshes": [],
+      "gripOriginErrorMeters": 0.0
+    }
+  ],
+  "gameplayAnimations": 0,
+  "runtimeIntegrated": false,
+  "mobilePerformanceMeasured": false,
+  "totalBodyTriangles": 2249,
+  "totalBodyVertices": 1307,
+  "sharedMaterials": 1,
+  "proxyWeapons": {
+    "Sword": {
+      "vertices": 52,
+      "triangles": 88
+    },
+    "Staff": {
+      "vertices": 140,
+      "triangles": 240
+    }
+  }
+}

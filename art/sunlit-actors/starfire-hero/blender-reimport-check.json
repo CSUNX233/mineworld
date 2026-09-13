@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "revision": "A15 hand finish: four distinct curled right fingers, articulated tapered left fingers, opposed thumbs and inset glove reinforcement; A14 body/cape and A13 arm rest retained",
+  "skinnedMeshes": 4,
+  "bones": 30,
+  "boundsMin": [
+    -0.4727581739425659,
+    -0.28999999165534973,
+    0.017999790608882904
+  ],
+  "boundsMax": [
+    0.45011648535728455,
+    0.2789999842643738,
+    2.059000015258789
+  ],
+  "importerCustomBoneShapeMeshes": [],
+  "originalSceneObjects": 3
+}

@@ -1,3 +1,4 @@
+import { StarfirePresentation, disposeHeroObject } from './StarfirePresentation';
 import { swingRoll } from '../combat/MeleeSwing';
 import * as THREE from 'three';
 import type { ElementType, Item } from '../types';
@@ -7,8 +8,11 @@ export class FirstPersonViewModel {
   private arm: THREE.Mesh;
   private weaponGroup: THREE.Group | null = null;
   private walkPhase = 0;
+  private released = false;
+  private visible = false;
 
-  constructor(private camera: THREE.PerspectiveCamera) {
+  constructor(private camera: THREE.PerspectiveCamera, private hero?: StarfirePresentation) {
+    hero?.bindCamera(camera);
     camera.add(this.group);
     this.group.position.set(0.36, -0.42, -0.85);
     this.group.rotation.y = -0.08;
@@ -23,10 +27,12 @@ export class FirstPersonViewModel {
   }
 
   setVisible(visible: boolean): void {
-    this.group.visible = visible;
+    this.visible = visible;
+    this.group.visible = visible && !this.hero?.ready;
   }
 
   setWeapon(item: Item | null): void {
+    if (this.hero?.ready) return;
     if (this.weaponGroup) {
       this.group.remove(this.weaponGroup);
       this.disposeGroup(this.weaponGroup);
@@ -46,6 +52,13 @@ export class FirstPersonViewModel {
   }
 
   update(dt: number, moving: boolean, sprinting: boolean): void {
+    if (this.hero?.ready) {
+      if (!this.released) {
+        disposeHeroObject(this.group); this.group.clear(); this.weaponGroup = null; this.arm = undefined!; this.released = true;
+      }
+      return;
+    }
+    this.group.visible = this.visible;
     const scale = Math.min(0.7, Math.max(0.42, this.camera.aspect * 0.7));
     this.group.scale.setScalar(scale);
     const horizontalSpace = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * 0.85;
@@ -67,6 +80,7 @@ export class FirstPersonViewModel {
   }
 
   swing(progress: number, angle = 0): void {
+    if (this.hero?.ready) return;
     this.arm.rotation.order = 'ZXY';
     this.arm.rotation.z = swingRoll(angle, progress);
     if (this.weaponGroup) {

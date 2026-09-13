@@ -465,7 +465,7 @@ export class Game {
     this.camera.position.set(0, 8, 12);
     this.camera.lookAt(0, 1, 0);
     this.scene.add(this.camera);
-    this.firstPersonView = new FirstPersonViewModel(this.camera);
+    this.firstPersonView = new FirstPersonViewModel(this.camera, this.player.presentation);
 
     const hemi = new THREE.HemisphereLight(0xd8e8ff, 0x2a2f36, 0.9);
     hemi.name = 'chapter-hemi';
@@ -532,6 +532,7 @@ export class Game {
     this.inventoryUI.onDetailsClose = () => this.mobileBack.unregister('itemDetails');
 
     window.addEventListener('resize', () => this.onResize());
+    window.addEventListener('pagehide', event => { if (!event.persisted) this.player.presentation.dispose(); });
     this.renderer.domElement.addEventListener('click', () => {
       if (this.running && !this.inventoryUI.open && !this.mobile) {
         this.audio.ensure();
@@ -1335,6 +1336,7 @@ export class Game {
       this.renderer.compile(this.scene, this.camera);
     }
     this.renderer.render(this.scene, this.camera);
+    this.player.presentation.renderFirstPerson(this.renderer);
     await loading.step(100, '准备完成');
     loading.close();
     preloadRemainingGameImages();
@@ -1596,6 +1598,7 @@ export class Game {
     this.updateAimIndicator();
     updateWaterReflection(this.world.group,this.renderer,this.scene,this.camera,now/1000,this.running);
     this.renderer.render(this.scene, this.camera);
+    this.player.presentation.renderFirstPerson(this.renderer);
     this.input.endFrame();
   };
 
@@ -1831,6 +1834,9 @@ export class Game {
 
   private updatePlayerVisibility(): void {
     const opacity = this.controller.bodyOpacity;
+    this.player.presentation.setView(this.controller.isFirstPerson, opacity);
+    this.firstPersonView.setVisible(this.controller.isFirstPerson);
+    if (this.player.presentation.ready) { this.player.group.visible = !this.controller.isFirstPerson && opacity > .02; return; }
     this.player.group.visible = opacity > 0.02;
     this.player.group.traverse(child => {
       if (!(child instanceof THREE.Mesh)) return;

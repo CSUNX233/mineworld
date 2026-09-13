@@ -98,6 +98,7 @@ export class PlayerController {
   }
 
   resetView(floorData: FloorData | null = null): void {
+    this.player.presentation.resetMotion();
     this.touchAim = null;
     this.touchAimLife = 0;
     this.cameraAnchorY = null;
@@ -196,6 +197,7 @@ export class PlayerController {
     const forward = new THREE.Vector3(Math.sin(this.cameraYaw), 0, Math.cos(this.cameraYaw));
     const right = new THREE.Vector3(-forward.z, 0, forward.x);
     const moveDir = new THREE.Vector3().addScaledVector(forward, forwardInput).addScaledVector(right, strafeInput);
+    p.motionInput = Math.min(1, moveDir.length());
     p.moving = moveDir.lengthSq() > 0.001;
     p.sprinting = p.moving && (this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight'));
     this.combatFacingTime = Math.max(0, this.combatFacingTime - dt);
@@ -239,6 +241,7 @@ export class PlayerController {
       p.velocity.y = Math.max(p.velocity.y, -30);
     }
 
+    p.visualVerticalSpeed = p.velocity.y;
     if (floorData) {
       this.moveWithCollisions(p, floorData, dt);
     } else {

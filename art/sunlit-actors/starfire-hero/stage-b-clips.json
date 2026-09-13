@@ -1,0 +1,13 @@
+{
+  "Idle": 2.4,
+  "Walk": 0.88,
+  "Run": 0.62,
+  "Jump_Start": 0.12,
+  "Jump_Rise": 0.3,
+  "Jump_Apex": 0.16,
+  "Jump_Fall": 0.4,
+  "Land_Light": 0.24,
+  "Land_Heavy": 0.42,
+  "FP_Pose": 0.1,
+  "Staff_Hold": 0.1
+}

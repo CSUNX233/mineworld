@@ -1,3 +1,4 @@
+import { StarfirePresentation, disposeHeroObject } from './StarfirePresentation';
 import { swingRoll } from '../combat/MeleeSwing';
 import * as THREE from 'three';
 import type { ActorStatus, ElementType, Item } from '../types';
@@ -5,6 +6,9 @@ import { applyStatus, updateStatuses } from '../combat/ElementSystem';
 import { defenseMitigation, boundedDodgeChance } from '../combat/DamageRules';
 
 export class Player {
+  readonly presentation: StarfirePresentation;
+  motionInput = 0;
+  visualVerticalSpeed = 0;
   onLeechRecovered: ((amount: number) => void) | null = null;
   readonly group = new THREE.Group();
   readonly position = new THREE.Vector3(0, 0, 0);
@@ -87,6 +91,13 @@ export class Player {
 
     this.group.position.copy(this.position);
     this.group.rotation.y = this.yaw;
+    this.presentation = new StarfirePresentation(this.group, () => {
+      const old = new THREE.Group();
+      for (const child of [...this.group.children]) old.add(child);
+      disposeHeroObject(old);
+      this.leftArm = this.rightArm = this.leftLeg = this.rightLeg = undefined!;
+      this.weaponMesh = null;
+    });
   }
 
   update(dt: number, elapsed: number): void {
@@ -110,6 +121,10 @@ export class Player {
     } else if (!this.alive) this.leechReserve = 0;
     this.group.position.copy(this.position);
     this.group.rotation.y = this.yaw;
+    if (this.presentation.ready) {
+      this.presentation.update(dt, this);
+      return;
+    }
     if (this.moving && this.onGround) {
       this.stepTime += dt * (this.sprinting ? 11 : 8);
       const swing = Math.sin(this.stepTime) * 0.55;
@@ -191,12 +206,15 @@ export class Player {
   }
 
   swingArm(progress: number, angle = 0): void {
+    if (this.presentation.ready) { this.presentation.swing(progress, angle); return; }
     this.rightArm.rotation.order = 'ZXY';
     this.rightArm.rotation.z = swingRoll(angle, progress);
     this.rightArm.rotation.x = -Math.PI * 0.85 * Math.sin(progress * Math.PI);
   }
 
   setWeapon(item: Item | null): void {
+    this.presentation.setWeapon(item);
+    if (this.presentation.ready) return;
     if (this.weaponMesh) {
       this.rightArm.remove(this.weaponMesh);
       this.disposeGroup(this.weaponMesh);

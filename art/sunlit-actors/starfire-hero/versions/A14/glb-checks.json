@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "scope": "asset structure, finite geometry, normalized weights, bone/socket hierarchy, embedded nearest-filtered texture; not gameplay or GPU performance",
+  "files": [
+    {
+      "file": "starfire-hero.glb",
+      "bytes": 323760,
+      "meshes": 4,
+      "triangles": 2725,
+      "exportedVerticesAfterUVAndNormalSplits": 5197,
+      "materials": 1,
+      "embeddedTextures": 1,
+      "skinCount": 1,
+      "animations": 0
+    },
+    {
+      "file": "proxy-sword.glb",
+      "bytes": 29560,
+      "meshes": 1,
+      "triangles": 88,
+      "exportedVerticesAfterUVAndNormalSplits": 160,
+      "materials": 1,
+      "embeddedTextures": 1,
+      "skinCount": 0,
+      "animations": 0
+    },
+    {
+      "file": "proxy-staff.glb",
+      "bytes": 38796,
+      "meshes": 1,
+      "triangles": 240,
+      "exportedVerticesAfterUVAndNormalSplits": 420,
+      "materials": 1,
+      "embeddedTextures": 1,
+      "skinCount": 0,
+      "animations": 0
+    }
+  ]
+}
