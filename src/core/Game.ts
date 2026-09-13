@@ -1,4 +1,6 @@
 import { EnemyRecovery } from '../monsters/EnemyRecovery';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { preloadInteractionProps } from '../world/InteractionProps';
 import { cloneData } from '../utils/cloneData';
 import { createSaveCandidate } from './SaveCandidate';
@@ -610,6 +612,7 @@ export class Game {
       this.audio.stopWalk();
       this.audio.stopAmbient();
       this.audio.stopBGM();
+      if (Capacitor.isNativePlatform()) { void App.exitApp(); return; }
       window.close();
       window.setTimeout(() => {
         if (window.closed || !panel.isConnected) return;

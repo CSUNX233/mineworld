@@ -7,3 +7,10 @@ dist/
 # Local inspection output and Blender autosaves
 .playwright-cli/
 *.blend[0-9]
+
+# Android release outputs and private signing material
+releases/
+*.jks
+*.keystore
+*.p12
+android/signing.properties

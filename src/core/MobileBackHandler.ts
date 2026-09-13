@@ -1,4 +1,6 @@
 import { isMobileDevice } from '../utils/mobile';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 type BackAction = {
   id: string;
@@ -12,6 +14,14 @@ export class MobileBackHandler {
 
   constructor() {
     if (this.mobile) {
+      if (Capacitor.isNativePlatform()) {
+        void App.addListener('backButton', () => {
+          const top = this.stack[this.stack.length - 1];
+          if (top) top.close();
+          else this.rootHandler?.();
+        });
+        return;
+      }
       this.pushGuard();
       window.addEventListener('popstate', this.onPopState);
     }

@@ -8,12 +8,18 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/core.test.mjs"
+    "test": "node --test tests/core.test.mjs",
+    "android:sync": "npm run build && cap sync android",
+    "android:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
     "three": "^0.169.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@types/three": "^0.185.4",
     "typescript": "^5.6.3",
     "vite": "^6.0.0"
