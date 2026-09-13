@@ -19,11 +19,19 @@ import { Monster } from './Monster';
 import { attachMechanicVisual } from './MechanicVisual';
 
 const MONSTER_DEFS = [...monsterData as unknown as MonsterDefinition[], ...RUINS_MONSTERS, ...SANCTUM_MONSTERS, ...LATE_MONSTERS];
+const originalDefinitions = new WeakMap<MonsterDefinition, MonsterDefinition>();
 
 export class MonsterSpawner {
   /** Build only the model that will actually be displayed. */
   static createActor(def:MonsterDefinition,x:number,z:number,data:FloorData):Monster {
+    def = originalDefinitions.get(def) ?? def;
+    if (data.difficulty === 'hard') {
+      const original = def;
+      def = { ...original, attack: original.attack * 1.5 };
+      originalDefinitions.set(def, original);
+    }
     const monster=new Monster(def,x,z);
+    monster.group.userData.hardMode = data.difficulty === 'hard';
     if(hasLateContent(data))monster.position.y=lateGroundHeight(data,x,z);
     return monster;
   }
@@ -127,8 +135,8 @@ export class MonsterSpawner {
     return monsterAttack(monster.def.attack, floor, monster.def.behavior === 'boss') * (monster.def.id === 'boss' ? 1.1 : 1) * (floor === 25 && monster.def.behavior === 'boss' ? 1.15 : 1);
   }
 
-  static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG, meleeOnly = false): Monster | null {
-    const pool = this.availableForFloor(floorData.floor).filter(def => !def.role && (!meleeOnly || def.id === 'slime' || def.id === 'zombie'));
+  static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG, meleeOnly = false, rangedOnly = false): Monster | null {
+    const pool = this.availableForFloor(floorData.floor).filter(def => !def.role && (!meleeOnly || def.id === 'slime' || def.id === 'zombie') && (!rangedOnly || def.behavior === 'ranged'));
     if (pool.length === 0) return null;
     const spot = this.findNearestWalkable(floorData, position.x, position.z);
     if (!spot) return null;

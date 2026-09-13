@@ -14,7 +14,35 @@
     rgba(8, 21, 34, .91);
 }
 
-.sunlit-pause-overlay { z-index: 220; }
+#ui-root .sunlit-start-overlay {
+  background: linear-gradient(#07192722, #07192766), url('/assets/ui/sunlit/menu-art/main-menu.webp') center top / cover no-repeat;
+}
+#ui-root .sunlit-pause-overlay {
+  z-index: 220;
+  background: linear-gradient(#07192728, #07192766), url('/assets/ui/sunlit/menu-art/pause-menu.webp') center / cover no-repeat;
+}
+#ui-root .sunlit-title-screen > .panel {
+  width: min(440px, 86vw); padding: 16px 12px;
+  background: transparent !important;
+  border: 0 !important; border-image: none !important;
+  color: #fff0ce; box-shadow: none; overflow: visible;
+}
+#ui-root .sunlit-title-screen .sunlit-brand-title {
+  color: #ffe1a0; font-size: clamp(42px, 6.8vw, 84px); line-height: 1.1;
+  margin: 0 0 30px; letter-spacing: -1px;
+  text-shadow: 0 3px 0 #142837, 0 7px 18px #071521, 0 0 24px #e7af3760;
+}
+#ui-root .sunlit-title-screen .sunlit-brand-title::before,
+#ui-root .sunlit-title-screen .sunlit-brand-title::after { display: none; }
+#ui-root .sunlit-title-screen .sunlit-menu-button {
+  width: min(300px, 100%); min-height: 48px; margin: 6px auto; display: block;
+}
+.sunlit-exit-hint { color: #fff0d1; font-size: 12px; text-align: center; line-height: 1.5; text-shadow: 0 1px 3px #000; }
+@media (max-height: 480px) {
+  #ui-root .sunlit-title-screen > .panel { padding: 8px; width: min(430px, 70vw); }
+  #ui-root .sunlit-title-screen .sunlit-brand-title { font-size: clamp(40px, 7vw, 68px); margin-bottom: 22px; }
+  #ui-root .sunlit-title-screen .sunlit-menu-button { min-height: 44px; margin: 5px auto; }
+}
 .sunlit-talent-overlay { z-index: 240; }
 .sunlit-skill-menu-overlay {
   z-index: 245;
@@ -415,4 +443,34 @@
 @media (max-width: 480px) {
   #ui-root .controls-guide-panel { padding: 8px; }
   .controls-guide-header h2 { font-size: 20px; }
+}
+/* Illustrated first-entry and end-of-run screens share the game's pixel art palette. */
+#ui-root .newcomer-overlay { z-index: 1400; background: #132133b3; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+.newcomer-panel { box-sizing: border-box; width: min(760px, 96vw); max-height: 92vh; max-height: 92dvh; overflow-y: auto; border: 2px solid #af9764; border-radius: 8px; padding: clamp(16px, 4vw, 36px); color: #fff1cb; text-align: center; box-shadow: 0 12px 60px #000a; background: linear-gradient(0deg, #101a2bf5 0%, #101a2bed 40%, #101a2b22 100%), url('/assets/ui/sunlit/end-art/view-choice.webp') center / cover; }
+.newcomer-panel h2 { margin: clamp(64px, 18vh, 170px) 0 12px; font-size: clamp(23px, 4vw, 34px); text-shadow: 0 2px 4px #000; }
+.newcomer-panel p { line-height: 1.7; }
+.newcomer-actions { display: flex; justify-content: center; gap: 12px; }
+#ui-root .newcomer-actions button { flex: 1; min-width: 0; min-height: 48px; }
+.newcomer-mercy .newcomer-panel { background-image: linear-gradient(0deg, #101a2bf5 0%, #101a2bdc 50%, #101a2b44 100%), url('/assets/ui/sunlit/end-art/victory.webp'); }
+#ui-root .outcome-overlay { background: linear-gradient(90deg, #0c122017, #0c122066 40%, #0c1220cc 100%), url('/assets/ui/sunlit/end-art/death.webp') left center / cover; padding: max(12px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); }
+#ui-root .outcome-victory { background-image: linear-gradient(90deg, #0c122017, #0c122066 40%, #0c1220cc 100%), url('/assets/ui/sunlit/end-art/victory.webp'); }
+#ui-root .outcome-overlay .sunlit-menu-panel { width: min(620px, 57vw); max-height: 92vh; max-height: 92dvh; margin-left: auto; margin-right: 3vw; background: transparent !important; border: 0 !important; border-image: none !important; box-shadow: none; padding: 16px; color: #fff0ce; text-shadow: 0 2px 4px #0b1226; }
+#ui-root .outcome-overlay .sunlit-screen-title { font-size: clamp(22px, 3vw, 36px); color: #ffe6ac; line-height: 1.3; }
+#ui-root .outcome-death .sunlit-screen-title { color: #efd2d8; }
+#ui-root .outcome-overlay .sunlit-settlement-totals { background: #111f30bb; border: 1px solid #b19a6255; border-image: none; padding: 14px; border-radius: 4px; }
+.settlement-screen .sunlit-settlement-totals strong { display: block; font-size: clamp(17px, 2vw, 23px); margin-top: 10px; color: #ffe6a5; }
+.settlement-author-note { font-size: 12px; opacity: .78; text-align: center; margin: 12px 0 0; }
+#ui-root .outcome-overlay .sunlit-run-screen > p { color: #e8dfd1; }
+#ui-root .newcomer-panel p, #ui-root .outcome-overlay .sunlit-copy { color: #f4ead8 !important; }
+#ui-root .outcome-overlay .sunlit-run-screen > .settlement-author-note { color: #e0d5c8; opacity: .9; }
+@media (max-height: 500px) and (orientation: landscape) {
+  .newcomer-panel h2 { margin-top: 54px; }
+  #ui-root .outcome-overlay .sunlit-menu-panel { padding: 4px 12px; margin-right: 0; }
+  .settlement-screen p { margin-block: 7px; font-size: 13px; }
+  #ui-root .outcome-overlay .sunlit-settlement-totals { padding: 8px 12px; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  .newcomer-actions { flex-direction: column; }
+  #ui-root .outcome-overlay .sunlit-menu-panel { width: 100%; margin: auto 0 0; background: #0c1721b8 !important; }
+  #ui-root .outcome-overlay { background-position: 25% center; }
 }

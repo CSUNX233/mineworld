@@ -13,6 +13,7 @@ let savedScroll: { left: number; top: number } | null = null;
 const BRANCH_LABELS = {trunk:'公共主干',vitality:'体魄分支',mana:'灵泉分支',attack:'锋芒分支',defense:'坚守分支'};
 
 function position(node: MetaNode): { x: number; y: number } {
+  if (node.kind === 'difficulty') return {x:550,y:180};
   const legacy: Record<string,{x:number;y:number}> = {vanguard:{x:440,y:70},arcanist:{x:230,y:70},summoner:{x:650,y:70},vanguard_mastery:{x:350,y:180},arcanist_mastery:{x:130,y:180},summoner_mastery:{x:750,y:180}};
   if (node.kind !== 'permanent') return legacy[node.id];
   const step = Number(node.id.slice(node.id.lastIndexOf('_')+1));
@@ -69,7 +70,7 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
     const heading = document.createElement('div');heading.className='meta-tree-detail-heading';
     const close = action('收起详情',()=>{closeDetail();buttons.get(node.id)?.focus({preventScroll:true});});close.classList.add('meta-tree-detail-close');
     heading.append(text('h3',node.name),close);
-    detail.replaceChildren(heading,text('span',node.kind==='permanent' ? BRANCH_LABELS[node.branch] : node.kind==='mastery' ? '流派掌握' : '流派入门','meta-tree-branch'),text('p',node.description));
+    detail.replaceChildren(heading,text('span',node.kind==='difficulty' ? '难度解锁' : node.kind==='permanent' ? BRANCH_LABELS[node.branch] : node.kind==='mastery' ? '流派掌握' : '流派入门','meta-tree-branch'),text('p',node.description));
     if (node.requiresNode) detail.append(text('p',`前置：${META_NODES.find(n=>n.id===node.requiresNode)?.name ?? node.requiresNode}`));
     if (node.kind==='mastery') detail.append(text('p','需完整通关，并在至少 3 个战斗房使用任一对应分支 20 次。'));
     detail.append(text('p',`消耗 ${node.cost} 个营地天赋点 · 当前 ${envelope.profile.availableMetaPoints} 点`));
@@ -86,7 +87,7 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
     button.dataset.kitTier = tier;
     button.style.setProperty('--kit-node', `url("${kitUrl(`talents/${tier}-${unlocked ? 'learned' : ready ? 'available' : 'locked'}`)}")`);
     button.style.left=`${p.x}px`;button.style.top=`${p.y}px`;button.setAttribute('aria-label',`${node.name}，${unlocked?'已解锁':ready?'可修习':'待解锁'}`);button.title=node.name;
-    button.append(text('span',node.kind==='permanent' ? node.notable ? '◆' : node.id.slice(node.id.lastIndexOf('_')+1) : node.kind==='mastery' ? '★' : node.id==='vanguard' ? '剑' : node.id==='arcanist' ? '术' : '契','meta-tree-node-symbol'));
+    button.append(text('span',node.kind==='permanent' ? node.notable ? '◆' : node.id.slice(node.id.lastIndexOf('_')+1) : node.kind==='difficulty' ? '难' : node.kind==='mastery' ? '★' : node.id==='vanguard' ? '剑' : node.id==='arcanist' ? '术' : '契','meta-tree-node-symbol'));
     const label = text('span',node.name,'meta-tree-node-label');button.append(label);button.onclick=()=>select(node);board.append(button);buttons.set(node.id,button);
   }
   viewport.append(board);layout.append(viewport,detail);root.append(layout,text('p','金：已解锁 · 青：可修习 · 灰：待解锁｜双向拖动，点节点查看','meta-tree-footnote meta-tree-gesture-hint'));

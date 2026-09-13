@@ -114,6 +114,7 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
+  difficulty?: 'normal' | 'hard';
   generationVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   layoutKind?: string;
   merchant?: { x: number; z: number };

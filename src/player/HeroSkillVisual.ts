@@ -2,6 +2,15 @@ import * as THREE from 'three';
 import type { SkillDefinition } from '../data/skills';
 import { effectTexture } from '../ui/CombatArt';
 
+export const PALM_COLORS = {
+  physical: { flame: 0xe9ca83, glow: 0xffefbd },
+  fire: { flame: 0xff6528, glow: 0xffd28c },
+  frost: { flame: 0x59cfff, glow: 0xcbf8ff },
+  lightning: { flame: 0x9a8aff, glow: 0xe5dcff },
+  poison: { flame: 0x69df61, glow: 0xc6ffac },
+  shadow: { flame: 0xb570ef, glow: 0xe1bcff },
+} as const;
+
 /** A fixed reusable sprite bank, shared between the two camera views. */
 export class HeroSkillVisual {
   readonly flame = new THREE.Group();
@@ -16,17 +25,33 @@ export class HeroSkillVisual {
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false});
   constructor() {
     this.flame.name = 'StarfirePalmEnergy'; this.flame.visible = false;
+    // Neutralize the orange baked into the shared atlas without mutating its texture.
+    // Material tint can then produce clean blue/green/violet energy in both views.
+    for (const material of [this.fire, this.glow]) {
+      material.onBeforeCompile = shader => {
+        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+          #include <map_fragment>
+          #ifdef USE_MAP
+            vec3 energyTexel = sampledDiffuseColor.rgb;
+            float energyLight = max(energyTexel.r, max(energyTexel.g, energyTexel.b));
+            diffuseColor.rgb = diffuse * energyLight;
+          #endif
+        `);
+      };
+      material.customProgramCacheKey = () => 'starfire-element-tint-v1';
+    }
     for (let i=0;i<6;i++) {
       const sprite=new THREE.Sprite(i===0 ? this.glow : this.fire);
       sprite.renderOrder=1001; this.sprites.push(sprite); this.flame.add(sprite);
     }
   }
   trigger(skill: SkillDefinition): void {
+    const colors = PALM_COLORS[skill.element];
+    this.fire.color.setHex(colors.flame);
+    this.glow.color.setHex(colors.glow);
+    this.castTime = this.duration;
     if (skill.tags.includes('melee') && !skill.tags.includes('defense')) {
       this.slashTime=this.slashDuration;
-    } else {
-      this.castTime=this.duration;
-      this.glow.color.setHex(skill.element==='frost' ? 0x98eaff : skill.element==='shadow' ? 0xc29bff : 0xffe7a8);
     }
     this.refresh();
   }

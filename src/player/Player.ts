@@ -1,5 +1,6 @@
 import { StarfirePresentation, disposeHeroObject } from './StarfirePresentation';
 import { swingRoll } from '../combat/MeleeSwing';
+import { weaponKind } from '../items/WeaponKind';
 import * as THREE from 'three';
 import type { ActorStatus, ElementType, Item } from '../types';
 import { applyStatus, updateStatuses } from '../combat/ElementSystem';
@@ -222,8 +223,7 @@ export class Player {
     }
     if (!item || item.slot !== 'weapon') return;
 
-    const isStaff =
-      item.name.includes('法杖') || item.id.startsWith('staff_') || item.id.startsWith('weapon_staff');
+    const isStaff = weaponKind(item) === 'staff';
     this.weaponMesh = isStaff ? this.buildStaff(item.element) : this.buildMeleeWeapon(item);
     this.weaponMesh.position.set(0, -0.44, 0.34);
     this.rightArm.add(this.weaponMesh);

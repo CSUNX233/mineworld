@@ -229,10 +229,11 @@ export function buildSettlementView(
   const victory = record.outcome === 'victory';
   const extracted = record.outcome === 'extracted';
   const floorCount = record.rulesVersion === 1 ? 5 : BASIC_RUN_DEFINITION.floorCount;
-  const root = panel(victory ? '深渊突破' : extracted ? '阶段撤离成功' : record.outcome === 'death' ? '本次冒险结束' : '已放弃本局',
-    victory ? `你完成了 ${floorCount} 层挑战。带着新的研究成果，尝试下一种流派。`
+  const root = panel(victory ? '恭喜你活下来了...暂时。' : extracted ? '阶段撤离成功' : record.outcome === 'death' ? '你坠入了无尽的深渊....' : '已放弃本局',
+    victory ? `第 ${floorCount} 层的门扉在身后合拢。先喘口气吧，黑暗会记住你的脚步。`
       : extracted ? '提前结算获得部分研究成果，不算完整通关。本局装备和资源不会带出，局外解锁继续保留。'
-        : '本局装备和资源不会带出，局外解锁继续保留。');
+        : record.outcome === 'death' ? '最后一簇火光熄灭了。但你带回的见闻，会照亮下一次出发。局外研究与解锁继续保留。' : '本局装备和资源不会带出，局外解锁继续保留。');
+  root.classList.add('settlement-screen');
   root.append(paragraph(`到达第 ${record.finalFloor} 层 · Lv.${record.finalLevel} · 完成主线 ${record.completedObjectives} / ${floorCount * 2}`));
   const totals = element('div');
   totals.className = 'sunlit-inset sunlit-settlement-totals';
@@ -252,6 +253,10 @@ export function buildSettlementView(
   notice(root, message);
   root.append(paragraph(saved ? '奖励已保存。再次打开这份结算不会重复发放。' : '结算尚未保存，奖励未确认到账。请重试保存后再离开。'));
   root.append(row(saved ? button('确认结算，返回存档界面', actions.confirm) : button('重试保存', actions.retry)));
+  if (victory || record.outcome === 'death') {
+    const note = paragraph('看在作者这么可爱的份上，给个好评呗');
+    note.className = 'settlement-author-note'; root.append(note);
+  }
   return root;
 }
 

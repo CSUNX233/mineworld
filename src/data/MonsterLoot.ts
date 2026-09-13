@@ -34,7 +34,7 @@ export function monsterLootWeights(floor: number, luck: number, minimum: Rarity 
   // Apply yellow reduction after the previous orange/red rebalance.
   const yellow = weights.find(entry => entry.rarity === 'rare');
   if (yellow && floor <= 10) {
-    const reduction = yellow.weight * (floor <= 5 ? .25 : .1);
+    const reduction = yellow.weight * (floor <= 5 ? 1 - .75 * .8 : .1);
     yellow.weight -= reduction;
     const blue = weights.find(entry => entry.rarity === 'magic');
     if (blue) blue.weight += reduction;
@@ -43,5 +43,5 @@ export function monsterLootWeights(floor: number, luck: number, minimum: Rarity 
   return weights;
 }
 export function monsterItemChance(floor: number): number {
-  return Math.min(.65, .32 + Math.max(1, floor) * .012);
+  return Math.min(.65, .32 + Math.max(1, floor) * .012) * .9;
 }

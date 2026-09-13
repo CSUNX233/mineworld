@@ -1,5 +1,6 @@
 import { StarfirePresentation, disposeHeroObject } from './StarfirePresentation';
 import { swingRoll } from '../combat/MeleeSwing';
+import { weaponKind } from '../items/WeaponKind';
 import * as THREE from 'three';
 import type { ElementType, Item } from '../types';
 
@@ -43,7 +44,7 @@ export class FirstPersonViewModel {
       return;
     }
 
-    const isStaff = item.name.includes('法杖') || item.id.startsWith('staff_') || item.id.startsWith('weapon_staff');
+    const isStaff = weaponKind(item) === 'staff';
     this.weaponGroup = isStaff ? this.buildStaff(item.element) : this.buildMeleeWeapon(item);
     this.weaponGroup.position.set(0, -0.18, 0.1);
     this.group.add(this.weaponGroup);

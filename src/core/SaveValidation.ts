@@ -244,6 +244,8 @@ function validateRun(value: unknown): value is RunState {
   return isNonEmptyString(value.runId)
     && value.runDefinitionId === BASIC_RUN_DEFINITION.id
     && value.mapPoolId === 'basic'
+    && (value.openingPending === undefined || typeof value.openingPending === 'boolean')
+    && (value.difficulty === undefined || value.difficulty === 'normal' || value.difficulty === 'hard')
     && value.rulesVersion === BASIC_RUN_DEFINITION.rulesVersion
     && validEquipmentRulesVersion(value.equipmentRulesVersion)
     && validSetPreference(value.setPreference)

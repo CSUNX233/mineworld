@@ -1,0 +1,14 @@
+.opening-story { position: absolute; inset: 0; z-index: 1200; background: #0b1420; color: #fff4dd; overflow: hidden; pointer-events: auto; touch-action: manipulation; }
+.opening-picture { width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 400ms ease; pointer-events: none; }
+.opening-picture.is-ready { opacity: 1; animation: opening-drift 18s ease-out both; }
+.opening-skip { position: absolute; right: max(18px,env(safe-area-inset-right)); top: max(12px,env(safe-area-inset-top)); min-height: 44px; padding: 8px 18px; color: #fff4dd; background: #111f30c9; border: 1px solid #c5ad7480; border-radius: 4px; cursor: pointer; }
+.opening-caption { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px max(24px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left)); background: linear-gradient(#0b14201a,#0b1420e8 24%,#0b1420fa); text-shadow: 0 2px 3px #000; }
+#ui-root .opening-caption h2 { margin: 0 0 6px; color: #ffe0a0; font-size: clamp(17px,2.3vw,27px); }
+#ui-root .opening-caption p { margin: 0; color: #fff4dd; white-space: pre-line; font-size: clamp(13px,1.65vw,19px); line-height: 1.55; }
+.opening-footer { display:flex; align-items:center; gap:16px; margin-top:10px; color:#d9d4c7; font-size:12px; }
+#ui-root .opening-footer .sunlit-menu-button { margin:0 0 0 auto; min-height:42px; min-width:148px; padding:6px 16px; }
+.opening-status { font-size:12px; }
+@keyframes opening-drift { from { transform: scale(1); } to { transform: scale(1.035); } }
+@media (max-height:500px) and (orientation:landscape) { .opening-caption { padding-top:10px; } .opening-footer { margin-top:5px; } #ui-root .opening-caption p { font-size:13px; line-height:1.4; } }
+@media (orientation:portrait) { .opening-picture { object-fit:cover; object-position:center 25%; height:65%; } .opening-caption { max-height:52%; overflow-y:auto; } }
+@media (prefers-reduced-motion:reduce) { .opening-picture.is-ready { animation:none; } .opening-picture { transition:none; } }

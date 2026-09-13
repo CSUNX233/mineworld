@@ -104,6 +104,9 @@ const essentialUiPaths = [
 for (const style of ['quantity', 'damage']) for (let digit = 0; digit < 10; digit++)
   essentialUiPaths.push(assetUrl(`assets/ui/sunlit/numerals/${style}/${digit}.webp`));
 essentialUiPaths.push(assetUrl('assets/ui/sunlit/controls/joystick-sheet.webp'));
+essentialUiPaths.push(assetUrl('assets/ui/sunlit/end-art/view-choice.webp'));
+for (const name of ['loading-panel', 'pause-menu', 'quest-panel'])
+  essentialUiPaths.push(assetUrl(`assets/ui/sunlit/menu-art/${name}.webp`));
 for (const name of ['attack-2'])
   essentialUiPaths.push(assetUrl(`assets/ui/sunlit/attack/${name}.webp`));
 for (const name of ['pause', 'view_toggle'])

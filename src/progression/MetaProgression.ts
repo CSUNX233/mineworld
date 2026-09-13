@@ -42,7 +42,7 @@ export interface PermanentMetaNode {
   bonuses: Partial<MetaBonuses>;
 }
 export interface MetaBonuses { healthFlat: number; healthPercent: number; manaFlat: number; manaPercent: number; attackPercent: number; defenseFlat: number }
-export type MetaNode = ArchetypeMetaNode | MasteryMetaNode | PermanentMetaNode;
+export type MetaNode = ArchetypeMetaNode | MasteryMetaNode | PermanentMetaNode | { kind: 'difficulty'; id: 'hard_mode'; name: string; description: string; cost: number; requiresNode: string };
 
 const TRUNK_NAMES = ['立足营地','石径修习','旧誓研读','阵列认识','深层准备','遗迹见闻','沉钟思辨','深渊远望'];
 const permanentNodes: PermanentMetaNode[] = TRUNK_NAMES.map((name,i) => ({
@@ -85,6 +85,7 @@ export const MASTERY_USE_REQUIREMENT = 20;
 export const MASTERY_ENCOUNTER_REQUIREMENT = 3;
 
 export const META_NODES: readonly MetaNode[] = [
+  { kind: 'difficulty', id: 'hard_mode', name: '困难模式', description: '完整通关 25 层至少 2 次后免费解锁。新冒险可选择困难：怪物攻击 +50%，攻击频率 +20%，小怪每次击杀独立有 0.5% 概率掉落暗金套装装备。', cost: 0, requiresNode: 'vanguard' },
   {
     kind: 'archetype',
     id: 'vanguard',
@@ -175,6 +176,7 @@ export function completedBasicVictoryCount(envelope: SaveEnvelopeV3): number {
 }
 
 export function metaUnlockReason(envelope: SaveEnvelopeV3, node: MetaNode): string | null {
+  if (node.kind === 'difficulty' && completedBasicVictoryCount(envelope) < 2) return `完整通关 ${completedBasicVictoryCount(envelope)} / 2 次`;
   if (envelope.profile.unlockedNodes.includes(node.id)) return '已解锁';
   if (envelope.activeRun || envelope.pendingSettlement) return '结束当前对局并确认结算后可解锁';
   if (node.requiresNode && !envelope.profile.unlockedNodes.includes(node.requiresNode)) return `前置：${META_NODES.find(n=>n.id===node.requiresNode)?.name ?? node.requiresNode}`;
@@ -241,6 +243,7 @@ export function unlockNode(envelope: SaveEnvelopeV3, nodeId: string): SaveEnvelo
 
   const node = META_NODES.find((candidate) => candidate.id === nodeId);
   if (!node) throw new Error(`Unknown meta node: ${nodeId}`);
+  if (node.kind === 'difficulty' && completedBasicVictoryCount(envelope) < 2) throw new Error('需要完整通关 25 层至少 2 次。');
   if (envelope.profile.unlockedNodes.includes(node.id)) {
     throw new Error(`Meta node is already unlocked: ${node.id}`);
   }

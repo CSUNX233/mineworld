@@ -97,8 +97,10 @@ export class OathGatekeeperController {
       this.state.reinforcementUsed = true; this.summoning = true;
       const room = floor.rooms.find(candidate => candidate.id === boss.roomId);
       this.summonPositions = [];
-      if (room) for (const side of [-1, 1]) {
-        const spot = findEncounterRoomPosition(floor, room, boss.position.x + side * 2.2, boss.position.z);
+      const count = 2 + Math.floor(Math.random() * 3);
+      if (room) for (let index = 0; index < count; index++) {
+        const angle = index * Math.PI * 2 / count;
+        const spot = findEncounterRoomPosition(floor, room, boss.position.x + Math.cos(angle) * 3, boss.position.z + Math.sin(angle) * 3);
         if (spot && !this.summonPositions.some(p => Math.hypot(p.x - spot.x, p.z - spot.z) < .8)) this.summonPositions.push(new THREE.Vector3(spot.x, 0, spot.z));
       }
       const warning = new THREE.Group();
@@ -107,7 +109,7 @@ export class OathGatekeeperController {
         ring.rotation.x = -Math.PI / 2; ring.position.set(spot.x, .08, spot.z); warning.add(ring);
       }
       this.warning = warning; this.scene.add(warning); this.timer = this.duration = 1.1;
-      host.showMessage('旧军响应', '两名守军即将到来');
+      host.showMessage('旧军响应', `${this.summonPositions.length} 名弓手即将到来 · 优先打断远程火力`);
     }
     if (this.shield && this.state.phase === 1) {
       const raised = !this.warning && this.state.cooldown <= 0;

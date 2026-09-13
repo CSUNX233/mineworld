@@ -66,8 +66,10 @@ export class RunManager {
     seed: number,
     archetype: ArchetypeId,
     now: number,
+    difficulty: 'normal' | 'hard' = 'normal',
   ): SaveEnvelopeV3 {
     if (envelope.activeRun) throw new Error('A run is already active.');
+    if (difficulty === 'hard' && !envelope.profile.unlockedNodes.includes('hard_mode')) throw new Error('请先在营地解锁困难模式。');
     if (envelope.pendingSettlement) throw new Error('A settlement is awaiting acknowledgement.');
     if (envelope.claimedRunIds.includes(runId)) throw new Error(`Run id was already claimed: ${runId}`);
     if (!archetypeAllowed(envelope.profile, archetype)) {
@@ -78,6 +80,7 @@ export class RunManager {
     next.revision += 1;
     next.preferredArchetype = archetype;
     next.activeRun = {
+      difficulty,
       equipmentRulesVersion: 2,
       runId,
       runDefinitionId: BASIC_RUN_DEFINITION.id,

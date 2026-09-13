@@ -41,6 +41,8 @@ export interface ProfileData {
   claimedChallengeIds: string[];
 }
 export interface RunState {
+  openingPending?: boolean;
+  difficulty?: 'normal' | 'hard';
   equipmentRulesVersion?: number;
   setPreference?: string;
   p5StarterGranted?: boolean;

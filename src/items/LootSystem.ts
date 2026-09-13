@@ -26,6 +26,7 @@ export class LootSystem {
     equipmentRulesVersion = 1,
     mechanism?: EquipmentMechanismTag,
     rng = new RNG((Math.random() * 0xffffffff) >>> 0),
+    difficulty: 'normal' | 'hard' = 'normal',
   ): LootDrop[] {
     const drops: LootDrop[] = [];
     drops.push({ kind: 'gold', amount: Math.round((3 + floor * 2 + rng.float() * floor * 4) * (1 + luck / 100)) });
@@ -43,16 +44,26 @@ export class LootSystem {
       drops.push({ kind: 'item', item: ItemGenerator.generate(floor, rng, playerLevel, rarity, undefined, luck, rewardPreference, false, equipmentRulesVersion, mechanism) });
     };
     if (isBoss) {
-      equipment('rare');
-      equipment(floor >= 10 ? 'epic' : 'rare');
+      const count = 1 + Math.floor(rng.float() * 3);
+      let ordinaryCount = count;
       // One independent roll per boss kill; ordinary luck cannot bypass this exclusive source.
       if (rng.chance(deathReaperBossChance(floor))) {
+        ordinaryCount--;
         // One shared pool: half the successful rolls choose this Boss's own weapon.
         const exclusive=bossWeaponForBoss(monster.id) && rng.chance(.5);
         drops.push({kind:'item',item:exclusive ? ItemGenerator.generateBossWeapon(monster.id,floor,rng,playerLevel)
           : ItemGenerator.generateDeathReaper(floor,rng,playerLevel)});
       }
-    } else if (rng.chance(itemChance)) equipment('common');
+      for (let index = 0; index < ordinaryCount; index++) equipment(floor >= 10 && index > 0 ? 'epic' : 'rare');
+    } else {
+      if (rng.chance(itemChance)) equipment('common');
+      if (difficulty === 'hard' && rng.chance(.005)) {
+        const relic: LootDrop = {kind:'item',item:ItemGenerator.generateDeathReaper(floor,rng,playerLevel)};
+        const ordinary = drops.findIndex(drop => drop.kind === 'item');
+        if (ordinary >= 0) drops[ordinary] = relic;
+        else drops.push(relic);
+      }
+    }
     return drops;
   }
 }

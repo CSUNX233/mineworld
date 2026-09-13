@@ -6,12 +6,8 @@ import { HeroSkillVisual } from './HeroSkillVisual';
 import type { SkillDefinition } from '../data/skills';
 
 const BASE = `${(import.meta.env?.BASE_URL ?? '/')}assets/actors/starfire/`;
-const STAFF_IDS = ['starter_staff', 'weapon_staff', 'staff_inferno', 'staff_glacier'];
-export function heroWeaponKind(item: Item | null): 'staff' | 'sword' | null {
-  if (!item || item.slot !== 'weapon') return null;
-  const id = item.contentId ?? item.id;
-  return STAFF_IDS.some(base => id === base || id.startsWith(base + '_')) ? 'staff' : 'sword';
-}
+import { weaponKind as heroWeaponKind } from '../items/WeaponKind';
+export { weaponKind as heroWeaponKind } from '../items/WeaponKind';
 export function disposeHeroObject(root: THREE.Object3D): void {
   const geometry = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>(), skeletons = new Set<THREE.Skeleton>();
   root.traverse(o => {
