@@ -1,3 +1,4 @@
+import { createDeepChapterProp } from './DeepChapterAssets';
 import * as THREE from 'three';
 import type { FloorData } from '../types';
 import { sanctumRitualPositions } from '../data/SanctumChapter';
@@ -25,8 +26,9 @@ export class ChapterRituals {
         if (!spot) continue;
         const id = `${room.id}:${i}`;
         const mesh = new THREE.Group(); mesh.position.set(spot.x, 0, spot.z);
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(.45, .65, .5, 6), new THREE.MeshLambertMaterial({ color: 0x7e7968 }));
-        base.position.y = .25; mesh.add(base);
+        const art = createDeepChapterProp(floor.floor, 'altar');
+        const base = art ?? new THREE.Mesh(new THREE.CylinderGeometry(.45, .65, .5, 6), new THREE.MeshLambertMaterial({ color: 0x7e7968 }));
+        base.position.y = art ? 0 : .25; mesh.add(base);
         const flame = new THREE.Mesh(new THREE.OctahedronGeometry(.25), new THREE.MeshBasicMaterial({ color: this.used.has(id) ? 0x394845 : 0x72c6c3 }));
         flame.position.y = .9; mesh.add(flame);
         const warning = new THREE.Mesh(new THREE.RingGeometry(3.8, 4, 32), new THREE.MeshBasicMaterial({ color: 0x72c6c3, transparent: true, opacity: .65, depthWrite: false, side: THREE.DoubleSide }));
@@ -60,7 +62,7 @@ export class ChapterRituals {
   clear(): void {
     for (const altar of this.altars) {
       altar.mesh.removeFromParent(); altar.mesh.traverse(object => {
-        if (object instanceof THREE.Mesh) { object.geometry.dispose(); (object.material as THREE.Material).dispose(); }
+        if (object instanceof THREE.Mesh) { object.geometry.dispose(); (object.material as THREE.MeshLambertMaterial).map?.dispose(); (object.material as THREE.Material).dispose(); }
       });
     }
     this.altars = []; this.used.clear();

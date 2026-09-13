@@ -1,0 +1,674 @@
+{
+  "coverage": [
+    {
+      "floor": 6,
+      "theme": "铸造前庭",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "pressure-ring",
+          "kind": "battle",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-2",
+          "template": "pillar-court",
+          "kind": "battle",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tank",
+          "count": 1,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "pillar-court",
+          "kind": "elite",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-5",
+          "template": "split-gallery",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": false
+        }
+      ],
+      "arches": 9,
+      "corridorTiles": 240,
+      "decorations": 57,
+      "lights": 56,
+      "unchangedMap": true
+    },
+    {
+      "floor": 7,
+      "theme": "运输支廊",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "impact-yard",
+          "kind": "battle",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-2",
+          "template": "pillar-court",
+          "kind": "battle",
+          "landmark": "tank",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tank",
+          "count": 3,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "pillar-court",
+          "kind": "elite",
+          "landmark": "tank",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "tank",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-5",
+          "template": "split-gallery",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": true
+        }
+      ],
+      "arches": 11,
+      "corridorTiles": 308,
+      "decorations": 71,
+      "lights": 58,
+      "unchangedMap": true
+    },
+    {
+      "floor": 8,
+      "theme": "共鸣车间",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "resonance-workshop",
+          "kind": "battle",
+          "landmark": "coil",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-2",
+          "template": "prism-gallery",
+          "kind": "battle",
+          "landmark": "prism",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tank",
+          "count": 3,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "split-gallery",
+          "kind": "elite",
+          "landmark": "coil",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "coil",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-5",
+          "template": "split-gallery",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-6",
+          "template": "broken-bulwark",
+          "kind": "battle",
+          "landmark": "coil",
+          "count": 4,
+          "monument": false
+        }
+      ],
+      "arches": 10,
+      "corridorTiles": 221,
+      "decorations": 70,
+      "lights": 93,
+      "unchangedMap": true
+    },
+    {
+      "floor": 9,
+      "theme": "过载枢纽",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "foundry-combination",
+          "kind": "battle",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-2",
+          "template": "pillar-court",
+          "kind": "battle",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tank",
+          "count": 3,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "pillar-court",
+          "kind": "elite",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-5",
+          "template": "split-gallery",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-6",
+          "template": "overload-trial",
+          "kind": "battle",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": false
+        }
+      ],
+      "arches": 11,
+      "corridorTiles": 214,
+      "decorations": 70,
+      "lights": 71,
+      "unchangedMap": true
+    },
+    {
+      "floor": 10,
+      "theme": "总炉核心",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tank",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "split-gallery",
+          "kind": "sanctuary",
+          "landmark": "tank",
+          "count": 1,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "foundry-combination",
+          "kind": "battle",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "flanking-ring",
+          "kind": "elite",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-5",
+          "template": "pillar-court",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "furnace-arena",
+          "kind": "exit",
+          "landmark": "chimney",
+          "count": 4,
+          "monument": true
+        }
+      ],
+      "arches": 7,
+      "corridorTiles": 117,
+      "decorations": 48,
+      "lights": 49,
+      "unchangedMap": true
+    },
+    {
+      "floor": 11,
+      "theme": "缄默墓廊",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "sanctum-echo",
+          "kind": "battle",
+          "landmark": "broken_bell",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "sanctum-echo",
+          "kind": "elite",
+          "landmark": "broken_bell",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "broken_bell",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-5",
+          "template": "pillar-court",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-2",
+          "template": "sanctum-procession",
+          "kind": "battle",
+          "landmark": "broken_bell",
+          "count": 4,
+          "monument": false
+        }
+      ],
+      "arches": 8,
+      "corridorTiles": 182,
+      "decorations": 84,
+      "lights": 66,
+      "unchangedMap": true
+    },
+    {
+      "floor": 12,
+      "theme": "送葬回庭",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "sanctum-inscription",
+          "kind": "battle",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "sanctum-procession",
+          "kind": "elite",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-5",
+          "template": "pillar-court",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-2",
+          "template": "sanctum-ritual",
+          "kind": "battle",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        }
+      ],
+      "arches": 8,
+      "corridorTiles": 159,
+      "decorations": 75,
+      "lights": 61,
+      "unchangedMap": true
+    },
+    {
+      "floor": 13,
+      "theme": "万名骨殿",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tablet",
+          "count": 6,
+          "monument": false
+        },
+        {
+          "id": "room-0",
+          "template": "sanctum-blade",
+          "kind": "battle",
+          "landmark": "ossuary",
+          "count": 6,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "sanctum-inscription",
+          "kind": "elite",
+          "landmark": "tablet",
+          "count": 6,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "ossuary",
+          "count": 6,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-5",
+          "template": "pillar-court",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 6,
+          "monument": false
+        },
+        {
+          "id": "room-2",
+          "template": "sanctum-ritual",
+          "kind": "battle",
+          "landmark": "tablet",
+          "count": 6,
+          "monument": false
+        }
+      ],
+      "arches": 8,
+      "corridorTiles": 185,
+      "decorations": 76,
+      "lights": 55,
+      "unchangedMap": true
+    },
+    {
+      "floor": 14,
+      "theme": "倒悬钟庭",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-0",
+          "template": "sanctum-procession",
+          "kind": "battle",
+          "landmark": "ossuary",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-4",
+          "template": "sanctum-echo",
+          "kind": "elite",
+          "landmark": "ossuary",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-1",
+          "template": "pillar-court",
+          "kind": "exit",
+          "landmark": "ossuary",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-3",
+          "template": "pillar-court",
+          "kind": "sanctuary",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-5",
+          "template": "pillar-court",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-2",
+          "template": "sanctum-blade",
+          "kind": "battle",
+          "landmark": "ossuary",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-6",
+          "template": "sanctum-trial",
+          "kind": "battle",
+          "landmark": "ossuary",
+          "count": 4,
+          "monument": true
+        }
+      ],
+      "arches": 8,
+      "corridorTiles": 217,
+      "decorations": 90,
+      "lights": 52,
+      "unchangedMap": true
+    },
+    {
+      "floor": 15,
+      "theme": "无名王座",
+      "rooms": [
+        {
+          "id": "room-7",
+          "template": "pillar-court",
+          "kind": "start",
+          "landmark": "tablet",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-3",
+          "template": "split-gallery",
+          "kind": "sanctuary",
+          "landmark": "tablet",
+          "count": 1,
+          "monument": false
+        },
+        {
+          "id": "room-4",
+          "template": "sanctum-procession",
+          "kind": "battle",
+          "landmark": "ossuary",
+          "count": 4,
+          "monument": false
+        },
+        {
+          "id": "room-1",
+          "template": "sanctum-throne",
+          "kind": "exit",
+          "landmark": "ossuary",
+          "count": 4,
+          "monument": true
+        },
+        {
+          "id": "room-5",
+          "template": "split-gallery",
+          "kind": "treasure",
+          "landmark": "supply_crate",
+          "count": 3,
+          "monument": false
+        }
+      ],
+      "arches": 5,
+      "corridorTiles": 42,
+      "decorations": 36,
+      "lights": 35,
+      "unchangedMap": true
+    }
+  ]
+}

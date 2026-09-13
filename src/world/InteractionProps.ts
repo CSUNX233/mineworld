@@ -7,6 +7,7 @@ const geometryCache = new Map<string, THREE.BufferGeometry>();
 let material: THREE.MeshLambertMaterial | null = null;
 let pending: Promise<void> | null = null;
 const hinge = new THREE.Vector3(0, .52, -.4);
+const paletteMaterials = new Map<string, THREE.MeshLambertMaterial>();
 const openAngle = -105 * Math.PI / 180;
 
 /** Shared across chapters, awaited by the existing foreground loading gate. */
@@ -58,23 +59,50 @@ export async function preloadInteractionProps(): Promise<void> {
 }
 
 /** Borrowed GPU resources: callers dispose instance buffers only, never these assets. */
-export function interactionModule(name: string): { geometry: THREE.BufferGeometry; material: THREE.MeshLambertMaterial } | null {
+export function interactionModule(name: string, floor = 1): { geometry: THREE.BufferGeometry; material: THREE.MeshLambertMaterial } | null {
   const geometry = geometryCache.get(name);
-  return geometry && material ? { geometry, material } : null;
+  return geometry && material ? { geometry, material: chapterPropMaterial(floor) } : null;
 }
 
-function mesh(name: string): THREE.Mesh {
-  const module = interactionModule(name);
+/** One palette shader per chapter; same geometry, texture and chest animation. */
+function chapterPropMaterial(floor: number): THREE.MeshLambertMaterial {
+  const id = floor >= 6 && floor <= 10 ? 'foundry' : floor >= 11 && floor <= 15 ? 'sanctum' : '';
+  if (!id) return material!;
+  let themed = paletteMaterials.get(id);
+  if (!themed) {
+    themed = material!.clone();
+    const colors = (id === 'foundry' ? [0x8b6546, 0xb67b4e, 0x3e5366, 0x43382e] : [0xaba48a, 0xa58c55, 0x3d6257, 0x424f47])
+      .map(c => new THREE.Color(c).toArray().map(v => v.toFixed(5)).join(','));
+    themed.onBeforeCompile = shader => {
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+        #ifdef USE_MAP
+          float propTile = floor(vMapUv.x * 4.0) + (1.0 - floor(vMapUv.y * 2.0)) * 4.0;
+          if (propTile < 4.0) {
+            vec3 paletteColor = propTile < 0.5 ? vec3(${colors[0]}) : propTile < 1.5 ? vec3(${colors[1]}) : propTile < 2.5 ? vec3(${colors[2]}) : vec3(${colors[3]});
+            float referenceLuma = propTile < .5 ? .15 : propTile < 1.5 ? .24 : propTile < 2.5 ? .035 : .033;
+            float brightness = clamp(dot(diffuseColor.rgb, vec3(.2126,.7152,.0722)) / referenceLuma, .7, 1.35);
+            diffuseColor.rgb = paletteColor * brightness;
+          }
+        #endif`);
+    };
+    themed.customProgramCacheKey = () => `interaction-palette-${id}`;
+    paletteMaterials.set(id, themed);
+  }
+  return themed;
+}
+
+function mesh(name: string, floor = 1): THREE.Mesh {
+  const module = interactionModule(name, floor);
   if (!module) throw new Error(`Interaction prop not preloaded: ${name}`);
   const result = new THREE.Mesh(module.geometry, module.material);
   result.name = name; result.castShadow = result.receiveShadow = true;
   return result;
 }
 
-export function createChest(): THREE.Group {
+export function createChest(floor = 1): THREE.Group {
   const group = new THREE.Group(); group.name = 'chest'; group.userData.interactionProp = true;
-  group.add(mesh('chest_body'));
-  const lid = mesh('chest_lid'); lid.position.copy(hinge); group.add(lid);
+  group.add(mesh('chest_body', floor));
+  const lid = mesh('chest_lid', floor); lid.position.copy(hinge); group.add(lid);
   group.userData.lid = lid; group.userData.openProgress = 0;
   return group;
 }
@@ -125,14 +153,14 @@ export function fitInteractionProp(object: THREE.Object3D, data: FloorData, x: n
   object.rotation.y = facing; object.scale.setScalar(.25);
 }
 
-export function createMerchantProp(): THREE.Mesh { return mesh('merchant_stall'); }
+export function createMerchantProp(floor = 1): THREE.Mesh { return mesh('merchant_stall', floor); }
 
-export function createSupplyRack(cells: {x: number; z: number}[]): THREE.Group {
+export function createSupplyRack(cells: {x: number; z: number}[], floor = 1): THREE.Group {
   const group = new THREE.Group(); group.name = 'ruins-supply-rack'; group.userData.interactionProp = true;
   const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
   const scale = new THREE.Vector3(.67, .67, .67), matrix = new THREE.Matrix4();
   for (const name of ['rack_frame', 'rack_supplies']) {
-    const module = interactionModule(name);
+    const module = interactionModule(name, floor);
     if (!module) throw new Error(`Interaction prop not preloaded: ${name}`);
     const instances = new THREE.InstancedMesh(module.geometry, module.material, cells.length);
     cells.forEach((c, i) => instances.setMatrixAt(i, matrix.compose(new THREE.Vector3(c.x + .5, 0, c.z + .5), rotation, scale)));

@@ -24,7 +24,7 @@ import { setDefinition } from '../data/sets';
 import { createReforgePanel } from '../ui/ReforgePanel';
 import type { ReforgeOptions } from '../items/CraftingSystem';
 import { meleeSwingAngle } from '../combat/MeleeSwing';
-import { preloadChapterTextures } from '../world/ChapterTextures';
+import { preloadDeepChapterKit } from '../world/DeepChapterAssets';
 import { preloadRuinsKit, updateRuinsCutaway } from '../world/RuinsKit';
 import { configureChapterLighting } from '../world/ChapterLighting';
 import { FoundryBossController } from '../monsters/FoundryBossController';
@@ -1221,7 +1221,7 @@ export class Game {
     this.hudTimer = 0;
     await loading.step(25, '加载章节材质');
     await Promise.all([
-      this.floor > 5 ? preloadChapterTextures(this.floor) : Promise.resolve(),
+      preloadDeepChapterKit(this.floor),
       preloadRuinsKit(this.floor),
       preloadInteractionProps(),
       preloadGameImages((done, total) => loading.report(25 + Math.floor(done / Math.max(1, total) * 30), `加载贴图 ${done}/${total}`), {

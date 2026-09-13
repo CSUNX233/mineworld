@@ -1,3 +1,4 @@
+import { sceneryFocus as focus, sceneryCutaway as cutaway, applySceneryCutaway } from './SceneryCutaway';
 import { interactionModule } from './InteractionProps';
 import * as THREE from 'three';
 import { loadImage } from '../core/AssetLoading';
@@ -12,8 +13,6 @@ const geometries = new Map<string, THREE.BufferGeometry>();
 let material: THREE.MeshLambertMaterial | null = null;
 let pavingMaterial: THREE.MeshLambertMaterial | null = null;
 let pending: Promise<void> | null = null;
-const focus = { value: new THREE.Vector3() };
-const cutaway = { value: 0 };
 
 /** One downloaded Blender kit for all ruins floors; retry is possible after failure. */
 export async function preloadRuinsKit(floor: number): Promise<void> {
@@ -52,26 +51,7 @@ export async function preloadRuinsKit(floor: number): Promise<void> {
     });
     oldMaterials.forEach(m => m.dispose()); oldTextures.forEach(t => t.dispose());
     material = new THREE.MeshLambertMaterial({ map: texture, vertexColors: true });
-    // Screen-door cutaway keeps the hero readable behind high scenery, without
-    // transparent sorting or changing the grid used by camera collision/combat.
-    material.onBeforeCompile = shader => {
-      shader.uniforms.ruinsFocus = focus; shader.uniforms.ruinsCutaway = cutaway;
-      shader.vertexShader = 'varying vec3 vRuinsWorld;\n' + shader.vertexShader;
-      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-        vec4 ruinsPosition = vec4(transformed, 1.0);
-        #ifdef USE_INSTANCING
-          ruinsPosition = instanceMatrix * ruinsPosition;
-        #endif
-        vRuinsWorld = (modelMatrix * ruinsPosition).xyz;`);
-      shader.fragmentShader = 'varying vec3 vRuinsWorld; uniform vec3 ruinsFocus; uniform float ruinsCutaway;\n' + shader.fragmentShader;
-      shader.fragmentShader = shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-        vec3 sight = ruinsFocus - cameraPosition;
-        float along = dot(vRuinsWorld - cameraPosition, sight) / max(dot(sight,sight), 0.01);
-        float away = distance(vRuinsWorld, cameraPosition + sight * clamp(along,0.0,1.0));
-        if (ruinsCutaway > 0.5 && vRuinsWorld.y > 0.45 && along > 0.01 && along < 0.99 && away < 1.45) {
-          if (mod(floor(gl_FragCoord.x) + 2.0 * floor(gl_FragCoord.y),4.0) > 0.5) discard;
-        }`);
-    };
+    applySceneryCutaway(material);
   })().catch(error => { pending = null; throw error; });
   await pending;
 }

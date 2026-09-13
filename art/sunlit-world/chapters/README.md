@@ -4,12 +4,12 @@
 - 第 6–10 层：铸造所，冷灰石板地面与铜铆钉、铁条加固墙面。
 - 保持统一像素笔触、低对比材质和克制配色，留出敌人、掉落及技能预警的辨识空间。
 
-原始生成图保存在本目录，提示词与来源记录见 sources.json。游戏使用 public/assets/world/chapters 下的 256×256 无损 WebP，最近邻缩小导出。预览见 preview.jpg。
+原始生成图保存在本目录，提示词与来源记录见 sources.json。这里是早期贴图归档，预览见 preview.jpg。
 
-ChapterTextures 按章节缓存加载，World 克隆后使用。地面每四个世界单位铺一张，镜像重复避免生成图边缘不完全匹配导致硬接缝；近处最近邻采样，远处使用 mipmap 控制闪烁。第 11 层起沿用原有材质。
+目前 1–5 层使用 ruins-kit，6–10 层使用 foundry-kit，11–15 层使用 sanctum-kit。旧 ChapterTextures 加载器和对应运行时 WebP 已移除；新章节材质与建模参考见 ../chapters-06-15-reference/，实际截图见 ../chapters-06-15-kit/preview.html。
 
 本轮同时接入 30 个 P4 图标及暂停、切换视角按钮。两枚触屏按钮共用布局计算出的尺寸，操作说明同步更新。通过 TypeScript 和生产构建检查；尚未进行全设备实机验收。
 
 ## 遗迹贴图归档
 
-1–5 层现已改用 `public/assets/world/ruins-kit/` 的模型材质。此目录的 `ruins-floor.png` 与 `ruins-wall.png` 留作美术原稿，旧运行时 WebP 已移除，不再参与关卡加载。6–10 层铸炉贴图继续使用。
+此目录所有 PNG 均留作美术原稿，不再参与关卡加载。

@@ -1,10 +1,11 @@
 import { createChest, createMerchantProp, createSupplyRack, fitInteractionProp, openChestVisual, updateChestVisual, disposeInteractionProp } from './InteractionProps';
-import { getChapterTexture } from './ChapterTextures';
+import { createDeepChapterScenery, disposeDeepChapterScenery, updateDeepChapterScenery } from './DeepChapterScenery';
+import { createDeepChapterProp } from './DeepChapterAssets';
+import { deepChapterStyle } from './DeepChapterStyle';
 import { createRuinsKit, disposeRuinsKit, updateRuinsFirelight } from './RuinsKit';
 import { foundryPanels, breakFoundryPanel } from './FoundryPanels';
 import { createFoundryPipes } from './FoundryGeometry';
 import { roomCenter } from './RoomGeometry';
-import { createChapterLandmarks } from './ChapterGeometry';
 import { ruinsSupplyCells } from '../data/RuinsChapter';
 import { invalidateNavigation } from './Navigation';
 import * as THREE from 'three';
@@ -50,10 +51,9 @@ export class World {
     const size = data.size;
 
     const floorDef = getBlock(theme.floorType);
-    const chapterFloor = getChapterTexture(data.floor, 'floor');
-    const floorTexture = (chapterFloor ?? floorDef.texture).clone();
-    floorTexture.repeat.set(size / (chapterFloor ? 4 : 1), size / (chapterFloor ? 4 : 1));
-    floorTexture.wrapS = chapterFloor ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
+    const floorTexture = floorDef.texture.clone();
+    floorTexture.repeat.set(size, size);
+    floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = floorTexture.wrapS;
     floorTexture.needsUpdate = true;
     const floorTint = (data.generationVersion ?? 1) >= 5 ? data.theme.id === 'sanctum' ? 0xaaa99c : data.floor === 1 ? 0xd3d3b8 : data.floor === 2 ? 0xbfa486 : data.floor === 3 ? 0xaaa985 : data.floor === 4 ? 0xbeb9a3 : 0xffffff : 0xffffff;
@@ -65,23 +65,22 @@ export class World {
     this.group.add(floor);
     const pipes = createFoundryPipes(data);
     if (pipes) this.group.add(pipes);
-    const landmarks = data.floor <= 5 ? null : createChapterLandmarks(data);
-    if (landmarks) this.group.add(landmarks);
 
     const supplyCells = new Set<string>();
     for (const room of data.rooms.filter(r => r.template === 'ruins-supply')) {
       const cells = ruinsSupplyCells(room).filter(c => data.grid[c.z]?.[c.x] === BlockKind.Obstacle);
       for (const c of cells) supplyCells.add(`${c.x},${c.z}`);
       if (!cells.length) continue;
-      const mesh = createSupplyRack(cells);
+      const mesh = createSupplyRack(cells, data.floor);
       this.supplyMeshes.set(room.id!,mesh); this.group.add(mesh);
     }
 
     const panelCells = new Set(foundryPanels(data).flatMap(p => p.cells.map(c => `${c.x},${c.z}`)));
     for (const panel of foundryPanels(data).filter(p => !p.broken)) {
-      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(.95,2,.95), new THREE.MeshLambertMaterial({color:0xc78f56}),panel.cells.length);
+      const panelArt = createDeepChapterProp(data.floor, 'break_panel');
+      const mesh = new THREE.InstancedMesh(panelArt?.geometry ?? new THREE.BoxGeometry(.95,2,.95), panelArt?.material ?? new THREE.MeshLambertMaterial({color:0xc78f56}),panel.cells.length);
       const matrix = new THREE.Matrix4();
-      panel.cells.forEach((c,i)=>mesh.setMatrixAt(i,matrix.makeTranslation(c.x+.5,1,c.z+.5)));
+      panel.cells.forEach((c,i)=>mesh.setMatrixAt(i,matrix.makeTranslation(c.x+.5,panelArt ? 0 : 1,c.z+.5)));
       mesh.instanceMatrix.needsUpdate=true; mesh.name='cracked-panel';
       const cracks: THREE.Vector3[]=[];
       for(const c of panel.cells) for(const side of [-1,1]) {
@@ -102,17 +101,17 @@ export class World {
       }
     }
 
-    const ruins = createRuinsKit(data, supplyCells);
+    const ruins = createRuinsKit(data, supplyCells) ?? createDeepChapterScenery(data, new Set([...supplyCells, ...panelCells]));
     if (ruins) {
       this.group.add(ruins);
       floorMaterial.map = null;
       floorTexture.dispose();
-      floorMaterial.color.setHex(0x727950);
+      floorMaterial.color.setHex(deepChapterStyle(data.floor)?.ground ?? 0x727950);
       floor.position.y = -.13;
     }
     if (!ruins && wallCells.length > 0) {
       const wallDef = getBlock(theme.wallType);
-      const wallTexture = (getChapterTexture(data.floor, 'wall') ?? wallDef.texture).clone();
+      const wallTexture = wallDef.texture.clone();
       wallTexture.repeat.set(1, 1);
       wallTexture.needsUpdate = true;
       const wallMaterial = new THREE.MeshLambertMaterial({ map: wallTexture, color: data.theme.id === 'sanctum' ? 0xaaa38e : 0xffffff });
@@ -156,7 +155,7 @@ export class World {
       const stall = new THREE.Group();
       stall.name = 'merchant';
       stall.position.set(data.merchant.x + .5, 0, data.merchant.z + .5);
-      const merchantArt = createMerchantProp();
+      const merchantArt = createMerchantProp(data.floor);
       fitInteractionProp(merchantArt, data, data.merchant.x, data.merchant.z, .8);
       merchantArt.position.set(0, 0, 0);
       merchantArt.userData.interactionProp = true;
@@ -169,7 +168,7 @@ export class World {
     }
 
     data.chests.forEach((chest) => {
-      const model = createChest();
+      const model = createChest(data.floor);
       fitInteractionProp(model, data, chest.x, chest.z, .85);
       model.userData.chest = { x: chest.x, z: chest.z };
       this.group.add(model);
@@ -242,6 +241,7 @@ export class World {
     }
     this.group.children.forEach((child) => {
       if (child.name === 'ruins-kit') updateRuinsFirelight(child,elapsed);
+      if (child.name === 'deep-chapter-scenery') updateDeepChapterScenery(child,elapsed);
       if (child.name === 'chest') {
         if (child.userData.opened && child.userData.openProgress < 1) this.shadowDirty = true;
         updateChestVisual(child, dt);
@@ -254,7 +254,7 @@ export class World {
     const panel=breakFoundryPanel(this.floorData,x,z);
     if (!panel) return false;
     const mesh=this.panelMeshes.get(panel.id);
-    if(mesh) { mesh.removeFromParent(); mesh.children.forEach(child=>{if(child instanceof THREE.LineSegments){child.geometry.dispose();(child.material as THREE.Material).dispose();}}); mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); this.panelMeshes.delete(panel.id); }
+    if(mesh) { mesh.removeFromParent(); mesh.children.forEach(child=>{if(child instanceof THREE.LineSegments){child.geometry.dispose();(child.material as THREE.Material).dispose();}}); mesh.geometry.dispose(); (mesh.material as THREE.MeshLambertMaterial).map?.dispose(); (mesh.material as THREE.Material).dispose(); mesh.dispose(); this.panelMeshes.delete(panel.id); this.shadowDirty = true; }
     return true;
   }
 
@@ -280,12 +280,10 @@ export class World {
       const child = this.group.children[0];
       this.group.remove(child);
       if (child.name === 'ruins-kit') disposeRuinsKit(child);
+      if (child.name === 'deep-chapter-scenery') { disposeDeepChapterScenery(child); continue; }
       if (child.userData.interactionProp) { disposeInteractionProp(child); continue; }
       if(child.name==='merchant')child.traverse(part=>{
         if(part instanceof THREE.Mesh && !part.userData.interactionProp){part.geometry.dispose();for(const m of Array.isArray(part.material)?part.material:[part.material]){m.map?.dispose();m.dispose();}}
-      });
-      if (child.name === 'chapter-landmarks') child.traverse(part => {
-        if (part instanceof THREE.Mesh) { part.geometry.dispose(); const materials = Array.isArray(part.material) ? part.material : [part.material]; materials.forEach(m => m.dispose()); }
       });
       if(child.name === 'cracked-panel') child.children.forEach(line=>{if(line instanceof THREE.LineSegments){line.geometry.dispose();(line.material as THREE.Material).dispose();}});
       if (child instanceof THREE.Mesh || child instanceof THREE.InstancedMesh) {

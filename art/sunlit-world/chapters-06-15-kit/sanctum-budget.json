@@ -1,0 +1,23 @@
+{
+  "modules": {
+    "wall": 192,
+    "plinth": 24,
+    "pillar": 84,
+    "arch": 288,
+    "banner": 120,
+    "lamp": 84,
+    "lamp_glow": 12,
+    "rubble": 48,
+    "wall_niche": 156,
+    "ossuary": 348,
+    "tablet": 108,
+    "tomb": 48,
+    "altar": 84,
+    "bell_gantry": 316,
+    "broken_bell": 88,
+    "throne": 520,
+    "rock": 36,
+    "puddle": 12
+  },
+  "triangles": 2568
+}

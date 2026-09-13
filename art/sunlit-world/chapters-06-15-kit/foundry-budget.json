@@ -1,0 +1,28 @@
+{
+  "modules": {
+    "wall": 192,
+    "plinth": 24,
+    "pillar": 60,
+    "arch": 144,
+    "banner": 120,
+    "lamp": 84,
+    "lamp_glow": 12,
+    "rubble": 48,
+    "pipe": 36,
+    "valve": 132,
+    "tank": 124,
+    "coil": 108,
+    "coil_glow": 48,
+    "prism": 60,
+    "prism_glow": 1,
+    "hoist": 192,
+    "break_panel": 84,
+    "furnace": 288,
+    "furnace_glow": 12,
+    "chimney": 152,
+    "grate": 60,
+    "sealed_gate": 232,
+    "sealed_gate_glow": 12
+  },
+  "triangles": 2225
+}
