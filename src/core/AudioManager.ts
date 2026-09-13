@@ -1,468 +1,233 @@
-const AUDIO_BASE = '/audio';
+import { AUDIO_ASSETS } from './AudioAssets';
+import { SOUND_CUES, CHAPTER_MUSIC, CHAPTER_AMBIENCE, type SoundEvent } from './AudioEvents';
 
-const SFX = {
-  swing: `${AUDIO_BASE}/sfx/impact_punch_heavy_000.ogg`,
-  hit: `${AUDIO_BASE}/sfx/impact_metal_heavy_000.ogg`,
-  kill: `${AUDIO_BASE}/sfx/sci_fi_explosion_crunch_000.ogg`,
-  hurt: `${AUDIO_BASE}/sfx/impact_metal_heavy_000.ogg`,
-  coin: `${AUDIO_BASE}/sfx/rpg_handle_coins.ogg`,
-  pickup: `${AUDIO_BASE}/sfx/interface_confirm_001.ogg`,
-  levelUp: `${AUDIO_BASE}/sfx/digital_power_up1.ogg`,
-  portal: `${AUDIO_BASE}/sfx/sci_fi_laser_small_000.ogg`,
-  shoot: `${AUDIO_BASE}/sfx/sci_fi_laser_small_000.ogg`,
-  explosion: `${AUDIO_BASE}/sfx/sci_fi_explosion_crunch_000.ogg`,
-  warn: `${AUDIO_BASE}/sfx/interface_error_001.ogg`,
-  uiClick: `${AUDIO_BASE}/sfx/interface_click_001.ogg`,
-  uiConfirm: `${AUDIO_BASE}/sfx/interface_confirm_001.ogg`,
-  uiError: `${AUDIO_BASE}/sfx/interface_error_001.ogg`,
-  jump: `${AUDIO_BASE}/jumpvoice.mp3`,
-  walk: `${AUDIO_BASE}/walkvoice.wav`,
-} as const;
+type Point = { x: number; z: number };
+interface Voice { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode | null; event: SoundEvent; priority: number; }
+interface Stream { id: string; media: HTMLAudioElement; node: MediaElementAudioSourceNode; gain: GainNode; retiring: boolean; timer?: ReturnType<typeof setTimeout>; }
+interface AudibleMonster { id: number; dead: boolean; state: string; health: number; maxHealth: number; position: Point; roomId: string; def: { id: string; behavior: string }; }
 
-const AMBIENT_BY_THEME: Record<string, { url: string; volume: number; filter: number }> = {
-  cave: {
-    url: `${AUDIO_BASE}/ambient/space_engine_low_000.ogg`,
-    volume: 0.045,
-    filter: 420,
-  },
-  dungeon: {
-    url: `${AUDIO_BASE}/ambient/space_engine_000.ogg`,
-    volume: 0.035,
-    filter: 360,
-  },
-  lava: {
-    url: `${AUDIO_BASE}/ambient/engine_circular_000.ogg`,
-    volume: 0.05,
-    filter: 300,
-  },
-  void: {
-    url: `${AUDIO_BASE}/ambient/computer_noise_000.ogg`,
-    volume: 0.035,
-    filter: 650,
-  },
-};
-
-const MUSIC_BY_THEME: Record<string, string> = {
-  cave: `${AUDIO_BASE}/music/purgatory_closed.ogg`,
-  dungeon: `${AUDIO_BASE}/music/purgatory_closed.ogg`,
-  lava: `${AUDIO_BASE}/music/elevator_to_reactor.mp3`,
-  void: `${AUDIO_BASE}/music/elevator_to_reactor.mp3`,
-};
-
-interface BufferHandle {
-  source: AudioBufferSourceNode;
-  gain: GainNode;
-  filter: BiquadFilterNode | null;
-}
-
+/** Recorded audio only. Bounded short voices and decoded cache; long tracks stream. */
 export class AudioManager {
   private ctx: AudioContext | null = null;
-  private masterGain: GainNode | null = null;
-  private sfxGain: GainNode | null = null;
-  private musicGain: GainNode | null = null;
-  private ambientHandles: BufferHandle[] = [];
-  private audioBuffers = new Map<string, AudioBuffer>();
-  private pendingBuffers = new Map<string, Promise<AudioBuffer | null>>();
-  private bgmSource: AudioBufferSourceNode | null = null;
-  private bgmGain: GainNode | null = null;
-  private bgmRequestId = 0;
-  private walkSource: AudioBufferSourceNode | null = null;
-  private walkGain: GainNode | null = null;
-  private walkRequestId = 0;
-  private walkActive = false;
-  private volume = 0.8;
-  private sfxVolume = 0.8;
-  private musicVolume = 0.8;
+  private master: GainNode | null = null;
+  private sfx: GainNode | null = null;
+  private music: GainNode | null = null;
+  private ambience: GainNode | null = null;
+  private buffers = new Map<string, AudioBuffer>();
+  private pending = new Map<string, Promise<AudioBuffer | null>>();
+  private decodedBytes = 0;
+  private loading = 0;
+  private queue: Array<() => void> = [];
+  private voices: Voice[] = [];
+  private streams: Stream[] = [];
+  private ambientStreams: Stream[] = [];
+  private last = new Map<string, number>();
+  private variants = new Map<string, number>();
+  private listener: Point = { x: 0, z: 0 };
+  private yaw = 0;
+  private chapter = 0;
+  private desiredMusic = 'c0dd7e6a6';
+  private ambientIds: string[] = [];
+  private bgmToken = 0;
+  private floorMode = false;
+  private walking = false;
+  private walkTime = 0;
+  private scanTime = 0;
+  private states = new Map<number, string>();
+  private phases = new Map<number, number>();
   private muted = false;
+  private paused = false;
+  private sfxVolume = .8;
+  private musicVolume = .8;
 
+  constructor() {
+    try { const s = JSON.parse(localStorage.getItem('mineworld-audio-v1') ?? '{}'); this.sfxVolume = this.clamp(s.sfx ?? .8); this.musicVolume = this.clamp(s.music ?? .8); this.muted = s.muted === true; } catch { /* optional preferences */ }
+    document.addEventListener('pointerdown', () => this.ensure(), { passive: true });
+    document.addEventListener('keydown', () => this.ensure(), { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { this.stopVoices(); this.walking = false; this.allStreams().forEach(s => s.media.pause()); void this.ctx?.suspend().catch(() => {}); }
+      else if (this.ctx) this.ensure();
+    });
+    window.addEventListener('pagehide', () => { this.stopVoices(); this.allStreams().forEach(s => s.media.pause()); });
+    window.addEventListener('pageshow', () => { if (this.ctx) this.ensure(); });
+    document.addEventListener('click', event => {
+      const target = event.target instanceof Element ? event.target.closest('button,[role="button"]') : null;
+      if (!target || target.closest('.touch-controls') || target.matches(':disabled,[aria-disabled="true"]')) return;
+      this.play(/关闭|返回|取消/.test(target.textContent ?? '') ? 'uiBack' : 'uiClick');
+    });
+  }
+
+  private clamp(v: number): number { return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : .8; }
+  private save(): void { try { localStorage.setItem('mineworld-audio-v1', JSON.stringify({ sfx: this.sfxVolume, music: this.musicVolume, muted: this.muted })); } catch { /* game saves are independent */ } }
+  private blockedByPause(event: SoundEvent): boolean {
+    return this.paused && !['uiClick','uiConfirm','uiBack','uiError','equip','unequip','forge','coin','pickup','material','heal','potion','levelUp'].includes(event);
+  }
   ensure(): void {
+    if (document.hidden) return;
     if (!this.ctx) {
       const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (Ctor) this.ctx = new Ctor();
+      if (!Ctor) return;
+      this.ctx = new Ctor();
+      this.master = this.ctx.createGain(); this.master.gain.value = this.muted ? 0 : .85;
+      const limiter = this.ctx.createDynamicsCompressor(); limiter.threshold.value = -6; limiter.knee.value = 6; limiter.ratio.value = 8; limiter.attack.value = .003; limiter.release.value = .15;
+      this.master.connect(limiter); limiter.connect(this.ctx.destination);
+      this.sfx = this.ctx.createGain(); this.sfx.gain.value = this.sfxVolume; this.sfx.connect(this.master);
+      this.music = this.ctx.createGain(); this.music.gain.value = this.musicVolume; this.music.connect(this.master);
+      this.ambience = this.ctx.createGain(); this.ambience.gain.value = this.sfxVolume * .55; this.ambience.connect(this.master);
+      void this.preload(['swing','hit','hurt','shieldBreak','coin','pickup','uiClick','uiConfirm','uiError','walk']);
+      this.startBGM(this.desiredMusic);
+      this.launchAmbience();
     }
-    if (this.ctx && !this.masterGain) {
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = this.muted ? 0 : 1;
-      this.masterGain.connect(this.ctx.destination);
-
-      this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.value = this.sfxVolume;
-      this.sfxGain.connect(this.masterGain);
-
-      this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = this.musicVolume;
-      this.musicGain.connect(this.masterGain);
-    }
-    if (this.ctx?.state === 'suspended') void this.ctx.resume();
+    if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {});
+    this.allStreams().forEach(s => { if (!s.retiring && s.media.paused) void s.media.play().catch(() => {}); });
   }
+  setVolume(v: number): void { this.setSfxVolume(v); }
+  setSfxVolume(v: number): void { this.sfxVolume = this.clamp(v); this.sfx?.gain.setTargetAtTime(this.sfxVolume, this.ctx!.currentTime, .03); this.ambience?.gain.setTargetAtTime(this.sfxVolume * .55, this.ctx!.currentTime, .03); this.save(); }
+  setMusicVolume(v: number): void { this.musicVolume = this.clamp(v); this.music?.gain.setTargetAtTime(this.musicVolume, this.ctx!.currentTime, .03); this.save(); }
+  toggleMute(): boolean { this.muted = !this.muted; this.master?.gain.setTargetAtTime(this.muted ? 0 : .85, this.ctx!.currentTime, .03); this.save(); return this.muted; }
+  get isMuted(): boolean { return this.muted; }
+  get currentVolume(): number { return this.sfxVolume; }
+  get currentMusicVolume(): number { return this.musicVolume; }
 
-  private output(): AudioNode | null {
-    this.ensure();
-    return this.sfxGain ?? this.masterGain ?? this.ctx?.destination ?? null;
-  }
-
-  private musicOutput(): AudioNode | null {
-    this.ensure();
-    return this.musicGain ?? this.masterGain ?? this.ctx?.destination ?? null;
-  }
-
-  setVolume(volume: number): void {
-    this.setSfxVolume(volume);
-  }
-
-  setSfxVolume(volume: number): void {
-    this.sfxVolume = Math.max(0, Math.min(1, volume));
-    if (this.sfxGain) {
-      this.sfxGain.gain.setTargetAtTime(this.sfxVolume, this.ctx?.currentTime ?? 0, 0.03);
-    }
-  }
-
-  setMusicVolume(volume: number): void {
-    this.musicVolume = Math.max(0, Math.min(1, volume));
-    if (this.musicGain) {
-      this.musicGain.gain.setTargetAtTime(this.musicVolume, this.ctx?.currentTime ?? 0, 0.03);
-    }
-  }
-
-  toggleMute(): boolean {
-    this.muted = !this.muted;
-    if (this.masterGain) {
-      this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 1, this.ctx?.currentTime ?? 0, 0.03);
-    }
-    return this.muted;
-  }
-
-  get isMuted(): boolean {
-    return this.muted;
-  }
-
-  get currentVolume(): number {
-    return this.sfxVolume;
-  }
-
-  get currentMusicVolume(): number {
-    return this.musicVolume;
-  }
-
-  private tone(freq: number, duration: number, type: OscillatorType, volume: number, slideTo?: number): void {
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-    if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), this.ctx.currentTime + duration);
-    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-    const output = this.output();
-    if (!output) return;
-    gain.connect(output);
-    osc.connect(gain);
-    osc.start();
-    osc.stop(this.ctx.currentTime + duration);
-  }
-
-  private noise(duration: number, volume: number, filterFreq = 1200): void {
-    if (!this.ctx) return;
-    const buffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * duration), this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = filterFreq;
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-    const output = this.output();
-    if (!output) return;
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(output);
-    source.start();
-  }
-
-  private async fetchAudio(url: string): Promise<AudioBuffer | null> {
-    const ctx = this.ctx;
-    if (!ctx) return null;
-    const cached = this.audioBuffers.get(url);
-    if (cached) return cached;
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      const arrayBuffer = await response.arrayBuffer();
-      const decoded = await ctx.decodeAudioData(arrayBuffer);
-      this.audioBuffers.set(url, decoded);
-      return decoded;
-    } catch {
-      return null;
-    }
-  }
-
-  private loadAudio(url: string): Promise<AudioBuffer | null> {
-    const cached = this.audioBuffers.get(url);
-    if (cached) return Promise.resolve(cached);
-    const pending = this.pendingBuffers.get(url);
-    if (pending) return pending;
-    const promise = this.fetchAudio(url);
-    this.pendingBuffers.set(url, promise);
-    void promise.finally(() => {
-      if (this.pendingBuffers.get(url) === promise) this.pendingBuffers.delete(url);
-    });
-    return promise;
-  }
-
-  private playBuffer(buffer: AudioBuffer, volume: number, filterFrequency: number, loop: boolean, useMusic = false): BufferHandle | null {
-    if (!this.ctx) return null;
-    const output = useMusic ? this.musicOutput() : this.output();
-    if (!output) return null;
-
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = loop;
-
-    let filter: BiquadFilterNode | null = null;
-    let entry: AudioNode = source;
-    if (filterFrequency > 0) {
-      filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = filterFrequency;
-      source.connect(filter);
-      entry = filter;
-    }
-
-    const gain = this.ctx.createGain();
-    gain.gain.value = volume;
-    entry.connect(gain);
-    gain.connect(output);
-    source.start();
-    return { source, gain, filter };
-  }
-
-  private playSample(url: string, volume: number, filterFrequency = 0): boolean {
-    const buffer = this.audioBuffers.get(url);
-    if (!buffer) {
-      void this.loadAudio(url);
-      return false;
-    }
-    this.playBuffer(buffer, volume, filterFrequency, false);
-    return true;
-  }
-
-  swing(): void {
-    this.ensure();
-    if (!this.playSample(SFX.swing, 0.18, 1600)) this.noise(0.1, 0.08, 1800);
-  }
-
-  hit(crit = false): void {
-    this.ensure();
-    if (crit) {
-      if (!this.playSample(SFX.hit, 0.24, 2600)) {
-        this.tone(180, 0.18, 'square', 0.18, 60);
-        this.noise(0.14, 0.14, 2600);
-      }
-    } else if (!this.playSample(SFX.hit, 0.15, 1500)) {
-      this.noise(0.09, 0.1, 1500);
-      this.tone(130, 0.1, 'triangle', 0.12, 80);
-    }
-  }
-
-  kill(): void {
-    this.ensure();
-    if (!this.playSample(SFX.kill, 0.2, 700)) {
-      this.noise(0.24, 0.16, 700);
-      this.tone(90, 0.24, 'sawtooth', 0.12, 45);
-    }
-  }
-
-  hurt(): void {
-    this.ensure();
-    if (!this.playSample(SFX.hurt, 0.14, 1000)) this.tone(160, 0.22, 'sawtooth', 0.14, 70);
-  }
-
-  coin(): void {
-    this.ensure();
-    if (!this.playSample(SFX.coin, 0.16, 0)) {
-      this.tone(880, 0.08, 'sine', 0.1);
-      setTimeout(() => this.tone(1320, 0.1, 'sine', 0.08), 45);
-    }
-  }
-
-  lootDrop(rarity: string): void {
-    this.ensure();
-    const tier = ['common', 'magic', 'rare', 'epic', 'legendary', 'mythic'].indexOf(rarity);
-    if (tier === 4) {
-      this.tone(110, .35, 'triangle', .10, 55);
-      this.tone(660, .65, 'sine', .075, 880);
-      this.tone(990, .8, 'sine', .055, 1320);
-      this.tone(1320, 1, 'sine', .035, 1760);
-    } else {
-      this.tone(400 + tier * 140, .14 + tier * .07, 'sine', .035 + tier * .008, 650 + tier * 180);
-    }
-  }
-
-  pickup(): void {
-    this.ensure();
-    if (!this.playSample(SFX.pickup, 0.14, 0)) this.tone(520, 0.12, 'sine', 0.1, 780);
-  }
-
-  levelUp(): void {
-    this.ensure();
-    if (!this.playSample(SFX.levelUp, 0.17, 0)) {
-      this.tone(440, 0.14, 'sine', 0.12);
-      setTimeout(() => this.tone(660, 0.16, 'sine', 0.12), 90);
-      setTimeout(() => this.tone(880, 0.22, 'sine', 0.12), 180);
-    }
-  }
-
-  portal(): void {
-    this.ensure();
-    if (!this.playSample(SFX.portal, 0.17, 1800)) {
-      this.tone(220, 0.5, 'sine', 0.12, 660);
-      this.tone(110, 0.6, 'triangle', 0.08, 440);
-    }
-  }
-
-  shoot(): void {
-    this.ensure();
-    if (!this.playSample(SFX.shoot, 0.13, 2600)) this.tone(600, 0.18, 'square', 0.08, 200);
-  }
-
-  explosion(): void {
-    this.ensure();
-    if (!this.playSample(SFX.explosion, 0.22, 500)) {
-      this.noise(0.35, 0.22, 500);
-      this.tone(70, 0.35, 'sawtooth', 0.16, 30);
-    }
-  }
-
-  warn(): void {
-    this.ensure();
-    if (!this.playSample(SFX.warn, 0.17, 1200)) {
-      this.tone(720, 0.12, 'square', 0.08, 900);
-      setTimeout(() => this.tone(920, 0.16, 'square', 0.08, 1100), 120);
-    }
-  }
-
-  uiClick(): void {
-    this.ensure();
-    this.playSample(SFX.uiClick, 0.1, 0);
-  }
-
-  uiConfirm(): void {
-    this.ensure();
-    this.playSample(SFX.uiConfirm, 0.12, 0);
-  }
-
-  uiError(): void {
-    this.ensure();
-    this.playSample(SFX.uiError, 0.13, 0);
-  }
-
-  jump(): void {
-    this.ensure();
-    if (!this.playSample(SFX.jump, 0.22, 0)) this.tone(360, 0.18, 'sine', 0.1, 520);
-  }
-
-  startWalk(): void {
-    this.ensure();
-    if (this.walkSource || this.walkActive) return;
-    this.walkActive = true;
-    const requestId = ++this.walkRequestId;
-    void this.loadAudio(SFX.walk).then((buffer) => {
-      if (!buffer || !this.ctx || !this.walkActive || requestId !== this.walkRequestId) return;
-      this.stopWalkSource();
-      const handle = this.playBuffer(buffer, 0.16, 0, true, false);
-      if (handle) {
-        this.walkSource = handle.source;
-        this.walkGain = handle.gain;
-      }
-    });
-  }
-
-  stopWalk(): void {
-    this.walkActive = false;
-    this.walkRequestId++;
-    this.stopWalkSource();
-  }
-
-  private stopWalkSource(): void {
-    if (this.walkSource) {
+  private async load(id: string): Promise<AudioBuffer | null> {
+    const hit = this.buffers.get(id); if (hit) { this.buffers.delete(id); this.buffers.set(id, hit); return hit; }
+    if (!this.ctx || !AUDIO_ASSETS[id]) return null;
+    const existing = this.pending.get(id); if (existing) return existing;
+    const task = (async () => {
+      if (this.loading >= 3) await new Promise<void>(resolve => this.queue.push(resolve)); else this.loading++;
+      const abort = new AbortController(); const timer = setTimeout(() => abort.abort(), 12000);
       try {
-        this.walkSource.stop();
-      } catch {
-        // already stopped
-      }
-      this.walkSource.disconnect();
-      this.walkGain?.disconnect();
-    }
-    this.walkSource = null;
-    this.walkGain = null;
+        const response = await fetch(import.meta.env.BASE_URL + AUDIO_ASSETS[id], { signal: abort.signal });
+        if (!response.ok) return null;
+        const buffer = await this.ctx!.decodeAudioData(await response.arrayBuffer());
+        const bytes = buffer.length * buffer.numberOfChannels * 4;
+        while (this.decodedBytes + bytes > 24 * 1024 * 1024 && this.buffers.size) {
+          const oldest = this.buffers.keys().next().value!; const b = this.buffers.get(oldest)!;
+          this.decodedBytes -= b.length * b.numberOfChannels * 4; this.buffers.delete(oldest);
+        }
+        if (bytes <= 24 * 1024 * 1024) { this.buffers.set(id, buffer); this.decodedBytes += bytes; }
+        return buffer;
+      } catch { return null; }
+      finally { clearTimeout(timer); const next = this.queue.shift(); if (next) next(); else this.loading--; }
+    })();
+    this.pending.set(id, task);
+    try { return await task; } finally { this.pending.delete(id); }
   }
+  async preload(events: SoundEvent[]): Promise<void> { if (!this.ctx) return; await Promise.all([...new Set(events.flatMap(e => SOUND_CUES[e].clips))].map(id => this.load(id))); }
 
-  startAmbient(themeId: string): void {
+  play(event: SoundEvent, point?: Point, scale = 1): void {
+    this.ensure(); if (!this.ctx || !this.sfx || this.muted || document.hidden || this.blockedByPause(event)) return;
+    const cue = SOUND_CUES[event], now = performance.now();
+    const distance = point ? Math.hypot(point.x - this.listener.x, point.z - this.listener.z) : 0;
+    if (distance > 20 || now - (this.last.get(event) ?? -Infinity) < cue.interval) return;
+    if (this.voices.filter(v => v.event === event).length >= cue.max) return;
+    this.last.set(event, now);
+    let variant = Math.floor(Math.random() * cue.clips.length);
+    if (cue.clips.length > 1 && variant === this.variants.get(event)) variant = (variant + 1) % cue.clips.length;
+    this.variants.set(event, variant);
+    const id = cue.clips[variant]; const epoch = this.bgmToken;
+    void this.load(id).then(buffer => {
+      // Discard stale events after download, scene changes, or returning from background.
+      if (!buffer || !this.ctx || !this.sfx || epoch !== this.bgmToken || document.hidden || this.muted || this.blockedByPause(event) || performance.now() - now > (cue.priority >= 7 ? 1000 : 220)) return;
+      if (this.voices.filter(v => v.event === event).length >= cue.max) return;
+      if (this.voices.length >= 18) {
+        const lowest = this.voices.reduce((a, b) => a.priority <= b.priority ? a : b);
+        if (lowest.priority >= cue.priority) return;
+        this.stopVoice(lowest);
+      }
+      const source = this.ctx.createBufferSource(); source.buffer = buffer;
+      source.playbackRate.value = cue.priority >= 6 || event.startsWith('ui') ? 1 : .97 + Math.random() * .06;
+      const gain = this.ctx.createGain(); gain.gain.value = cue.volume * scale / (1 + distance * distance * .035);
+      const pan = point && this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+      source.connect(gain);
+      if (pan && point) { pan.pan.value = Math.max(-.8, Math.min(.8, ((point.x-this.listener.x)*Math.cos(this.yaw)-(point.z-this.listener.z)*Math.sin(this.yaw))/10)); gain.connect(pan); pan.connect(this.sfx); } else gain.connect(this.sfx);
+      const voice: Voice = { source, gain, pan, event, priority: cue.priority }; this.voices.push(voice);
+      source.onended = () => this.cleanVoice(voice); source.start();
+      const duration = Math.min(buffer.duration / source.playbackRate.value, event === 'dropRed' ? 5 : event === 'boss' ? 4 : 2.5);
+      gain.gain.setTargetAtTime(0, this.ctx.currentTime + Math.max(0, duration - .04), .012);
+      source.stop(this.ctx.currentTime + duration);
+      if (event === 'dropRed' || event === 'shieldBreak') this.duck();
+    });
+  }
+  private cleanVoice(v: Voice): void { const index = this.voices.indexOf(v); if (index >= 0) this.voices.splice(index, 1); v.source.disconnect(); v.gain.disconnect(); v.pan?.disconnect(); }
+  private stopVoice(v: Voice): void { try { v.source.stop(); } catch { /* ended */ } this.cleanVoice(v); }
+  private stopVoices(): void { [...this.voices].forEach(v => this.stopVoice(v)); }
+  private duck(): void { if (!this.music || !this.ctx) return; const g = this.music.gain, t = this.ctx.currentTime; g.cancelScheduledValues(t); g.setTargetAtTime(this.musicVolume * .55, t, .025); g.setTargetAtTime(this.musicVolume, t + .7, .25); }
+
+  private allStreams(): Stream[] { return [...this.streams, ...this.ambientStreams]; }
+  private stream(id: string, output: AudioNode, volume: number): Stream | null {
+    if (!this.ctx || !AUDIO_ASSETS[id]) return null;
+    const media = new Audio(import.meta.env.BASE_URL + AUDIO_ASSETS[id]); media.loop = true; media.preload = 'metadata';
+    const node = this.ctx.createMediaElementSource(media), gain = this.ctx.createGain(); gain.gain.value = 0; node.connect(gain); gain.connect(output);
+    const s: Stream = { id, media, node, gain, retiring: false };
+    media.addEventListener('playing', () => { if (!s.retiring && this.ctx) gain.gain.setTargetAtTime(volume, this.ctx.currentTime, .4); });
+    void media.play().catch(() => {}); return s;
+  }
+  private retire(s: Stream, immediate = false): void {
+    s.retiring = true; if (s.timer) clearTimeout(s.timer);
+    const close = () => { s.media.pause(); s.media.removeAttribute('src'); s.media.load(); s.node.disconnect(); s.gain.disconnect(); this.streams = this.streams.filter(v => v !== s); this.ambientStreams = this.ambientStreams.filter(v => v !== s); };
+    if (immediate || !this.ctx) close(); else { s.gain.gain.setTargetAtTime(0, this.ctx.currentTime, .25); s.timer = setTimeout(close, 1000); }
+  }
+  startBGM(id: string): void {
+    if (!AUDIO_ASSETS[id]) id = CHAPTER_MUSIC[this.chapter];
+    this.desiredMusic = id;
+    if (!this.ctx || !this.music || this.streams.some(s => s.id === id && !s.retiring)) return;
+    this.streams.filter(s => s.retiring).forEach(s => this.retire(s, true));
+    this.streams.forEach(s => this.retire(s));
+    const s = this.stream(id, this.music, 1); if (s) this.streams.push(s);
+  }
+  stopBGM(): void { this.bgmToken++; this.streams.slice().forEach(s => this.retire(s, true)); }
+  startAmbient(_theme: string): void { this.ambientIds = CHAPTER_AMBIENCE[this.chapter]; this.launchAmbience(); }
+  private launchAmbience(): void {
+    if (!this.ctx || !this.ambience || !this.ambientIds.length) return;
+    if (this.ambientStreams.map(s => s.id).join() === this.ambientIds.join()) return;
     this.stopAmbient();
-    this.ensure();
-    if (!this.ctx || !this.masterGain) return;
-
-    const ambient = AMBIENT_BY_THEME[themeId] ?? AMBIENT_BY_THEME.cave;
-    void this.launchAmbient(ambient);
+    this.ambientIds.forEach((id, i) => { const s = this.stream(id, this.ambience!, i === 0 ? .6 : .25); if (s) this.ambientStreams.push(s); });
   }
-
-  private async launchAmbient(ambient: { url: string; volume: number; filter: number }): Promise<void> {
-    const buffer = await this.loadAudio(ambient.url);
-    if (!buffer || !this.ctx || !this.masterGain) return;
-    const handle = this.playBuffer(buffer, ambient.volume, ambient.filter, true, true);
-    if (handle) this.ambientHandles.push(handle);
-  }
-
-  stopAmbient(): void {
-    this.ambientHandles.forEach((handle) => {
-      try {
-        handle.source.stop();
-      } catch {
-        // already stopped
+  stopAmbient(): void { this.ambientStreams.slice().forEach(s => this.retire(s, true)); }
+  setFloor(floor: number): void { this.chapter = Math.min(4, Math.max(0, Math.floor((floor-1)/5))); this.floorMode = true; this.paused = false; this.bgmToken++; this.stopVoices(); this.states.clear(); this.phases.clear(); this.startBGM(CHAPTER_MUSIC[this.chapter]); this.startAmbient(''); void this.preload(['fire','frost','lightning','soul','earth','dropRed','dropRare','boss','slime','undead','demon','beast']); }
+  menu(kind: 'menu' | 'camp' | 'victory' | 'death'): void { this.floorMode = false; this.paused = false; this.bgmToken++; this.stopWalk(); this.stopVoices(); this.ambientIds = []; this.stopAmbient(); this.startBGM(kind === 'camp' || kind === 'death' ? 'ee654417d' : 'c0dd7e6a6'); }
+  setPaused(value: boolean): void { if (this.paused === value) return; this.paused = value; if (value) { this.stopVoices(); this.stopWalk(); } }
+  update(dt: number, position: Point, yaw: number, monsters: AudibleMonster[], locked: readonly string[]): void {
+    this.listener = position; this.yaw = yaw;
+    if (this.walking && !this.paused) { this.walkTime -= dt; if (this.walkTime <= 0) { this.play('walk'); this.walkTime = .36; } }
+    this.scanTime -= dt; if (this.scanTime > 0 || this.paused || !this.floorMode) return; this.scanTime = .2;
+    let boss = false; const live = new Set<number>();
+    for (const m of monsters) {
+      if (m.dead) continue; live.add(m.id);
+      const near = Math.hypot(m.position.x-position.x,m.position.z-position.z) < 16;
+      if (m.def.behavior === 'boss' && locked.includes(m.roomId)) {
+        boss = true; const phase = m.health / m.maxHealth > .66 ? 0 : m.health / m.maxHealth > .33 ? 1 : 2;
+        if (this.phases.get(m.id) !== phase) { this.play('boss', m.position); this.phases.set(m.id, phase); }
       }
-      handle.source.disconnect();
-      handle.filter?.disconnect();
-      handle.gain.disconnect();
-    });
-    this.ambientHandles = [];
-  }
-
-  startBGM(themeId: string): void {
-    const requestId = ++this.bgmRequestId;
-    this.stopBGM();
-    this.ensure();
-    if (!this.ctx) return;
-
-    const url = MUSIC_BY_THEME[themeId] ?? MUSIC_BY_THEME.cave;
-    void this.launchBGM(url, requestId);
-  }
-
-  private async launchBGM(url: string, requestId: number): Promise<void> {
-    const buffer = await this.loadAudio(url);
-    if (!buffer || !this.ctx || !this.masterGain || requestId !== this.bgmRequestId) return;
-    this.stopBGM();
-    const handle = this.playBuffer(buffer, 0.468, 0, true, true);
-    if (handle) {
-      this.bgmSource = handle.source;
-      this.bgmGain = handle.gain;
+      if (near && m.state === 'attack' && this.states.get(m.id) !== 'attack') this.monster(m, 'attack');
+      if (near && locked.includes(m.roomId) && m.id % 7 === 0) this.play('breath', m.position);
+      this.states.set(m.id, m.state);
     }
+    for (const id of this.states.keys()) if (!live.has(id)) { this.states.delete(id); this.phases.delete(id); }
+    this.startBGM(boss ? '8053957da' : CHAPTER_MUSIC[this.chapter]);
   }
-
-  stopBGM(): void {
-    if (this.bgmSource) {
-      try {
-        this.bgmSource.stop();
-      } catch {
-        // already stopped
-      }
-      this.bgmSource.disconnect();
-      this.bgmGain?.disconnect();
-    }
-    this.bgmSource = null;
-    this.bgmGain = null;
+  monster(m: AudibleMonster, kind: 'attack' | 'death'): void {
+    const id = m.def.id; const family: SoundEvent = m.def.behavior === 'boss' ? 'boss' : /slime|spit/.test(id) ? 'slime' : /zombie|skeleton|mourner|burial|grave|bell/.test(id) ? 'undead' : /shadow|void|abyss|ghost|lich/.test(id) ? 'demon' : 'beast';
+    this.play(family, m.position, kind === 'death' ? .85 : .7);
   }
+  skill(id: string): void { const e: SoundEvent = id === 'guard_counter' ? 'guard' : id === 'seismic_slam' ? 'earth' : /company|soul/.test(id) ? 'soul' : id === 'frost_nova' ? 'frost' : id === 'lightning_chain' ? 'lightning' : /fire|flame|ember|detonate/.test(id) ? 'fire' : 'swing'; this.play(e); }
+  projectile(element: string, point: Point): void { this.play(element === 'fire' ? 'fireHit' : element === 'frost' ? 'frost' : element === 'lightning' ? 'lightning' : element === 'shadow' ? 'soul' : 'earth', point, .6); }
+  hit(crit = false, element = 'physical', point?: Point): void { const e: SoundEvent = element === 'fire' ? 'fireHit' : element === 'frost' ? 'frost' : element === 'lightning' ? 'lightning' : element === 'shadow' ? 'soul' : 'hit'; this.play(e, point, crit ? 1.15 : 1); if (point) this.play('enemyHurt', point); }
+  private dropTimer: ReturnType<typeof setTimeout> | null = null;
+  private dropTier = -1;
+  lootDrop(rarity: string): void {
+    const tier = ['common','magic','rare','epic','legendary','mythic'].indexOf(rarity); this.dropTier = Math.max(this.dropTier, tier);
+    if (this.dropTimer) return;
+    const token = this.bgmToken;
+    this.dropTimer = setTimeout(() => { const t = this.dropTier; this.dropTier = -1; this.dropTimer = null; if (token === this.bgmToken) this.play(t >= 4 ? 'dropRed' : t >= 2 ? 'dropRare' : t === 1 ? 'dropBlue' : 'dropLow', undefined, t === 3 ? 1.15 : 1); }, 60);
+  }
+  swing(): void { this.play('swing'); } kill(): void { this.play('beast'); }
+  hurt(): void { this.play('hurt'); } coin(): void { this.play('coin'); }
+  pickup(): void { this.play('pickup'); } levelUp(): void { this.play('levelUp'); }
+  portal(): void { this.play('portal'); } shoot(): void { this.play('shoot'); }
+  explosion(): void { this.play('earth'); } warn(): void { this.play('warn'); }
+  uiClick(): void { this.play('uiClick'); } uiConfirm(): void { this.play('uiConfirm'); }
+  uiError(): void { this.play('uiError'); } jump(): void { this.play('jump'); }
+  startWalk(): void { this.walking = true; } stopWalk(): void { this.walking = false; this.walkTime = 0; }
 }

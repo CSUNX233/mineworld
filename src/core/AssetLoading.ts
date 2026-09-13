@@ -103,7 +103,8 @@ const essentialUiPaths = [
 ].map(name => assetUrl(`assets/ui/sunlit/${name}.webp`));
 for (const style of ['quantity', 'damage']) for (let digit = 0; digit < 10; digit++)
   essentialUiPaths.push(assetUrl(`assets/ui/sunlit/numerals/${style}/${digit}.webp`));
-for (const name of ['attack-2', 'aim-thumb'])
+essentialUiPaths.push(assetUrl('assets/ui/sunlit/controls/joystick-sheet.webp'));
+for (const name of ['attack-2'])
   essentialUiPaths.push(assetUrl(`assets/ui/sunlit/attack/${name}.webp`));
 for (const name of ['pause', 'view_toggle'])
   essentialUiPaths.push(assetUrl(`assets/ui/sunlit/p4/${name}.webp`));

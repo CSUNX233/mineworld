@@ -239,6 +239,22 @@
 #ui-root .touch-attack-icon { position: absolute; width: 68%; height: 68%; object-fit: contain; image-rendering: pixelated; pointer-events: none; user-select: none; }
 #ui-root .touch-attack.is-attack-dragging .touch-attack-icon { visibility: hidden; }
 #ui-root .touch-attack .touch-aim-thumb { border: 0; background-color: transparent; background-size: contain; background-repeat: no-repeat; background-position: center; border-radius: 0; }
+/* One generated two-cell atlas: base on the left, movable thumb on the right. */
+#ui-root .touch-joystick,
+#ui-root .touch-button.touch-attack,
+#ui-root .touch-button.touch-skill {
+  background: url('/assets/ui/sunlit/controls/joystick-sheet.webp') left center / 200% 100% no-repeat !important;
+  border: 0 !important; border-image: none !important; box-shadow: none !important;
+  image-rendering: pixelated; border-radius: 50%;
+}
+#ui-root .touch-joystick > .touch-stick,
+#ui-root .touch-button .touch-aim-thumb {
+  background: url('/assets/ui/sunlit/controls/joystick-sheet.webp') right center / 200% 100% no-repeat !important;
+  border: 0 !important; box-shadow: none !important; image-rendering: pixelated;
+}
+#ui-root .touch-button .touch-aim-thumb { width: 44%; height: 44%; }
+#ui-root .touch-joystick > .touch-stick { width: 60% !important; height: 60% !important; }
+#ui-root .touch-button.touch-skill .touch-skill-cooldown { border-radius: 50%; }
 .touch-move-zone { position: absolute; left: 0; bottom: 0; width: min(42vw, 300px); height: 52%; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
 @media (orientation: portrait) { .touch-move-zone { width: 45vw; height: 42%; } }
 #ui-root .touch-button.touch-inventory,

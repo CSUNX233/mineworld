@@ -296,7 +296,7 @@ export class TouchControls {
     let holdTimer: ReturnType<typeof setTimeout> | null = null;
     const thumb = document.createElement('span');
     thumb.className = 'touch-aim-thumb';
-    if (attack) thumb.style.backgroundImage = `url(${import.meta.env.BASE_URL}assets/ui/sunlit/attack/aim-thumb.webp)`;
+    // Both attack and skill aiming use the same generated thumb sprite.
     thumb.hidden = true;
     button.appendChild(thumb);
     let stickRadius = 20;

@@ -573,6 +573,7 @@ export class Game {
   }
 
   private showStartMenu(): void {
+    this.audio.menu('menu');
     this.removeStartMenu();
     const { overlay, panel } = this.createStartMenuShell();
 
@@ -800,6 +801,7 @@ export class Game {
   }
 
   private showMetaTalentScreen(message = ''): void {
+    this.audio.menu('camp');
     let envelope: SaveEnvelopeV3;
     try { envelope = SaveManager.readSharedProgression(); }
     catch(error) { this.showSaveSlotMenu(error instanceof Error ? error.message : '营地天赋无法读取。',true); return; }
@@ -843,6 +845,7 @@ export class Game {
   }
 
   private showSettlement(record: SettlementRecord, saved: boolean, message = ''): void {
+    this.audio.menu(record.outcome === 'death' ? 'death' : 'victory');
     this.running = false;
     this.paused = true;
     this.removeStartMenu();
@@ -1263,8 +1266,7 @@ export class Game {
     this.world.generate(data);
     configureChapterLighting(this.scene, this.renderer, data);
     await loading.step(65, '安置角色与遭遇');
-    this.audio.startAmbient(data.theme.id);
-    this.audio.startBGM(data.theme.id);
+    this.audio.setFloor(this.floor);
     this.player.position.set(data.spawn.x + 0.5, 0, data.spawn.z + 0.5);
     const spawnRoom = data.rooms.find(room => room.kind === 'start');
     const safeSpawn = spawnRoom ? findEncounterRoomPosition(data, spawnRoom, this.player.position.x, this.player.position.z) : null;
@@ -1387,6 +1389,7 @@ export class Game {
     const room = this.encounters.enter(this.player.position.x, this.player.position.z, this.trialActivationRequested);
     this.trialActivationRequested = false;
     if (room) {
+      this.audio.play('earth', undefined, .4);
       const wave = MonsterSpawner.spawnEncounter(this.floorData, room, this.player.position,
         new RNG(this.currentFloorSeed ^ Number(room.id!.split('-')[1]) * 7919));
       this.aggression.encounter(wave.length, wave.some(m => m.def.behavior === 'boss'), room.kind === 'elite');
@@ -1408,6 +1411,7 @@ export class Game {
     this.lateChapter.completeTrialWaves(this.encounters.lockedRoomIds,this.monsters,this.lateHost);
     const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
     if (room || completedRooms.length) this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
+    if (completedRooms.length) this.audio.uiConfirm();
     for (const cleared of completedRooms) {
       const chapterReward = (this.floorData.generationVersion ?? 1) >= 5 ? (ruinsEncounterForRoom(this.floor, cleared.id!) ?? sanctumEncounterForRoom(this.floor, cleared.id!)) : undefined;
       if (chapterReward?.clearXp) this.addXp(monsterXp(chapterReward.clearXp, this.floor));
@@ -1594,7 +1598,11 @@ export class Game {
     if (!this.running || this.isGameplayPaused() || !this.player.alive) this.summonCommands?.hide();
     if (!this.player.alive && this.summonSystem.count) this.summonSystem.clear('owner-death');
     if (document.hidden || this.graphicsLost || this.renderer.getContext().isContextLost()) { this.input.endFrame(); return; }
-    if (this.running) this.updateGame(dt);
+    this.audio.setPaused(this.running && this.isGameplayPaused());
+    if (this.running) {
+      this.audio.update(dt, this.player.position, this.player.yaw, this.monsters, this.encounters?.lockedRoomIds ?? []);
+      this.updateGame(dt);
+    }
     this.updateAimIndicator();
     updateWaterReflection(this.world.group,this.renderer,this.scene,this.camera,now/1000,this.running);
     this.renderer.render(this.scene, this.camera);
@@ -1663,6 +1671,7 @@ export class Game {
         this.controller.update(dt, this.floorData, stats, rawDt);
         this.updatePlayerVisibility();
         if (this.input.wasPressed('Space') && wasGrounded) this.audio.jump();
+        if (!wasGrounded && this.player.onGround) this.audio.play('land');
       }
       this.reaper.update(rawDt, this.equipment.getEquippedItems(),
         Math.hypot(this.player.position.x-movementStartX,this.player.position.z-movementStartZ),
@@ -2731,6 +2740,7 @@ export class Game {
         return;
       }
     }
+    this.audio.skill(skill.id);
     this.recordBuildSkillUse(skill.id);
     const presentationSkill = skillById(skill.id);
     if (presentationSkill) this.player.presentation.playSkill(presentationSkill);
@@ -2762,7 +2772,6 @@ export class Game {
 
   private useWhirlwind(stats: DerivedStats, skill: SkillState): void {
     const aim = this.controller.getAimDirection();
-    this.audio.explosion();
     this.controller.addShake(0.12);
     this.effects.whirlwind(
       this.player.position.clone().add(new THREE.Vector3(0, 1.1, 0)).addScaledVector(aim, 1.5),
@@ -2788,7 +2797,6 @@ export class Game {
   private useDash(stats: DerivedStats, skill: SkillState): void {
     const aim = this.controller.getAimDirection();
     this.controller.dash(aim);
-    this.audio.swing();
     this.effects.dashTrail(this.player.position.clone().add(new THREE.Vector3(0, 0.9, 0)), aim);
     this.controller.addShake(0.08);
     const targets = this.getTargetsInFront(aim, 3.9, 0.45);
@@ -2836,7 +2844,6 @@ export class Game {
       traveled: 0,
       maxDistance: 10,
     });
-    this.audio.shoot();
   }
 
   private applyPlayerElementalHit(monster: Monster, element: ElementType, damage: number, chance?: number): void {
@@ -2910,7 +2917,6 @@ export class Game {
     }
     this.player.addMana(refund);
     if (shield > 0) this.player.grantShield(shield, this.player.maxHealth * this.fireModifiers.detonateShieldCapMaxHealthRatio);
-    this.audio.explosion();
     this.controller.addShake(0.12);
   }
 
@@ -2918,7 +2924,6 @@ export class Game {
     const empowered = this.equipment.hasSpecial('glacialNova');
     const radius = empowered ? 6 : 5;
     const damage = stats.attack * 1.25 * (empowered ? 1.2 : 1);
-    this.audio.explosion();
     this.controller.addShake(0.12);
     this.effects.explosion(this.player.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x9ee7ff);
     this.monsters
@@ -2944,7 +2949,6 @@ export class Game {
     const aim = this.controller.getAimDirection();
     const targets = this.getTargetsInFront(aim, 8, 1.35).slice(0, 4);
     if (targets.length === 0) return;
-    this.audio.shoot();
     targets.forEach((target, index) => {
       const result = CombatSystem.rollDamage(
         stats.attack * Math.max(0.45, 1.35 - index * 0.25),
@@ -3106,6 +3110,7 @@ export class Game {
     const damage = Math.max(1, Math.round(this.p4Skills.interceptDamage(amount, source)));
     if (!this.running || !this.player.alive) return;
     const wasAlive = this.player.alive;
+    const beforeShield = this.player.shield;
     const beforeVitality = this.player.health + this.player.shield;
     this.player.takeDamage(damage);
     this.reaper.onDamaged(Math.max(0,beforeVitality-this.player.health-this.player.shield));
@@ -3115,7 +3120,8 @@ export class Game {
     }
     applyElementalHit(this.player, element, amount, statusChance);
     this.recordDeathTransition(wasAlive, cause, damage);
-    this.audio.hurt();
+    if (beforeShield > 0 && this.player.shield <= 0) this.audio.play('shieldBreak');
+    else if (this.player.health < beforeVitality - beforeShield) this.audio.hurt();
     this.controller.addShake(0.16);
     this.hud.showCenterMessage('受到攻击', '', 0.35);
   }
@@ -3189,7 +3195,7 @@ export class Game {
     },
     impact: (projectile, wall) => {
       this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
-      if (wall) this.audio.explosion();
+      if (wall) this.audio.projectile(projectile.element ?? 'physical', projectile.position);
     },
     expire: projectile => {
       if (projectile.sourceSkillId === 'fireball') this.effects.explosion(projectile.position, 0xff8c1e);
@@ -3209,7 +3215,7 @@ export class Game {
 
   private detonateProjectile(projectile: Projectile): void {
     this.effects.explosion(projectile.position, projectile.friendly ? 0xff8c1e : 0xff4b4b);
-    this.audio.explosion();
+    this.audio.projectile(projectile.element ?? 'physical', projectile.position);
     const element = projectile.element ?? 'physical';
 
     if (projectile.friendly) {
@@ -3267,7 +3273,7 @@ export class Game {
     const color = DAMAGE_COLORS[element];
     this.hud.spawnDamage(String(damage), color, crit, crit ? 1.35 : 1);
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.8, 0)), monster.def.color, crit ? 10 : 5, crit ? 3 : 2);
-    this.audio.hit(crit);
+    this.audio.hit(crit, element, monster.position);
     if (crit) {
       this.hitstopTimer = Math.max(this.hitstopTimer, 0.05);
 
@@ -3293,7 +3299,7 @@ export class Game {
     else if (monster.def.behavior === 'boss') this.bossController.clearWarnings();
     this.kills++;
     this.player.heal(Math.min(this.effectiveStats().killHeal, this.player.maxHealth * 0.02));
-    this.audio.kill();
+    this.audio.monster(monster, 'death');
     this.effects.burst(monster.position.clone().add(new THREE.Vector3(0, 0.9, 0)), monster.def.color, 22, 5);
 
 
@@ -3378,7 +3384,7 @@ export class Game {
       this.controller.addShake(.08);
     } else {
       this.effects.burst(position, event.kind === 'soul-burst' ? 0x9dcc9f : 0xc2dbde, 10, 1.4);
-      if (event.kind === 'guard-counter') this.controller.addShake(.09);
+      if (event.kind === 'guard-counter') { this.controller.addShake(.09); this.audio.play('guard'); }
     }
   }
 
@@ -3482,8 +3488,8 @@ export class Game {
         bobPhase: 0, life: Infinity, age: 0, pickupDelay: visual.pickupDelay, retryIn: 0 });
       const nearby = Math.hypot(pos.x - this.player.position.x, pos.z - this.player.position.z) < 18;
       const red = drop.item.rarity === 'legendary' || drop.item.rarity === 'mythic';
+      if (nearby) this.audio.lootDrop(drop.item.rarity);
       if (nearby && (red ? this.redLootCooldown <= 0 : this.lootSoundCooldown <= 0)) {
-        this.audio.lootDrop(drop.item.rarity);
         this.lootSoundCooldown = .25;
         if (red) {
           this.redLootCooldown = 1.5;
@@ -3579,17 +3585,17 @@ export class Game {
       const amount = drop.amount ?? 0;
       this.player.heal(amount);
       this.hud.showCenterMessage(`生命药水 +${amount}`, '', 0.8);
-      this.audio.pickup();
+      this.audio.play('potion');
       return true;
     } else if (drop.kind === 'mana') {
       const amount = drop.amount ?? 0;
       this.player.addMana(amount);
       this.hud.showCenterMessage(`法力药水 +${amount}`, '', 0.8);
-      this.audio.pickup();
+      this.audio.play('potion');
       return true;
     } else if (drop.kind === 'material' && drop.materialId) {
       this.addMaterials([{materialId:drop.materialId,amount:drop.amount ?? 1}]);
-      this.audio.pickup();
+      this.audio.play('material');
       this.hud.showLootMessage(`获得${MATERIALS[drop.materialId].name} ×${drop.amount ?? 1}`,parseInt(MATERIALS[drop.materialId].color.slice(1),16));
       return true;
     } else if (drop.kind === 'reforgeTicket') {
@@ -3660,6 +3666,7 @@ export class Game {
     }
     if (label === '开启葬仪') {
       if (this.chapterRituals.activate(this.player.position, this.encounters?.lockedRoomIds ?? [])) {
+        this.audio.play('bell');
         this.hud.showCenterMessage('葬仪已开启', '青色范围只伤敌人 · 每台仅一次', 1.2);
         this.saveGame();
         return true;
@@ -3678,6 +3685,7 @@ export class Game {
       return true;
     }
     if (label === '圣所恢复') {
+      this.audio.play('heal');
       const room = this.encounters!.roomAt(this.player.position.x,this.player.position.z)!;
       this.encounters!.state.usedSanctuaries.push(room.id!);
       this.player.heal(this.player.maxHealth * 0.45);
@@ -3708,12 +3716,12 @@ export class Game {
         if (supplyRoom && this.world.openRuinsSupply(supplyRoom.id!)) this.minimap.invalidate();
         this.addMaterials([{ materialId: 'element_shard', amount: 1 }]);
         this.world.removeChest(chest.x, chest.z);
+        this.audio.play('chest');
         const item = ItemGenerator.generate(this.floor, undefined, this.player.level, undefined, undefined, this.effectiveStats().luck, this.envelope?.activeRun?.rewardPreference, false, this.equipmentRulesVersion, this.mechanismPreference);
         const gold = 10 + this.floor * 3;
         this.changeGold(gold, 'chest', { chest: key });
         if (this.inventory.add(item)) {
           this.recordItemAcquired(item, 'chest');
-          this.audio.pickup();
           this.hud.showLootMessage(`宝箱：${item.name} + ${gold} 金币`, this.rarityColor(item.rarity));
         } else {
           this.spawnDrop(new THREE.Vector3(chest.x + 0.5, 0, chest.z + 0.5), { kind: 'item', item });
@@ -4070,6 +4078,7 @@ export class Game {
     this.updateWeaponVisual();
     this.inventoryUI.show(this.equipment, this.inventory);
     this.skills = this.buildSkillStates();
+    this.audio.play('equip');
     playUiFeedback('equip', this.uiRoot.querySelector('.inventory-equipment'));
   }
 
@@ -4077,6 +4086,7 @@ export class Game {
     const item = this.equipment.unequip(slot);
     if (!item) return;
     if (this.inventory.add(item)) {
+      this.audio.play('unequip');
       this.updatePlayerStats(this.effectiveStats());
       this.setRuntime.update(0, this.equipment.getP5SetCounts(), 0, false);
       this.reconcileSummons();
@@ -4392,7 +4402,7 @@ export class Game {
       itemLevelAfter: upgraded.itemLevel,
       cost,
     });
-    this.audio.levelUp();
+    this.audio.play('forge');
     this.showInventory();
     this.hud.showCenterMessage('升级成功', `${item.name} → Lv.${item.itemLevel + 1}`, 1.6);
     this.saveGame();
@@ -4412,7 +4422,7 @@ export class Game {
       this.inventory.items[index] = reforged;
       this.playtestRecorder.record('craft_completed', { action: 'reforge', floor: this.floor, itemId: item.id,
         tag: options.tag ?? 'any', lockedAffixId: options.lockedAffixId, remaining: CraftingSystem.remainingReforges(reforged), goldSpent: cost.gold });
-      this.audio.pickup();
+      this.audio.play('forge');
       this.showInventory();
       this.hud.showLootMessage(`重铸完成：${reforged.name}`, this.rarityColor(reforged.rarity));
       this.saveGame();
