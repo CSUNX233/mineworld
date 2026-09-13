@@ -33,7 +33,10 @@ interface PartRef {
 }
 
 export class Monster {
+  private appearance: THREE.Mesh | null = null;
+  replaceAppearance(mesh:THREE.Mesh):void { this.bodyGroup.visible=false;this.appearance=mesh; mesh.name='late-enemy-model';this.group.add(mesh); }
   roomId = '';
+  movementAttempted = false;
   private attackWarning: THREE.Mesh;
   private statusIcons = new Map<string, THREE.Sprite>();
   readonly id: number;
@@ -71,7 +74,7 @@ export class Monster {
   private facingZ = 0;
   private facingEnabled = false;
 
-  constructor(public def: MonsterDefinition, x: number, z: number) {
+  constructor(public def: MonsterDefinition, x: number, z: number, appearance?: THREE.Mesh | null) {
     this.id = nextMonsterId++;
     this.position.set(x, 0, z);
     this.homePosition = new THREE.Vector3(x, 0, z);
@@ -79,7 +82,8 @@ export class Monster {
     this.health = this.maxHealth;
     this.material = new THREE.MeshLambertMaterial({ color: def.color });
     this.group.add(this.bodyGroup);
-    this.buildModel();
+    if (appearance) this.replaceAppearance(appearance);
+    else this.buildModel();
     this.buildHealthBar();
     this.attackWarning = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 32),
       new THREE.MeshBasicMaterial({ color: 0xff7c59, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }));
@@ -139,7 +143,7 @@ export class Monster {
   }
 
   private updateOverlayHeights(): void {
-    const box = new THREE.Box3().setFromObject(this.bodyGroup);
+    const box = new THREE.Box3().setFromObject(this.appearance ?? this.bodyGroup);
     const bodyHeight = Math.max(0.7, box.max.y - box.min.y);
     this.healthBarBg.position.y = bodyHeight + 0.28;
     this.nameSprite.position.y = bodyHeight + 0.48;
@@ -434,6 +438,14 @@ export class Monster {
     }
 
     const moving = this.velocity.lengthSq() > 0.01;
+    const lateModel=this.appearance;
+    if(lateModel){
+      lateModel.rotation.x=this.state==='attack'?Math.sin(elapsed*8)*.08:0;
+      lateModel.position.y=moving?Math.sin(elapsed*10)*.025:0;
+      const mat=lateModel.material as THREE.MeshPhongMaterial;
+      mat.emissive.setHex(this.hitFlash>0?0x992c20:burning?0x662600:0x000000);
+      if(this.dead){lateModel.scale.y=Math.max(.02,1-this.removalTimer*2);}
+    }
     this.parts.forEach((part) => {
       if (part.amplitude <= 0) return;
       const speed = (this.state === 'chase' || moving ? part.speed * 1.4 : part.speed) * (this.dead ? 0 : 1);

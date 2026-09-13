@@ -1,0 +1,288 @@
+{
+  "date": "2026-09-13",
+  "mode": "built-in imagegen",
+  "status": "reference-art-complete-no-runtime-replacement",
+  "hero": "C 星火行者",
+  "bossTransform": "局部变形、关键阶段明显变化",
+  "basePrompt": "Use case: stylized-concept. Production design sheet for the SAME original mobile action RPG as the reference hero. Reference image is ONLY the visual-style anchor (low-poly geometry, coarse pixel texture density, discrete material shading); do NOT put the hero's hood or mask on all enemies. Crisp nearest-neighbor pixel textures on deliberately simple angular 3D models; flat broad planes, beveled edges, readable silhouettes, 3-4 discrete tones per material, warm cream/ink-indigo outlines plus chapter palettes. No cube heads, no Minecraft mobs or copied costumes, no existing-game characters, no photorealistic surfaces, no noisy microdetail, no painterly strokes. Neutral warm-gray studio background, even lighting revealing all surfaces. Orthographic FRONT SIDE BACK views mean same character same proportions and matching feet/head height, no perspective, no weapon obscuring torso; concept/action insets may use perspective. Minimal legible English labels, no marketing prose. This is a buildable Blender modeling reference, NOT actual gameplay screenshot. ",
+  "promptAssembly": "useBase 为 true 时，最终提示词为 basePrompt + prompt；否则直接使用 prompt。风格参考图以各条目的 reference 为准。",
+  "generated": [
+    {
+      "file": "01-hero-starfire.png",
+      "title": "星火行者：主角概念与三视图",
+      "ids": [
+        "player"
+      ],
+      "prompt": "Use case: stylized-concept. Create a polished ORIGINAL mobile action RPG protagonist production concept sheet, landscape. Title only 'STARFIRE WAYFARER / C'. Original short angular hood (NOT tall pointed wizard hat), three separated ivory ceramic face plates with narrow offset amber light slits, compact 4-heads-tall articulated low-poly body, tapered limbs and beveled non-cube head, asymmetrical short dark teal shoulder cape, ink-indigo cloth, terracotta leather, warm cream accents, a small polygonal rune ember vessel attached to left hip. A mysterious adventurous traveler, capable of melee magic and summoning, NOT a recognizable existing game character. Distinctive split ceramic mask and hexagonal belt vessel must read at small mobile size. Match a warm sunlit sandstone ruined garden game world, crisp nearest-neighbor coarse pixel textures, large deliberate clusters 3-4 tones per material, flat shaded angular 3D volumes, sophisticated hand-crafted toy-like low poly, no smooth plastic, no realistic fabric microdetail, no voxel cube-head anatomy, no Minecraft characters, no Dead Cells character imagery. Layout: left 45% large full-body three-quarter hero pose holding a simple removable short sword; right upper three perfectly consistent full-body FRONT SIDE BACK orthographic neutral A poses, aligned ground and head lines, no perspective on these three. Right lower isolated mask, vessel, and an enlarged right hand grip socket diagram with detachable sword/staff silhouettes. Clean warm gray background, studio neutral light so no details hidden, minimal short English labels, no ornate UI, no fake watermark, no scenery occluding figure. Weapons must be separate objects, not fused into palm. Show actual coarse pixel texels on flat low-poly surfaces; clear buildable forms rather than illustration brushwork.",
+      "useBase": false,
+      "reference": null
+    },
+    {
+      "file": "02-hero-weapons-actions.png",
+      "title": "主角武器挂接与动作",
+      "ids": [],
+      "prompt": "Hero identity strictly identical to reference (short teal hood, split ivory face, indigo tunic, left-hip amber hexagonal vessel). Landscape six panel sheet: same hero equipped with detachable SWORD, HEAVY HAMMER, SCYTHE, STAFF, then first-person forearm+grip closeup and four-frame melee action strip ANTICIPATION / CONTACT / FOLLOW THROUGH / RECOVERY. White arc aligned with diagonal weapon swing not a horizontal fixed billboard. Add isolated side thickness view of a sword: front/back pixel-art faces on a thin beveled blade body, grip origin clearly marked. Small amber socket marker on right palm. Hand and weapon visibly separate, compatible with different inventory artwork. No new game mechanics. Equal-cost color-neutral underlying hero. Keep textures chunky and readable.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "03-boss-oath.png",
+      "title": "断誓门卫",
+      "ids": [
+        "oath_gatekeeper"
+      ],
+      "prompt": "OATH GATEKEEPER. Chapter 1 mossy sunlit sandstone ruins. Original broad iron sentry with angular narrow slit helmet, broken gate-shaped shield and oversized door-blade greatsword, moss-green cloth, worn cream stone seals and dark iron. Upper half full-size FRONT SIDE BACK orthographic base form. Lower half two large phase concepts and transformation inset: P1 closed shield defensive posture; P2 at 60% health shield shattered/discarded, same torso and limbs, exposed glowing oath seams, sword two-hit aggressive stance. Show removable shield parts and 3 beat break-off animation diagram. Only TWO phases. Distinctive weapon silhouette, 2x hero visual scale, stable collision body, no new wings.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "04-boss-foundry.png",
+      "title": "铸炉执政官",
+      "ids": [
+        "furnace_regent"
+      ],
+      "prompt": "FURNACE REGENT. Enclosed boiler foundry, soot iron, oxidized copper, amber furnace core. Massive original humanoid industrial regent, pressure-vessel torso, asymmetrical exhaust shoulders, huge blocky forged hammer, piston legs. Upper half FRONT SIDE BACK orthographic intact base. Lower half THREE phase concepts: P1 sealed furnace torso; P2 pressure vents OPEN with readable white steam jets to one side, hinged chest shutters; P3 overheat furnace core exposed orange-white with lifted shoulder vents and heated hammer, same skeleton. Show hinge axes and small closed/open module inset. This is an industrial executioner not a robot from an existing franchise. Flame accents do not hide mechanism.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "05-boss-bellkeeper.png",
+      "title": "末代司钟人",
+      "ids": [
+        "bellkeeper"
+      ],
+      "prompt": "LAST BELLKEEPER. Sunlit burial sanctum palette oxidized teal, bone limestone, old brass, ink-black cloth. Original tall bowed ceremonial guardian carrying a giant broken bell suspended from a back frame, long angular funerary mantle and bell-clapper staff. Upper half FRONT SIDE BACK orthographic intact base. Lower half THREE phase concepts: P1 sealed bell and gathered mantle; P2 split bell opens revealing engraved name tablets and warm resonant interior, mantle side panels swing open; P3 bell frame fully exposed, bone-ridge motif and uplifted mantle, same body and readable staff. Small transformation hinge details and 3-frame bell swing/impact/settle. Low-poly cloth panels rather than simulated ragged strands; no skeleton king cliché. IMPORTANT: do not copy the reference protagonist's tabard emblem, belt or limb armor; invent this boss's own silhouette and garment panels.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "06-boss-abyss.png",
+      "title": "深渊领主",
+      "ids": [
+        "boss"
+      ],
+      "prompt": "ABYSS LORD. Ash-violet fractured crystal courtyard chapter16-20. Original menacing but stylized broad faceted obsidian lord, single recessed eye inside a broken polygonal crown, asymmetrical heavy shoulder shells, clawed gauntlets, compact split mantle. Deep purple/slate body with restrained coral ember in P1 and lilac shadow in P2. Upper half FRONT SIDE BACK orthographic base. Lower half THREE stage concepts: P1 closed shell and burning hand; P2 shoulder shell separates slightly, eye-core and shadow channels visible, mantle unfolds; P3 crown segments lift on short support arms, chest core exposed and lowered dash stance, recognizable unchanged torso/feet/collision footprint. Show cast cone pose, grounded dash anticipation, core detail. No giant extra wings or full screen particle cloud. IMPORTANT: do not copy the reference protagonist's tabard emblem, belt or limb armor; invent this boss's own silhouette and garment panels.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "07-boss-warden.png",
+      "title": "遗迹监守者",
+      "ids": [
+        "ruins_warden"
+      ],
+      "prompt": "RUINS WARDEN. Sunlit fortress chapter21-25, pale limestone, blue-gray iron, ochre-gold banners. Original colossal ancient military automaton bearing a LONG AXE/HALBERD, geometric lock-ring torso, crenellation-like slanted shoulder armor, narrow recessed visor; NOT same silhouette as furnace boss. Upper half FRONT SIDE BACK orthographic base. Lower half THREE phase concepts: P1 locked chest ring and formal polearm stance; P2 rotating ring splits to two offset halves and armor shutters open, two-impact pose; P3 core exposed within ring, back banner unfolds as reinforcement signal, same skeleton. Include small 3-beat locked/unlock/exposed module diagram. Angular thick volumes, no decorative micro-greebles. Clear vulnerable core. IMPORTANT: do not copy the reference protagonist's tabard emblem, belt or limb armor; invent this boss's own silhouette and garment panels.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "08-enemies-foot.png",
+      "title": "步卒共用骨架",
+      "ids": [
+        "zombie",
+        "orc_warrior",
+        "ash_wanderer",
+        "lost_soldier"
+      ],
+      "prompt": "FOUR ROWS, each with FRONT SIDE BACK aligned orthographic views, plus one small shared base-rig silhouette. Row1 ZOMBIE: ragged moss-stained burial tunic, hunched low-poly undead with narrow non-cubic face. Row2 ORC WARRIOR: broader jaw and shoulders, simple cleaver, terracotta leather. Row3 ASH WANDERER: gray-lilac cracked shell fragments on same basic infantry rig, wary hunched posture. Row4 LOST SOLDIER: cream and blue-gray damaged fortress uniform, short military blade, closed angled helmet. Their bodies share a tapered articulated biped base, change head/shoulder gear and palettes; none resemble Minecraft mobs. No intricate individual armor engravings. No repeated hero insignia or hood. Enemy textures simpler than hero. Large clearly separated full-body figures, every requested row and all three views must fit inside image.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "09-enemies-ranged.png",
+      "title": "射手与返刃骨架",
+      "ids": [
+        "skeleton",
+        "lock_arbalist",
+        "returning_blade"
+      ],
+      "prompt": "THREE ROWS, each FRONT SIDE BACK full-body orthographic, small detached weapon inset. SKELETON ARCHER: ivory thin angular skeleton with mossy straps and short bow, skull beveled and triangular cheekbones, no cube skull. LOCK ARBALIST: fortress blue-gray hooded armored marksman, oversized angular CROSSBOW with clearly visible sight rail. RETURNING BLADE GRAVEKEEPER: bone/teal funerary soldier, crescent boomerang blade on forearm and spare blade belt mount. Shared lightweight biped rig with replaceable head torso armor and bow/crossbow/returning blade, visually clear ranged function. No repeated hero insignia or hood. Enemy textures simpler than hero. Large clearly separated full-body figures, every requested row and all three views must fit inside image.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "10-enemies-casters.png",
+      "title": "遗迹施法者",
+      "ids": [
+        "ruin_acolyte",
+        "ruin_geomancer",
+        "lich"
+      ],
+      "prompt": "THREE ROWS, each FRONT SIDE BACK full-body orthographic plus one small action inset. RUIN ACOLYTE: cream/leaf-green short-robed healer with open forked staff cradling warm mote, rounded shoulder silhouette. RUIN GEOMANCER: terracotta/stone-robed caster with angular slab crown and short stone-headed staff, square slab accents indicate ground attacks. ABYSS LICH: violet bone-faced caster with tall split mantle and long narrow staff. Shared robe-biped foundation, different head pieces and staff silhouettes; separate feet visible, low-poly cloth with few rigid panels. Avoid dressing these as protagonist. No repeated hero insignia or hood. Enemy textures simpler than hero. Large clearly separated full-body figures, every requested row and all three views must fit inside image.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "11-enemies-guards.png",
+      "title": "重甲与军旗部件",
+      "ids": [
+        "ruin_guardian",
+        "linked_guard",
+        "crystal_guard",
+        "banner_captain"
+      ],
+      "prompt": "FOUR ROWS, each FRONT SIDE BACK orthographic. RUIN GUARDIAN: moss-green ruined stone-and-iron guard with broad door shield. LINKED GUARD: fortress blue-gray defender with interlocking paired shield edge motifs and ochre short tabard. CRYSTAL BACK GUARD: slate/lilac heavy guard with three large back crystal facets and thick frontal armor, same broad biped base. BANNER CAPTAIN: same biped proportions but lighter shoulders, clearly tall ochre army banner attached as removable back socket module and command sword. Show small exploded base torso, shields, crystals, banner parts diagram. Shared base mesh yet mechanisms identifiable in silhouette. No repeated hero insignia or hood. Enemy textures simpler than hero. Large clearly separated full-body figures, every requested row and all three views must fit inside image.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "12-enemies-foundry.png",
+      "title": "铸造所人形",
+      "ids": [
+        "valve_overseer",
+        "chain_smith"
+      ],
+      "prompt": "TWO LARGE ROWS, FRONT SIDE BACK orthographic and 3-quarter attack inset each. VALVE OVERSEER: soot iron/copper furnace worker armor with obvious red-orange pressure wheel on back, long lever mace, compact boiler backpack. CHAIN SMITH: same heavy worker biped base but distinct bulky forging gauntlet and thick short linked-chain flail, anvil-shaped shoulder pad. Chain represented as few chunky links for mobile, no fine chain simulation. Removable backpack/wheel/hammer/chain modules diagram. Mechanical readable axes, grimy pixel blocks but not muddy or tiny noise. Style reference ONLY. Do not copy hero's body or costume. Enemy textures and construction simpler than hero. Show all requested creatures and three views.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "13-enemies-machines.png",
+      "title": "机械兽与构装体",
+      "ids": [
+        "ram_beast",
+        "prism_sentry",
+        "seal_engine"
+      ],
+      "prompt": "THREE ROWS FRONT SIDE BACK orthographic with small action inset. RAM BEAST: squat FOUR-LEGGED iron-and-copper foundry beast, giant forward-facing piston ram head, rear pressure tank, show piston extended for charge in separate inset, open space for forward collision. PRISM SENTRY: low stationary squat base with rotating three-facet crystal emitter, iron/copper frame and cold cyan prism, no human body. SEAL ENGINE: fortress blue-gray biped siege construct, broad ankle pistons and low chest-slot projecting a ground-level suppression wave; pale stone shoulder housings. These are THREE distinct base shapes, not recolors; detachable head/piston/emitter parts clear. Style reference ONLY. Do not copy hero's body or costume. Enemy textures and construction simpler than hero. Show all requested creatures and three views.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "14-enemies-elements.png",
+      "title": "软体与元素体",
+      "ids": [
+        "slime",
+        "poison_spitter",
+        "fire_elemental"
+      ],
+      "prompt": "THREE ROWS FRONT SIDE BACK orthographic plus shared core module notes. SLIME: low rounded faceted green jelly blob with two tiny asymmetrical recessed eyes and embedded stone flecks; mesh silhouette non-cubic. POISON SPITTER: squat olive/ochre organic creature with inflated angular poison sac and forward trumpet-like mouth, short feet. FIRE ELEMENTAL: hovering faceted coal core with three segmented orange flame lobes and dark detached rubble arms; no tiny particle rendering. Shared deformation principles and palette variants, distinct attack-read silhouettes, chunky flat pixel textures. Style reference ONLY. Do not copy hero's body or costume. Enemy textures and construction simpler than hero. Show all requested creatures and three views.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "15-enemies-abyss-base.png",
+      "title": "恶魔石魔与幽灵",
+      "ids": [
+        "demon",
+        "golem",
+        "shadow_wraith"
+      ],
+      "prompt": "THREE ROWS FRONT SIDE BACK orthographic. ABYSS DEMON: lean rushing biped with backward wedge horns, terracotta/charcoal skin plates and strong claw arms, original slanted face, no borrowed franchise anatomy. ABYSS GOLEM: wide heavy charcoal stone construct with five large basalt plates and violet narrow core seams, massive fists, low center of gravity. SHADOW WRAITH: tapered floating dark violet ragged angular mantle and hollow faceted mask, no legs visible but simple central rig, separate arm panels. Minimal reusable basalt/crystal accents across chapter, not three variants of one humanoid. Style reference ONLY. Do not copy hero's body or costume. Enemy textures and construction simpler than hero. Show all requested creatures and three views.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "16-enemies-sanctum-heavy.png",
+      "title": "送葬与负棺",
+      "ids": [
+        "sanctum_mourner",
+        "bell_acolyte",
+        "coffin_bearer"
+      ],
+      "prompt": "THREE ROWS FRONT SIDE BACK orthographic. SANCTUM MOURNER: bowed cream-robed common undead with a short ceremonial blade, simple mantle. BELL ACOLYTE: stout old-brass/teal servant wielding heavy bell-clapper mallet, a small chest bell, arms capable of ground pound. COFFIN BEARER: broad dark cloth carrier bent forward with a huge faceted pale stone coffin strapped vertically to back, clearly readable carrying braces and feet. Shared biped hierarchy and detachable robe/bell/coffin, heavy version enlarged torso rather than rebuilt skeleton. Sunlit burial sanctuary, solemn not gory. Preserve requested row count and all three views for character sheets; strong readable coarse low-poly forms. Reference is a style guide, not a request to copy hero clothes onto enemies.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "17-enemies-ritual.png",
+      "title": "刻铭与封印施法者",
+      "ids": [
+        "epitaph_attendant",
+        "name_digger",
+        "seal_scribe"
+      ],
+      "prompt": "THREE ROWS FRONT SIDE BACK orthographic with small key-prop closeup. EPITAPH ATTENDANT: teal/ivory female-coded ceremonial attendant with wide split sleeve panels and suspended engraved tablet, no sexualized clothes. NAME DIGGER: hunched bone/teal grave worker with distinct long shovel-like name-chisel and short tomb plaque back bundle. SEAL SCRIBE: fortress old-gold and blue-gray military registrar, rigid scroll case, broad suspended seal tablet and one engraving stylus. Shared slim biped base, separate sleeve/prop/head kits; simplify lettering to pixel glyph clusters, readable tablet/shovel/scroll silhouettes. Preserve requested row count and all three views for character sheets; strong readable coarse low-poly forms. Reference is a style guide, not a request to copy hero clothes onto enemies.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "18-enemies-shade.png",
+      "title": "裂影深庭机制怪",
+      "ids": [
+        "shade_hunter",
+        "facet_mage",
+        "eye_keeper",
+        "rift_weaver"
+      ],
+      "prompt": "FOUR ROWS FRONT SIDE BACK orthographic. SHADE HUNTER: low stalking violet-gray assassin with two short blades and broken mirror plates along shoulders, side inset semi-transparent stealth silhouette WITH visible footprints and clear fully visible attack posture. FACET MAGE: angular lilac prism shoulder collar, small mirrored hand shield and faceted staff. EYE KEEPER: tall slender watcher carrying an obvious single-eye lantern hung from hooked pole, slate violet robes. RIFT WEAVER: thin ritual caster with two large arc-shaped needle tools and ribbon-like angular sleeve panels making a gap motif, no spider appendages. Shared slim rig, each distinct head/hand module, keep primary identifying props large for mobile. Preserve requested row count and all three views for character sheets; strong readable coarse low-poly forms. Reference is a style guide, not a request to copy hero clothes onto enemies.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "19-summons.png",
+      "title": "召唤物友军变体",
+      "ids": [
+        "summon-warrior",
+        "summon-guard",
+        "summon-archer"
+      ],
+      "prompt": "THREE ROWS FRONT SIDE BACK orthographic. Allied summoned skeleton WARRIOR, GUARD, ARCHER using same original beveled skeletal base as an enemy skeleton but unmistakable friendly identity: small teal/cream tabards, warm amber chest rune, rounded pale shoulder bands. Warrior detachable short sword; guard broad short shield and short blade; archer compact bow and quiver. No hero hood. Tiny bottom common bone-rig and three weapon loadouts diagram. Friendly silhouette and cloth markers remain readable WITHOUT reliance solely on light emission or color. Not additional gameplay units, current summon roles only. Preserve requested row count and all three views for character sheets; strong readable coarse low-poly forms. Reference is a style guide, not a request to copy hero clothes onto enemies.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "20-impact-concept.png",
+      "title": "后续打击感视觉分镜",
+      "ids": [],
+      "prompt": "Landscape combat ART DIRECTION storyboard, NOT implementation. Same exact Starfire Wayfarer hero as reference in three rows: light diagonal sword slash versus ruined shield guard; heavy hammer impact versus furnace worker; flame spell hit versus shade creature. Each row FOUR chronological panels ANTICIPATION / CONTACT / FOLLOW THROUGH / RECOVERY. Coarse pixel-authored sharp tapered slash shapes follow weapon orientation, bright short impact star and localized white hit flash ONLY at contact, enemy body recoil and small angular fragments, trailing streak thins quickly, ground warning still visible. Heavy hammer stronger ground contact and chunky debris than sword; fire has bright core and ember tail not giant translucent orange sphere. Consistent warm-ruins/amber-foundry/lilac-abyss color keys per row. Show readability in landscape mobile isometric combat, environment muted slightly only for diagram. No copied Dead Cells characters, effects sprites or UI, no motion blur. Effects visual reference should convey weight using strong poses, rhythm and directional impact, not screen filling glow. Preserve requested row count and all three views for character sheets; strong readable coarse low-poly forms. Reference is a style guide, not a request to copy hero clothes onto enemies.",
+      "useBase": true,
+      "reference": "01-hero-starfire.png"
+    },
+    {
+      "file": "21-hero-jump-land.png",
+      "title": "主角跳跃与落地",
+      "ids": [
+        "player"
+      ],
+      "useBase": false,
+      "prompt": "Use case: stylized-concept. An original mobile 3D action RPG animation production board matching attached references: precise angular LOW POLY forms with coarse nearest-neighbor pixel textures, cream/teal/indigo/terracotta palette, flat stepped material tones. Neutral warm-gray background, clean contact ground lines, readable complete bodies, chronological poses with small English labels, no existing franchise imagery, no realistic skin or motion blur. This is an ANIMATION REFERENCE not executable sprite frames or actual gameplay. Preserve the EXACT Starfire Wayfarer hero from reference: short teal hood, ivory segmented angular face mask, indigo tunic, short asymmetrical cape and amber hexagon on LEFT hip, sword attached to RIGHT hand throughout. Large landscape production storyboard. Upper row SIX consecutive SIDE VIEW full-body poses across the same ground baseline: compressed takeoff, push-off, ascending knees slightly tucked, apex, descending feet ready, touchdown with bent knees. Plot a faint arcing trajectory behind with feet visibly above ground during middle frames. Lower left FOUR full-body THREE-QUARTER poses: light landing contact, knee absorption, return upright, moving run continuation; feet touch ground and pelvis lowers only visually. Lower right heavy landing comparison: more knee bend and cape overshoot, a few coarse dust squares, still quickly resumes movement, no compulsory roll. Include tiny first person hands absorb landing inset (no forced camera tumble). Anatomy stable, no extra arms, weapon never disappears, hood and vessel secondary motion lag by a frame. Legible directions and floor plane, no crowded technical paragraphs.",
+      "reference": [
+        "01-hero-starfire.png"
+      ]
+    },
+    {
+      "file": "22-hero-hit-reactions.png",
+      "title": "主角定向受击与防护反馈",
+      "ids": [
+        "player"
+      ],
+      "useBase": false,
+      "prompt": "Use case: stylized-concept. An original mobile 3D action RPG animation production board matching attached references: precise angular LOW POLY forms with coarse nearest-neighbor pixel textures, cream/teal/indigo/terracotta palette, flat stepped material tones. Neutral warm-gray background, clean contact ground lines, readable complete bodies, chronological poses with small English labels, no existing franchise imagery, no realistic skin or motion blur. This is an ANIMATION REFERENCE not executable sprite frames or actual gameplay. Preserve exact reference Starfire Wayfarer hero identity and right-hand sword. Landscape animation reference with THREE clear rows. Row1 FOUR direction examples at peak reaction: front impact chest recoils back, rear impact shoulders pitch forward, left impact torso tilts right, right impact torso tilts left. Small coral arrows indicate INCOMING source, feet anchored, upright hero retains sword. Row2 FOUR chronological light-hit poses: neutral, short local shoulder/chest recoil with tiny white contact flash, damped recovery, resume running/attack stance; legs continue locomotion, no huge knockback or forced stun. Row3 THREE separate comparison vignettes: SILVER SHIELD ABSORB as local silver arc and slight forearm yield; EVADE as clean miss streak outside body without blood/white damage flash; AIRBORNE HIT as small upper torso recoil while retaining same jump arc, no forced midair reset. Dark teal cape and amber vessel follow motion subtly. Side inset severe hit larger VISUAL torso deflection only, no death or new gameplay stun. No entire screen red overlay, no injury gore, no camera spin.",
+      "reference": [
+        "01-hero-starfire.png"
+      ]
+    },
+    {
+      "file": "23-enemy-hit-biped-heavy.png",
+      "title": "怪物受击模板：人形与重甲",
+      "ids": [
+        "template-biped",
+        "template-heavy",
+        "template-shield",
+        "template-burden"
+      ],
+      "useBase": false,
+      "prompt": "Use case: stylized-concept. An original mobile 3D action RPG animation production board matching attached references: precise angular LOW POLY forms with coarse nearest-neighbor pixel textures, cream/teal/indigo/terracotta palette, flat stepped material tones. Neutral warm-gray background, clean contact ground lines, readable complete bodies, chronological poses with small English labels, no existing franchise imagery, no realistic skin or motion blur. This is an ANIMATION REFERENCE not executable sprite frames or actual gameplay. FOUR ROWS and FOUR columns showing reusable enemy hit animation templates. Columns NEUTRAL / CONTACT / RECOIL / RECOVER. Row1 LIGHT BIPED represented by a thin angular skeleton archer with moss straps: shoulder/chest twist away from a left-side strike, bow retained, knees slightly flex, stable foot positions. Row2 HEAVY BIPED represented by charcoal stone golem with purple seams: tiny low-frequency torso tilt and delayed shoulder plate followthrough, fists retained, no rubber squash. Row3 SHIELD GUARD represented by cream-stone moss-iron door-shield defender: first show shield facing strike, CONTACT small silver spark on shield, forearm yields slightly but torso stands, RECOVER shield returns; a small separate side inset shows flanked torso hit clearly different, avoid implying shield grants universal invulnerability. Row4 BURDENED BIPED represented by teal/ivory hunched coffin bearer with large strapped stone coffin: chest bends only slightly, back load lags subtly but no huge swing or feet sliding. Bottom small simple directional torso diagram for front/back/left/right hit direction. No hero costume, no hero mask, enemy accessories distinct. No root displacement, no dismemberment, no forced interruption of spells. Simple reusable key poses readable at mobile size.",
+      "reference": [
+        "01-hero-starfire.png"
+      ]
+    },
+    {
+      "file": "24-enemy-hit-special-boss.png",
+      "title": "怪物受击模板：异形与 Boss",
+      "ids": [
+        "template-quadruped",
+        "template-soft",
+        "template-float",
+        "template-turret",
+        "template-boss"
+      ],
+      "useBase": false,
+      "prompt": "Use case: stylized-concept. An original mobile 3D action RPG animation production board matching attached references: precise angular LOW POLY forms with coarse nearest-neighbor pixel textures, cream/teal/indigo/terracotta palette, flat stepped material tones. Neutral warm-gray background, clean contact ground lines, readable complete bodies, chronological poses with small English labels, no existing franchise imagery, no realistic skin or motion blur. This is an ANIMATION REFERENCE not executable sprite frames or actual gameplay. FIVE ROWS, FOUR columns NEUTRAL / CONTACT / RECOIL / RECOVER, large clear landscape production board. Row1 QUADRUPED original ram beast matching reference: anchored four paws, small front-leg compression and shoulder recoil, piston head stays attached, no ragdoll and no walking foot slide. Row2 SOFT BODY green faceted slime: local dent at hit point, modest asymmetrical squash/stretch, recover silhouette without translating root. Row3 FLOATING ENTITY coal-and-orange fire elemental: central core tilts, floating rubble arms lag out then settle, hover baseline remains stable. Row4 TURRET prism sentry matching reference: base completely planted, upper emitter briefly tilts back a few degrees and returns to aim, no whole-base wobble or detachment. Row5 BOSS original blue-gray limestone fortress warden with chest lock-ring and halberd: ordinary hit tiny armor/local shoulder reaction while ATTACK POSE CONTINUES; compare small exposed-core flash only when an actual vulnerability window exists. Tiny final inset real STAGGER is a separate event with deeper body bend, never triggered by every damage tick. Maintain original anatomy, no hero character. No whole-mesh stretching for armor or boss, no knockback arrows, no permanent stun. Pixel contact flashes localized and short, no gore.",
+      "reference": [
+        "13-enemies-machines.png"
+      ]
+    }
+  ]
+}

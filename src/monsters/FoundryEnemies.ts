@@ -220,6 +220,7 @@ export class FoundryEnemies {
     m.faceToward(p.x,p.z);if(distance<.01||distance>m.def.detectRadius) return;
     const visible=this.lineClear(floor,m.position,p);
     let direction:{x:number;z:number}|null=null;
+    if(!visible)m.movementAttempted=true;
     if(!visible) direction=directionToPlayer(floor,m.position.x,m.position.z,p.x,p.z);
     else if(m.def.id==='prism_sentry'&&distance<3) direction={x:-dx,z:-dz};
     else if(distance>preferred) direction={x:dx,z:dz};
@@ -232,6 +233,7 @@ export class FoundryEnemies {
   }
   private move(m:Monster,dx:number,dz:number,distance:number,floor:FloorData,room:Room):void {
     if(distance<=0||Math.hypot(dx,dz)<.001) return;
+    m.movementAttempted=true;
     const angle=Math.atan2(dz,dx);
     for(const turn of [0,.65,-.65,1.2,-1.2]) {
       const direction=new THREE.Vector3(Math.cos(angle+turn),0,Math.sin(angle+turn));

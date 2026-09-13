@@ -7,6 +7,7 @@ import { createChapterVapor } from './ChapterVapor';
 /** Background only: no physics, navigation, damage or random-stream changes. */
 export function createChapterAtmosphere(data: FloorData, lights: {x:number;y:number;z:number;color:number}[] = []): THREE.Group {
   const group=new THREE.Group();group.name='chapter-atmosphere';
+  const late=data.floor>=16,abyss=late&&data.floor<=20;
   const indoor=data.floor>=6&&data.floor<=10, ruins=data.floor<=5;
   const positions:number[]=[],land:number[]=[],banks:number[]=[],shore:{x:number;z:number}[]=[];
   const walk=(x:number,z:number)=>[BlockKind.Floor,BlockKind.Portal,BlockKind.Obstacle].includes(data.grid[z]?.[x]);
@@ -14,7 +15,7 @@ export function createChapterAtmosphere(data: FloorData, lights: {x:number;y:num
   for(let z=-16;z<data.size+16;z++)for(let x=-16;x<data.size+16;x++) {
     // Isolated low-lying pockets, never a sea replacing the land backdrop.
     const pocket=Math.sin(x*.16+data.seed%11)*Math.cos(z*.14+data.floor);
-    if(pocket<(indoor?.66:.72))continue;
+    if(late||pocket<(indoor?.66:.72))continue;
     let clear=true;
     for(let dz=-2;dz<=2&&clear;dz++)for(let dx=-2;dx<=2;dx++)if(walk(x+dx,z+dz)){clear=false;break;}
     if(!clear)continue;
@@ -22,7 +23,7 @@ export function createChapterAtmosphere(data: FloorData, lights: {x:number;y:num
   }
   for(let z=-16;z<data.size+16;z++)for(let x=-16;x<data.size+16;x++){
     const wet=pools.has(`${x},${z}`),target=wet?positions:land;
-    for(const [dx,dz] of [[0,0],[0,1],[1,0],[1,0],[0,1],[1,1]])target.push(x+dx,wet?-.55:-.13,z+dz);
+    for(const [dx,dz] of [[0,0],[0,1],[1,0],[1,0],[0,1],[1,1]])target.push(x+dx,wet?-.55:late?-8:-.13,z+dz);
     if(wet)for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
       if(pools.has(`${x+dx},${z+dz}`))continue;
       const ax=x+(dx===1?1:0),az=z+(dz===1?1:0),bx=ax+(dz?1:0),bz=az+(dx?1:0);
@@ -38,7 +39,7 @@ export function createChapterAtmosphere(data: FloorData, lights: {x:number;y:num
   }
   const terrainMap=new THREE.CanvasTexture(terrainCanvas);terrainMap.wrapS=terrainMap.wrapT=THREE.RepeatWrapping;terrainMap.magFilter=THREE.NearestFilter;terrainMap.colorSpace=THREE.SRGBColorSpace;
   group.userData.terrainMap=terrainMap;
-  for(const [vertices,color,name] of [[land,indoor?0x454348:ruins?0x79825a:0x72776a,'land'],[banks,indoor?0x40372f:0x656b57,'pool-banks']] as const){
+  for(const [vertices,color,name] of [[land,abyss?0x655f79:late?0x8194a7:indoor?0x454348:ruins?0x79825a:0x72776a,'land'],[banks,indoor?0x40372f:0x656b57,'pool-banks']] as const){
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.computeVertexNormals();
     const uv:number[]=[];for(let i=0;i<vertices.length;i+=3)uv.push(vertices[i]/6,vertices[i+2]/6);geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
     const ground=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,map:terrainMap,side:name==='land'?THREE.FrontSide:THREE.DoubleSide}));ground.name=name;ground.receiveShadow=true;group.add(ground);
@@ -80,7 +81,7 @@ export function createChapterAtmosphere(data: FloorData, lights: {x:number;y:num
     halos.name='practical-light-halos';halos.frustumCulled=false;group.add(halos);
   }
   if(!indoor){
-    const skyMaterial=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{horizon:{value:new THREE.Color(ruins?0xb2b79a:0x566a66)},zenith:{value:new THREE.Color(ruins?0x748c93:0x3e5966)}},
+    const skyMaterial=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{horizon:{value:new THREE.Color(abyss?0x9b8faa:late?0xbccbd8:ruins?0xb2b79a:0x566a66)},zenith:{value:new THREE.Color(abyss?0x64577b:late?0x6b8da9:ruins?0x748c93:0x3e5966)}},
       vertexShader:`varying vec3 skyDirection;void main(){skyDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
       fragmentShader:`uniform vec3 horizon;uniform vec3 zenith;varying vec3 skyDirection;void main(){vec3 d=normalize(skyDirection);vec3 col=mix(horizon,zenith,smoothstep(0.0,.8,d.y));float sun=dot(d,normalize(vec3(-24.0,27.0,-20.0)));col+=vec3(1.0,.83,.52)*(pow(max(0.0,sun),40.0)*.16+smoothstep(.9992,.9998,sun)*1.7);gl_FragColor=vec4(col,1.0);
       #include <tonemapping_fragment>
@@ -106,8 +107,9 @@ export function createChapterAtmosphere(data: FloorData, lights: {x:number;y:num
     const ceiling=new THREE.Mesh(new THREE.PlaneGeometry(span,span),new THREE.MeshBasicMaterial({color:0x242b34,map:terrainMap,side:THREE.BackSide}));
     ceiling.rotation.x=-Math.PI/2;ceiling.position.set(c,9,c);ceiling.name='enclosed-boiler-ceiling';group.add(ceiling);
   }
-  const vapor=createChapterVapor(data.floor,lights,[...pools].map(key=>{const [x,z]=key.split(',').map(Number);return{x:x+.5,z:z+.5};}));
+  const vapor=createChapterVapor(data.floor,lights,late?data.rooms.flatMap(r=>[{x:r.x-2,z:r.z-2},{x:r.x+r.width+2,z:r.z+r.depth+2}]):[...pools].map(key=>{const [x,z]=key.split(',').map(Number);return{x:x+.5,z:z+.5};}));
   group.add(vapor);group.userData.vaporMaterial=vapor.material;
+  vapor.visible=vapor.count>0;
   return group;
 }
 export function updateChapterAtmosphere(group:THREE.Object3D,elapsed:number):void{

@@ -14,7 +14,7 @@ export const ROOM_TEMPLATES = {
   flanks: [[1, 3], [2, 3], [7, 6], [8, 6]],
 } satisfies Record<string, number[][]>;
 
-export type TacticalRoomTemplateId =
+export type TacticalRoomTemplateId = import('./LateChapter').LateTemplate
   | 'ruins-court' | 'ruins-double-path' | 'ruins-bulwark' | 'ruins-barracks'
   | 'ruins-chapel' | 'ruins-armory' | 'ruins-ring' | 'ruins-gate-arena' | 'ruins-supply' | 'ruins-trial'
   | 'sanctum-echo' | 'sanctum-inscription' | 'sanctum-procession' | 'sanctum-blade'
@@ -194,6 +194,7 @@ export const TACTICAL_ROOM_TEMPLATES: Record<TacticalRoomTemplateId, TacticalRoo
       [w - 5, d - 4], [w - 4, d - 4], [w - 4, d - 5],
     ],
   },
+  ...Object.fromEntries(['abyss-lamp','abyss-mirror','abyss-eye','abyss-sweep','abyss-store','abyss-trial','abyss-throne','citadel-banner','citadel-wave','citadel-seal','citadel-muster','citadel-store','citadel-trial','citadel-throne'].map(id => [id, chapterTemplate(id as TacticalRoomTemplateId, '宽场与可选机关', id)])) as Record<import('./LateChapter').LateTemplate, TacticalRoomTemplate>,
   'pillar-court': {
     id: 'pillar-court',
     gameplay: 'Four chunky supports create alternating cover while leaving a broad central crossing.',

@@ -1,3 +1,4 @@
+import { lateGroundHeight } from '../world/LateElevation';
 import * as THREE from 'three';
 import type { FloorData } from '../types';
 import type { Monster } from '../monsters/Monster';
@@ -233,6 +234,7 @@ export class SummonSystem {
       this.applyIncomingAttack(unit, living, floor);
       if (unit.health <= 0) { this.removeUnit(unit, 'death', host); continue; }
       this.updateRole(unit, floor, player, living, rules, host, delta);
+      unit.position.y=lateGroundHeight(floor,unit.position.x,unit.position.z);
       unit.visual.update(unit.position, unit.yaw, unit.health / unit.maxHealth, this.elapsed);
     }
     this.updateSignals(delta);
@@ -564,6 +566,7 @@ export class SummonSystem {
     if (!isWalkable(floor, Math.floor(nextX), Math.floor(nextZ))) return false;
     unit.position.x = nextX;
     unit.position.z = nextZ;
+    unit.position.y = lateGroundHeight(floor,nextX,nextZ);
     unit.yaw = Math.atan2(direction.x, direction.z);
     return true;
   }

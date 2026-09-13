@@ -1,4 +1,4 @@
-import { monsterAggression } from './EnemyIntent';
+import { monsterAggression, monsterPursuitRate } from './EnemyIntent';
 import * as THREE from 'three';
 import type { FloorData, Room } from '../types';
 import type { Player } from '../player/Player';
@@ -627,7 +627,8 @@ export class FoundryBossController {
       return;
     }
     direction.normalize();
-    const desired = Math.min(distance - boss.def.attackRange, boss.def.speed * boss.speedMultiplier * boss.slowMultiplier * dt);
+    boss.movementAttempted=true;
+    const desired = Math.min(distance - boss.def.attackRange, boss.def.speed * boss.speedMultiplier * boss.slowMultiplier * monsterPursuitRate(boss) * dt);
     const allowed = this.maskedTravelDistance(floor, room, boss.position.x, boss.position.z,
       direction.x, direction.z, desired, BOSS_RADIUS);
     const travel = Math.max(0, Math.min(desired, allowed - 0.04));

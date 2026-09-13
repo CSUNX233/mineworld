@@ -1,4 +1,4 @@
-export type DeepChapter = 'foundry' | 'sanctum';
+export type DeepChapter = 'foundry' | 'sanctum' | 'abyss' | 'citadel';
 export interface DeepChapterStyle {
   chapter: DeepChapter; name: string; landmark: string; wallHeight: number;
   tint: number; fog: number; ground: number; sun: number; sunIntensity: number; ambient: number;
@@ -20,4 +20,7 @@ export const DEEP_CHAPTER_STYLES: Readonly<Record<number, DeepChapterStyle>> = {
   14: { ...sanctum, name: '倒悬钟庭', landmark: 'bell_gantry', wallHeight: 1.12, tint: 0xcde0da, fog: 0x506b69, sun: 0xc7e3e7, sunIntensity: 1.8 },
   15: { ...sanctum, name: '无名王座', landmark: 'ossuary', wallHeight: 1.1, tint: 0xfff1d6, fog: 0x758079, sun: 0xe5f2ed, sunIntensity: 2.0, ambient: 1.4 },
 };
-export function deepChapterStyle(floor: number): DeepChapterStyle | undefined { return DEEP_CHAPTER_STYLES[floor]; }
+export function deepChapterStyle(floor: number): DeepChapterStyle | undefined {
+  if(floor>=16&&floor<=25){const abyss=floor<=20;return {chapter:abyss?'abyss':'citadel',name:abyss?'蚀光深庭':'封界天垒',landmark:'monument',wallHeight:1,tint:0xffffff,fog:abyss?0x8c829e:0xaebdcc,ground:abyss?0x655f79:0x88929b,sun:abyss?0xd9c6ff:0xffe3ad,sunIntensity:abyss?1.5:3.1,ambient:1.3,light:0xffc878,glow:0xffcf84,exposure:1.18};}
+  return DEEP_CHAPTER_STYLES[floor];
+}

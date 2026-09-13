@@ -1,0 +1,256 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MineWorld · 16–25 层验收</title><style>
+*{box-sizing:border-box}body{margin:0;background:#171921;color:#e5ded1;font:16px/1.65 system-ui,sans-serif}main{max-width:1440px;margin:auto;padding:30px}h1{font-size:32px}h2{margin-top:48px;color:#e4bc78}h3{margin:8px 0}p{color:#bab9c1;max-width:1000px}nav{display:flex;gap:20px;flex-wrap:wrap}a{color:#ead1a0}img{width:100%;display:block;background:#252732;border-radius:6px}figure{margin:0;background:#23252f;padding:12px;border:1px solid #383944;border-radius:10px}figcaption{padding:9px 0 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}details{margin:18px 0;padding:18px;background:#20222b;border-radius:10px}summary{cursor:pointer;color:#e4bc78;font-weight:600}small{color:#aaa9b2}code{color:#b8d4d0}@media(max-width:700px){main{padding:16px}.pair,.three{grid-template-columns:1fr}}:focus-visible{outline:2px solid #e4bc78;outline-offset:4px}</style><main>
+<h1>蚀光深庭 / 封界天垒</h1><p>16–25 层首轮场景与玩法接入 · 2026-09-13。概念图与实际截图分别标注。先验收轮廓、动线、机关可读性和手机视角；细节密度暂未达到概念图。</p>
+<nav><a href="#abyss">16–20 蚀光深庭</a><a href="#citadel">21–25 封界天垒</a><a href="#checks">基础检查</a><a href="../../../docs/FLOORS_16_25_IMPLEMENTATION.md">实现记录</a></nav>
+<p>宽楼梯连接 0.8 米低平台，八级缓坡；玩家、敌人、召唤物共用地面高度。首版没有电梯，也没有上下重叠楼层。房间正/侧视图剖去前景墙，用于看清内部；它们由游戏中的实际模型与生成数据渲染。</p>
+<section id="abyss"><h2>16–20 · 蚀光深庭</h2>
+<div class="pair"><figure><a href="../chapters-16-25-reference/abyss-boss.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/abyss-boss.png" alt="AI 概念参考 · 首领房"></a><figcaption>AI 概念参考 · 首领房</figcaption></figure><figure><a href="floor-20-perspective.png" target="_blank"><img loading="lazy" src="floor-20-perspective.png" alt="实际游戏 · 首领房斜俯视"></a><figcaption>实际游戏 · 首领房斜俯视</figcaption></figure></div>
+<div class="pair"><figure><a href="floor-18-mobile-gameplay.png" target="_blank"><img loading="lazy" src="floor-18-mobile-gameplay.png" alt="实际游戏 · 手机横屏第三人称（浏览器设备模拟）"></a><figcaption>实际游戏 · 手机横屏第三人称（浏览器设备模拟）</figcaption></figure><figure><a href="floor-18-mobile-first-person.png" target="_blank"><img loading="lazy" src="floor-18-mobile-first-person.png" alt="实际游戏 · 手机横屏第一人称（浏览器设备模拟）"></a><figcaption>实际游戏 · 手机横屏第一人称（浏览器设备模拟）</figcaption></figure></div>
+<details><summary>全部房间与走廊概念参考</summary><div class="grid">
+<figure><a href="../chapters-16-25-reference/abyss-rooms-a.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/abyss-rooms-a.png" alt="AI 参考 · 核心机关房"></a><figcaption>AI 参考 · 核心机关房</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/abyss-rooms-b.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/abyss-rooms-b.png" alt="AI 参考 · 清扫 / 物资 / 试炼"></a><figcaption>AI 参考 · 清扫 / 物资 / 试炼</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/abyss-connectors.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/abyss-connectors.png" alt="AI 参考 · 通路与楼梯"></a><figcaption>AI 参考 · 通路与楼梯</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/abyss-modules.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/abyss-modules.png" alt="AI 参考 · 可复用模块与机关"></a><figcaption>AI 参考 · 可复用模块与机关</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/abyss-enemies.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/abyss-enemies.png" alt="AI 参考 · 六种敌人造型参考"></a><figcaption>AI 参考 · 六种敌人造型参考</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/abyss-atlas.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/abyss-atlas.png" alt="AI 参考 · 共享像素材质"></a><figcaption>AI 参考 · 共享像素材质</figcaption></figure>
+</div></details><details open><summary>实际游戏 · 五层场景</summary><div class="grid">
+<figure><a href="floor-16-perspective.png" target="_blank"><img loading="lazy" src="floor-16-perspective.png" alt="第 16 层"></a><figcaption>第 16 层</figcaption></figure>
+<figure><a href="floor-17-perspective.png" target="_blank"><img loading="lazy" src="floor-17-perspective.png" alt="第 17 层"></a><figcaption>第 17 层</figcaption></figure>
+<figure><a href="floor-18-perspective.png" target="_blank"><img loading="lazy" src="floor-18-perspective.png" alt="第 18 层"></a><figcaption>第 18 层</figcaption></figure>
+<figure><a href="floor-19-perspective.png" target="_blank"><img loading="lazy" src="floor-19-perspective.png" alt="第 19 层"></a><figcaption>第 19 层</figcaption></figure>
+<figure><a href="floor-20-perspective.png" target="_blank"><img loading="lazy" src="floor-20-perspective.png" alt="第 20 层"></a><figcaption>第 20 层</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 失灯庭</summary><div class="three">
+<figure><a href="abyss-lamp-room-top.png" target="_blank"><img loading="lazy" src="abyss-lamp-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="abyss-lamp-room-front.png" target="_blank"><img loading="lazy" src="abyss-lamp-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="abyss-lamp-room-right.png" target="_blank"><img loading="lazy" src="abyss-lamp-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 折镜廊</summary><div class="three">
+<figure><a href="abyss-mirror-room-top.png" target="_blank"><img loading="lazy" src="abyss-mirror-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="abyss-mirror-room-front.png" target="_blank"><img loading="lazy" src="abyss-mirror-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="abyss-mirror-room-right.png" target="_blank"><img loading="lazy" src="abyss-mirror-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 悬瞳庭</summary><div class="three">
+<figure><a href="abyss-eye-room-top.png" target="_blank"><img loading="lazy" src="abyss-eye-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="abyss-eye-room-front.png" target="_blank"><img loading="lazy" src="abyss-eye-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="abyss-eye-room-right.png" target="_blank"><img loading="lazy" src="abyss-eye-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 清扫台</summary><div class="three">
+<figure><a href="abyss-sweep-room-top.png" target="_blank"><img loading="lazy" src="abyss-sweep-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="abyss-sweep-room-front.png" target="_blank"><img loading="lazy" src="abyss-sweep-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="abyss-sweep-room-right.png" target="_blank"><img loading="lazy" src="abyss-sweep-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 物资庭</summary><div class="three">
+<figure><a href="abyss-store-room-top.png" target="_blank"><img loading="lazy" src="abyss-store-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="abyss-store-room-front.png" target="_blank"><img loading="lazy" src="abyss-store-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="abyss-store-room-right.png" target="_blank"><img loading="lazy" src="abyss-store-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 显影试炼</summary><div class="three">
+<figure><a href="abyss-trial-room-top.png" target="_blank"><img loading="lazy" src="abyss-trial-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="abyss-trial-room-front.png" target="_blank"><img loading="lazy" src="abyss-trial-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="abyss-trial-room-right.png" target="_blank"><img loading="lazy" src="abyss-trial-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 三瞳王庭</summary><div class="three">
+<figure><a href="abyss-throne-room-top.png" target="_blank"><img loading="lazy" src="abyss-throne-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="abyss-throne-room-front.png" target="_blank"><img loading="lazy" src="abyss-throne-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="abyss-throne-room-right.png" target="_blank"><img loading="lazy" src="abyss-throne-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际通路、入口、台阶三视图</summary>
+<div class="three">
+<figure><a href="abyss-connector-entry-room-top.png" target="_blank"><img loading="lazy" src="abyss-connector-entry-room-top.png" alt="entry · top"></a><figcaption>entry · top</figcaption></figure>
+<figure><a href="abyss-connector-entry-room-front.png" target="_blank"><img loading="lazy" src="abyss-connector-entry-room-front.png" alt="entry · front"></a><figcaption>entry · front</figcaption></figure>
+<figure><a href="abyss-connector-entry-room-right.png" target="_blank"><img loading="lazy" src="abyss-connector-entry-room-right.png" alt="entry · right"></a><figcaption>entry · right</figcaption></figure>
+</div>
+<div class="three">
+<figure><a href="abyss-connector-corridor-room-top.png" target="_blank"><img loading="lazy" src="abyss-connector-corridor-room-top.png" alt="corridor · top"></a><figcaption>corridor · top</figcaption></figure>
+<figure><a href="abyss-connector-corridor-room-front.png" target="_blank"><img loading="lazy" src="abyss-connector-corridor-room-front.png" alt="corridor · front"></a><figcaption>corridor · front</figcaption></figure>
+<figure><a href="abyss-connector-corridor-room-right.png" target="_blank"><img loading="lazy" src="abyss-connector-corridor-room-right.png" alt="corridor · right"></a><figcaption>corridor · right</figcaption></figure>
+</div>
+<div class="three">
+<figure><a href="abyss-connector-stairs-room-top.png" target="_blank"><img loading="lazy" src="abyss-connector-stairs-room-top.png" alt="stairs · top"></a><figcaption>stairs · top</figcaption></figure>
+<figure><a href="abyss-connector-stairs-room-front.png" target="_blank"><img loading="lazy" src="abyss-connector-stairs-room-front.png" alt="stairs · front"></a><figcaption>stairs · front</figcaption></figure>
+<figure><a href="abyss-connector-stairs-room-right.png" target="_blank"><img loading="lazy" src="abyss-connector-stairs-room-right.png" alt="stairs · right"></a><figcaption>stairs · right</figcaption></figure>
+</div>
+</details><details><summary>Blender 模型库与模块三视图</summary><figure><a href="abyss-library.png" target="_blank"><img loading="lazy" src="abyss-library.png" alt="实际 Blender 模型库"></a><figcaption>实际 Blender 模型库</figcaption></figure><div class="grid">
+<figure><figcaption>wall</figcaption><div class="three">
+<a href="abyss-wall-front.png"><img loading="lazy" src="abyss-wall-front.png" alt="wall front"></a>
+<a href="abyss-wall-right.png"><img loading="lazy" src="abyss-wall-right.png" alt="wall right"></a>
+<a href="abyss-wall-top.png"><img loading="lazy" src="abyss-wall-top.png" alt="wall top"></a>
+</div></figure>
+<figure><figcaption>pillar</figcaption><div class="three">
+<a href="abyss-pillar-front.png"><img loading="lazy" src="abyss-pillar-front.png" alt="pillar front"></a>
+<a href="abyss-pillar-right.png"><img loading="lazy" src="abyss-pillar-right.png" alt="pillar right"></a>
+<a href="abyss-pillar-top.png"><img loading="lazy" src="abyss-pillar-top.png" alt="pillar top"></a>
+</div></figure>
+<figure><figcaption>arch</figcaption><div class="three">
+<a href="abyss-arch-front.png"><img loading="lazy" src="abyss-arch-front.png" alt="arch front"></a>
+<a href="abyss-arch-right.png"><img loading="lazy" src="abyss-arch-right.png" alt="arch right"></a>
+<a href="abyss-arch-top.png"><img loading="lazy" src="abyss-arch-top.png" alt="arch top"></a>
+</div></figure>
+<figure><figcaption>lamp</figcaption><div class="three">
+<a href="abyss-lamp-front.png"><img loading="lazy" src="abyss-lamp-front.png" alt="lamp front"></a>
+<a href="abyss-lamp-right.png"><img loading="lazy" src="abyss-lamp-right.png" alt="lamp right"></a>
+<a href="abyss-lamp-top.png"><img loading="lazy" src="abyss-lamp-top.png" alt="lamp top"></a>
+</div></figure>
+<figure><figcaption>mirror</figcaption><div class="three">
+<a href="abyss-mirror-front.png"><img loading="lazy" src="abyss-mirror-front.png" alt="mirror front"></a>
+<a href="abyss-mirror-right.png"><img loading="lazy" src="abyss-mirror-right.png" alt="mirror right"></a>
+<a href="abyss-mirror-top.png"><img loading="lazy" src="abyss-mirror-top.png" alt="mirror top"></a>
+</div></figure>
+<figure><figcaption>eye</figcaption><div class="three">
+<a href="abyss-eye-front.png"><img loading="lazy" src="abyss-eye-front.png" alt="eye front"></a>
+<a href="abyss-eye-right.png"><img loading="lazy" src="abyss-eye-right.png" alt="eye right"></a>
+<a href="abyss-eye-top.png"><img loading="lazy" src="abyss-eye-top.png" alt="eye top"></a>
+</div></figure>
+<figure><figcaption>banner</figcaption><div class="three">
+<a href="abyss-banner-front.png"><img loading="lazy" src="abyss-banner-front.png" alt="banner front"></a>
+<a href="abyss-banner-right.png"><img loading="lazy" src="abyss-banner-right.png" alt="banner right"></a>
+<a href="abyss-banner-top.png"><img loading="lazy" src="abyss-banner-top.png" alt="banner top"></a>
+</div></figure>
+<figure><figcaption>redirector</figcaption><div class="three">
+<a href="abyss-redirector-front.png"><img loading="lazy" src="abyss-redirector-front.png" alt="redirector front"></a>
+<a href="abyss-redirector-right.png"><img loading="lazy" src="abyss-redirector-right.png" alt="redirector right"></a>
+<a href="abyss-redirector-top.png"><img loading="lazy" src="abyss-redirector-top.png" alt="redirector top"></a>
+</div></figure>
+<figure><figcaption>seal</figcaption><div class="three">
+<a href="abyss-seal-front.png"><img loading="lazy" src="abyss-seal-front.png" alt="seal front"></a>
+<a href="abyss-seal-right.png"><img loading="lazy" src="abyss-seal-right.png" alt="seal right"></a>
+<a href="abyss-seal-top.png"><img loading="lazy" src="abyss-seal-top.png" alt="seal top"></a>
+</div></figure>
+<figure><figcaption>monument</figcaption><div class="three">
+<a href="abyss-monument-front.png"><img loading="lazy" src="abyss-monument-front.png" alt="monument front"></a>
+<a href="abyss-monument-right.png"><img loading="lazy" src="abyss-monument-right.png" alt="monument right"></a>
+<a href="abyss-monument-top.png"><img loading="lazy" src="abyss-monument-top.png" alt="monument top"></a>
+</div></figure>
+<figure><figcaption>rubble</figcaption><div class="three">
+<a href="abyss-rubble-front.png"><img loading="lazy" src="abyss-rubble-front.png" alt="rubble front"></a>
+<a href="abyss-rubble-right.png"><img loading="lazy" src="abyss-rubble-right.png" alt="rubble right"></a>
+<a href="abyss-rubble-top.png"><img loading="lazy" src="abyss-rubble-top.png" alt="rubble top"></a>
+</div></figure>
+</div></details></section>
+<section id="citadel"><h2>21–25 · 封界天垒</h2>
+<div class="pair"><figure><a href="../chapters-16-25-reference/citadel-boss.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/citadel-boss.png" alt="AI 概念参考 · 首领房"></a><figcaption>AI 概念参考 · 首领房</figcaption></figure><figure><a href="floor-25-perspective.png" target="_blank"><img loading="lazy" src="floor-25-perspective.png" alt="实际游戏 · 首领房斜俯视"></a><figcaption>实际游戏 · 首领房斜俯视</figcaption></figure></div>
+<div class="pair"><figure><a href="floor-23-mobile-gameplay.png" target="_blank"><img loading="lazy" src="floor-23-mobile-gameplay.png" alt="实际游戏 · 手机横屏第三人称（浏览器设备模拟）"></a><figcaption>实际游戏 · 手机横屏第三人称（浏览器设备模拟）</figcaption></figure><figure><a href="floor-23-mobile-first-person.png" target="_blank"><img loading="lazy" src="floor-23-mobile-first-person.png" alt="实际游戏 · 手机横屏第一人称（浏览器设备模拟）"></a><figcaption>实际游戏 · 手机横屏第一人称（浏览器设备模拟）</figcaption></figure></div>
+<details><summary>全部房间与走廊概念参考</summary><div class="grid">
+<figure><a href="../chapters-16-25-reference/citadel-rooms-a.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/citadel-rooms-a.png" alt="AI 参考 · 核心机关房"></a><figcaption>AI 参考 · 核心机关房</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/citadel-rooms-b.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/citadel-rooms-b.png" alt="AI 参考 · 清扫 / 物资 / 试炼"></a><figcaption>AI 参考 · 清扫 / 物资 / 试炼</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/citadel-connectors.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/citadel-connectors.png" alt="AI 参考 · 通路与楼梯"></a><figcaption>AI 参考 · 通路与楼梯</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/citadel-modules.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/citadel-modules.png" alt="AI 参考 · 可复用模块与机关"></a><figcaption>AI 参考 · 可复用模块与机关</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/citadel-enemies.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/citadel-enemies.png" alt="AI 参考 · 六种敌人造型参考"></a><figcaption>AI 参考 · 六种敌人造型参考</figcaption></figure>
+<figure><a href="../chapters-16-25-reference/citadel-atlas.png" target="_blank"><img loading="lazy" src="../chapters-16-25-reference/citadel-atlas.png" alt="AI 参考 · 共享像素材质"></a><figcaption>AI 参考 · 共享像素材质</figcaption></figure>
+</div></details><details open><summary>实际游戏 · 五层场景</summary><div class="grid">
+<figure><a href="floor-21-perspective.png" target="_blank"><img loading="lazy" src="floor-21-perspective.png" alt="第 21 层"></a><figcaption>第 21 层</figcaption></figure>
+<figure><a href="floor-22-perspective.png" target="_blank"><img loading="lazy" src="floor-22-perspective.png" alt="第 22 层"></a><figcaption>第 22 层</figcaption></figure>
+<figure><a href="floor-23-perspective.png" target="_blank"><img loading="lazy" src="floor-23-perspective.png" alt="第 23 层"></a><figcaption>第 23 层</figcaption></figure>
+<figure><a href="floor-24-perspective.png" target="_blank"><img loading="lazy" src="floor-24-perspective.png" alt="第 24 层"></a><figcaption>第 24 层</figcaption></figure>
+<figure><a href="floor-25-perspective.png" target="_blank"><img loading="lazy" src="floor-25-perspective.png" alt="第 25 层"></a><figcaption>第 25 层</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 军旗庭</summary><div class="three">
+<figure><a href="citadel-banner-room-top.png" target="_blank"><img loading="lazy" src="citadel-banner-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="citadel-banner-room-front.png" target="_blank"><img loading="lazy" src="citadel-banner-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="citadel-banner-room-right.png" target="_blank"><img loading="lazy" src="citadel-banner-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 镇印堤</summary><div class="three">
+<figure><a href="citadel-wave-room-top.png" target="_blank"><img loading="lazy" src="citadel-wave-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="citadel-wave-room-front.png" target="_blank"><img loading="lazy" src="citadel-wave-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="citadel-wave-room-right.png" target="_blank"><img loading="lazy" src="citadel-wave-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 封印庭</summary><div class="three">
+<figure><a href="citadel-seal-room-top.png" target="_blank"><img loading="lazy" src="citadel-seal-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="citadel-seal-room-front.png" target="_blank"><img loading="lazy" src="citadel-seal-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="citadel-seal-room-right.png" target="_blank"><img loading="lazy" src="citadel-seal-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 集结场</summary><div class="three">
+<figure><a href="citadel-muster-room-top.png" target="_blank"><img loading="lazy" src="citadel-muster-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="citadel-muster-room-front.png" target="_blank"><img loading="lazy" src="citadel-muster-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="citadel-muster-room-right.png" target="_blank"><img loading="lazy" src="citadel-muster-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 军需院</summary><div class="three">
+<figure><a href="citadel-store-room-top.png" target="_blank"><img loading="lazy" src="citadel-store-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="citadel-store-room-front.png" target="_blank"><img loading="lazy" src="citadel-store-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="citadel-store-room-right.png" target="_blank"><img loading="lazy" src="citadel-store-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 夺旗试炼</summary><div class="three">
+<figure><a href="citadel-trial-room-top.png" target="_blank"><img loading="lazy" src="citadel-trial-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="citadel-trial-room-front.png" target="_blank"><img loading="lazy" src="citadel-trial-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="citadel-trial-room-right.png" target="_blank"><img loading="lazy" src="citadel-trial-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际模型房间三视图 · 封界王垒</summary><div class="three">
+<figure><a href="citadel-throne-room-top.png" target="_blank"><img loading="lazy" src="citadel-throne-room-top.png" alt="俯视"></a><figcaption>俯视</figcaption></figure>
+<figure><a href="citadel-throne-room-front.png" target="_blank"><img loading="lazy" src="citadel-throne-room-front.png" alt="正视剖面"></a><figcaption>正视剖面</figcaption></figure>
+<figure><a href="citadel-throne-room-right.png" target="_blank"><img loading="lazy" src="citadel-throne-room-right.png" alt="侧视剖面"></a><figcaption>侧视剖面</figcaption></figure>
+</div></details>
+<details><summary>实际通路、入口、台阶三视图</summary>
+<div class="three">
+<figure><a href="citadel-connector-entry-room-top.png" target="_blank"><img loading="lazy" src="citadel-connector-entry-room-top.png" alt="entry · top"></a><figcaption>entry · top</figcaption></figure>
+<figure><a href="citadel-connector-entry-room-front.png" target="_blank"><img loading="lazy" src="citadel-connector-entry-room-front.png" alt="entry · front"></a><figcaption>entry · front</figcaption></figure>
+<figure><a href="citadel-connector-entry-room-right.png" target="_blank"><img loading="lazy" src="citadel-connector-entry-room-right.png" alt="entry · right"></a><figcaption>entry · right</figcaption></figure>
+</div>
+<div class="three">
+<figure><a href="citadel-connector-corridor-room-top.png" target="_blank"><img loading="lazy" src="citadel-connector-corridor-room-top.png" alt="corridor · top"></a><figcaption>corridor · top</figcaption></figure>
+<figure><a href="citadel-connector-corridor-room-front.png" target="_blank"><img loading="lazy" src="citadel-connector-corridor-room-front.png" alt="corridor · front"></a><figcaption>corridor · front</figcaption></figure>
+<figure><a href="citadel-connector-corridor-room-right.png" target="_blank"><img loading="lazy" src="citadel-connector-corridor-room-right.png" alt="corridor · right"></a><figcaption>corridor · right</figcaption></figure>
+</div>
+<div class="three">
+<figure><a href="citadel-connector-stairs-room-top.png" target="_blank"><img loading="lazy" src="citadel-connector-stairs-room-top.png" alt="stairs · top"></a><figcaption>stairs · top</figcaption></figure>
+<figure><a href="citadel-connector-stairs-room-front.png" target="_blank"><img loading="lazy" src="citadel-connector-stairs-room-front.png" alt="stairs · front"></a><figcaption>stairs · front</figcaption></figure>
+<figure><a href="citadel-connector-stairs-room-right.png" target="_blank"><img loading="lazy" src="citadel-connector-stairs-room-right.png" alt="stairs · right"></a><figcaption>stairs · right</figcaption></figure>
+</div>
+</details><details><summary>Blender 模型库与模块三视图</summary><figure><a href="citadel-library.png" target="_blank"><img loading="lazy" src="citadel-library.png" alt="实际 Blender 模型库"></a><figcaption>实际 Blender 模型库</figcaption></figure><div class="grid">
+<figure><figcaption>wall</figcaption><div class="three">
+<a href="citadel-wall-front.png"><img loading="lazy" src="citadel-wall-front.png" alt="wall front"></a>
+<a href="citadel-wall-right.png"><img loading="lazy" src="citadel-wall-right.png" alt="wall right"></a>
+<a href="citadel-wall-top.png"><img loading="lazy" src="citadel-wall-top.png" alt="wall top"></a>
+</div></figure>
+<figure><figcaption>pillar</figcaption><div class="three">
+<a href="citadel-pillar-front.png"><img loading="lazy" src="citadel-pillar-front.png" alt="pillar front"></a>
+<a href="citadel-pillar-right.png"><img loading="lazy" src="citadel-pillar-right.png" alt="pillar right"></a>
+<a href="citadel-pillar-top.png"><img loading="lazy" src="citadel-pillar-top.png" alt="pillar top"></a>
+</div></figure>
+<figure><figcaption>arch</figcaption><div class="three">
+<a href="citadel-arch-front.png"><img loading="lazy" src="citadel-arch-front.png" alt="arch front"></a>
+<a href="citadel-arch-right.png"><img loading="lazy" src="citadel-arch-right.png" alt="arch right"></a>
+<a href="citadel-arch-top.png"><img loading="lazy" src="citadel-arch-top.png" alt="arch top"></a>
+</div></figure>
+<figure><figcaption>lamp</figcaption><div class="three">
+<a href="citadel-lamp-front.png"><img loading="lazy" src="citadel-lamp-front.png" alt="lamp front"></a>
+<a href="citadel-lamp-right.png"><img loading="lazy" src="citadel-lamp-right.png" alt="lamp right"></a>
+<a href="citadel-lamp-top.png"><img loading="lazy" src="citadel-lamp-top.png" alt="lamp top"></a>
+</div></figure>
+<figure><figcaption>mirror</figcaption><div class="three">
+<a href="citadel-mirror-front.png"><img loading="lazy" src="citadel-mirror-front.png" alt="mirror front"></a>
+<a href="citadel-mirror-right.png"><img loading="lazy" src="citadel-mirror-right.png" alt="mirror right"></a>
+<a href="citadel-mirror-top.png"><img loading="lazy" src="citadel-mirror-top.png" alt="mirror top"></a>
+</div></figure>
+<figure><figcaption>eye</figcaption><div class="three">
+<a href="citadel-eye-front.png"><img loading="lazy" src="citadel-eye-front.png" alt="eye front"></a>
+<a href="citadel-eye-right.png"><img loading="lazy" src="citadel-eye-right.png" alt="eye right"></a>
+<a href="citadel-eye-top.png"><img loading="lazy" src="citadel-eye-top.png" alt="eye top"></a>
+</div></figure>
+<figure><figcaption>banner</figcaption><div class="three">
+<a href="citadel-banner-front.png"><img loading="lazy" src="citadel-banner-front.png" alt="banner front"></a>
+<a href="citadel-banner-right.png"><img loading="lazy" src="citadel-banner-right.png" alt="banner right"></a>
+<a href="citadel-banner-top.png"><img loading="lazy" src="citadel-banner-top.png" alt="banner top"></a>
+</div></figure>
+<figure><figcaption>redirector</figcaption><div class="three">
+<a href="citadel-redirector-front.png"><img loading="lazy" src="citadel-redirector-front.png" alt="redirector front"></a>
+<a href="citadel-redirector-right.png"><img loading="lazy" src="citadel-redirector-right.png" alt="redirector right"></a>
+<a href="citadel-redirector-top.png"><img loading="lazy" src="citadel-redirector-top.png" alt="redirector top"></a>
+</div></figure>
+<figure><figcaption>seal</figcaption><div class="three">
+<a href="citadel-seal-front.png"><img loading="lazy" src="citadel-seal-front.png" alt="seal front"></a>
+<a href="citadel-seal-right.png"><img loading="lazy" src="citadel-seal-right.png" alt="seal right"></a>
+<a href="citadel-seal-top.png"><img loading="lazy" src="citadel-seal-top.png" alt="seal top"></a>
+</div></figure>
+<figure><figcaption>monument</figcaption><div class="three">
+<a href="citadel-monument-front.png"><img loading="lazy" src="citadel-monument-front.png" alt="monument front"></a>
+<a href="citadel-monument-right.png"><img loading="lazy" src="citadel-monument-right.png" alt="monument right"></a>
+<a href="citadel-monument-top.png"><img loading="lazy" src="citadel-monument-top.png" alt="monument top"></a>
+</div></figure>
+<figure><figcaption>rubble</figcaption><div class="three">
+<a href="citadel-rubble-front.png"><img loading="lazy" src="citadel-rubble-front.png" alt="rubble front"></a>
+<a href="citadel-rubble-right.png"><img loading="lazy" src="citadel-rubble-right.png" alt="rubble right"></a>
+<a href="citadel-rubble-top.png"><img loading="lazy" src="citadel-rubble-top.png" alt="rubble top"></a>
+</div></figure>
+</div></details></section>
+<section id="checks"><h2>检查范围</h2><p>固定种子 411485540 的十层房间/出口连通；六类机关触发与状态恢复；十二类模型与机制更新；0.8 米楼梯通行；冲撞连续移动且单次命中；跳跃避波；试炼第二波读档不重复；机关资源清理；真实关卡加载入口。构建通过。</p><p>这些是基础逻辑检查，不代表百局平衡、真人通过率或手机硬件性能测试。本轮没有开展过度迭代。</p><a href="validation.json">查看检查记录</a><p>仍保留的首版取舍：机关可通过接近交互处理，远程技能独立命中设施待扩充；精细怪物动画、更多碎雕装饰、电梯与重叠多层导航留待验收后。战斗数值未做百局重新标定。</p></section></main></html>

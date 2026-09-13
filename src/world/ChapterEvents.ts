@@ -5,10 +5,10 @@ import { sanctumRitualPositions } from '../data/SanctumChapter';
 import { findEncounterRoomPosition } from './EncounterBarriers';
 
 export function isOptionalTrial(template?: string): boolean {
-  return ['overload-trial', 'ruins-trial', 'sanctum-trial'].includes(template ?? '');
+  return ['overload-trial', 'ruins-trial', 'sanctum-trial','abyss-trial','citadel-trial'].includes(template ?? '');
 }
 export function trialTitle(template?: string): string {
-  return template === 'ruins-trial' ? '旧军械挑战' : template === 'sanctum-trial' ? '无名者安葬' : '过载试炼';
+  return template==='abyss-trial'?'熄灯巡猎':template==='citadel-trial'?'两旗破关':template === 'ruins-trial' ? '旧军械挑战' : template === 'sanctum-trial' ? '无名者安葬' : '过载试炼';
 }
 interface Altar { id: string; roomId: string; position: THREE.Vector3; mesh: THREE.Group; warning: THREE.Mesh; remaining: number }
 

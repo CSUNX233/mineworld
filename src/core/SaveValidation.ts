@@ -178,7 +178,13 @@ function validateActiveSnapshot(value: unknown, runSeed: unknown): value is Save
     || !['elapsed', 'shield', 'invulnerable', 'attackTimer', 'comboCount', 'comboTimer', 'lowHealthShieldCooldown']
       .every(field => isNonNegativeNumber(runtime[field]))
     || !isNumericRecord(runtime.skillCooldowns))) return false;
-  if (snapshot.mapGenerationVersion !== undefined && ![1,2,3,4,5,6].includes(snapshot.mapGenerationVersion)) return false;
+  if (snapshot.mapGenerationVersion !== undefined && ![1,2,3,4,5,6,7].includes(snapshot.mapGenerationVersion)) return false;
+  if(snapshot.runtime?.lateChapter!==undefined){
+    const late=snapshot.runtime.lateChapter;
+    if(!isRecord(late)||!isRecord(late.devices)||Object.keys(late.devices).length>32)return false;
+    if(!Object.values(late.devices).every(d=>isRecord(d)&&[0,1,2].includes(d.used as number)&&[0,1].includes(d.direction as number)&&isNonNegativeNumber(d.active)&&isNonNegativeNumber(d.remaining)&&Number(d.remaining)<=4))return false;
+    if(late.trialWaves!==undefined&&(!Array.isArray(late.trialWaves)||late.trialWaves.length>2||!late.trialWaves.every(id=>typeof id==='string')))return false;
+  }
   if (snapshot.runtime?.usedRituals !== undefined && (!Array.isArray(snapshot.runtime.usedRituals) || snapshot.runtime.usedRituals.length > 8 || snapshot.runtime.usedRituals.some(id => typeof id !== 'string'))) return false;
   if (snapshot.runtime?.oathGatekeeper !== undefined) {
     const boss = snapshot.runtime.oathGatekeeper;

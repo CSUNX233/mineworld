@@ -66,12 +66,12 @@ export function interactionModule(name: string, floor = 1): { geometry: THREE.Bu
 
 /** One palette shader per chapter; same geometry, texture and chest animation. */
 function chapterPropMaterial(floor: number): THREE.MeshLambertMaterial {
-  const id = floor >= 6 && floor <= 10 ? 'foundry' : floor >= 11 && floor <= 15 ? 'sanctum' : '';
+  const id = floor >= 6 && floor <= 10 ? 'foundry' : floor >= 11 && floor <= 15 ? 'sanctum' : floor >=16 && floor<=20 ? 'abyss' : floor>=21 && floor<=25 ? 'citadel' : '';
   if (!id) return material!;
   let themed = paletteMaterials.get(id);
   if (!themed) {
     themed = material!.clone();
-    const colors = (id === 'foundry' ? [0x8b6546, 0xb67b4e, 0x3e5366, 0x43382e] : [0xaba48a, 0xa58c55, 0x3d6257, 0x424f47])
+    const colors = (id === 'foundry' ? [0x8b6546, 0xb67b4e, 0x3e5366, 0x43382e] : id === 'abyss' ? [0x797086,0xb78b60,0x665374,0x433c51] : id === 'citadel' ? [0xa5a091,0xb59b60,0x465b66,0x4b5355] : [0xaba48a, 0xa58c55, 0x3d6257, 0x424f47])
       .map(c => new THREE.Color(c).toArray().map(v => v.toFixed(5)).join(','));
     themed.onBeforeCompile = shader => {
       shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>

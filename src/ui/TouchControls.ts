@@ -456,7 +456,7 @@ export class TouchControls {
     row.appendChild(view);
     this.utilityButtons.push(view);
 
-    const skills = this.makeButton('技能配置', 'touch-button touch-utility');
+    const skills = this.makeButton('技能配置', 'touch-button touch-utility touch-skill-book');
     const skillIcon = document.createElement('img');
     skillIcon.src = `${import.meta.env.BASE_URL}assets/ui/sunlit/skill-config.png`;
     skillIcon.alt = ''; skillIcon.draggable = false;

@@ -1,3 +1,4 @@
+import { EnemyRecovery } from '../monsters/EnemyRecovery';
 import { preloadInteractionProps } from '../world/InteractionProps';
 import { cloneData } from '../utils/cloneData';
 import { createSaveCandidate } from './SaveCandidate';
@@ -13,6 +14,9 @@ import { EnemyTactics } from '../monsters/EnemyTactics';
 import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
 import { foundryOpeningEncounter } from '../data/FoundryChapter';
 import { ruinsEncounterForRoom } from '../data/RuinsChapter';
+import { LateChapterController, type LateHost } from '../monsters/LateChapterController';
+import { lateEncounter, hasLateContent } from '../data/LateChapter';
+import { lateGroundHeight } from '../world/LateElevation';
 import { sanctumEncounterForRoom } from '../data/SanctumChapter';
 import { ChapterRituals, isOptionalTrial, trialTitle } from '../world/ChapterEvents';
 import { OathGatekeeperController } from '../monsters/OathGatekeeperController';
@@ -166,6 +170,22 @@ export class Game {
   private oathGatekeeper = new OathGatekeeperController(this.scene);
   private sanctumRng = new RNG(1);
   private sanctumController = new SanctumController(this.scene, () => this.sanctumRng.float());
+  private enemyRecovery = new EnemyRecovery();
+  private lateChapter = new LateChapterController(this.scene);
+  private readonly lateHost:LateHost = {
+    hurt:(amount,element,source)=>this.damagePlayerWithElement(amount,element,0,'monster_melee',source),
+    damage:(monster,amount)=>this.applyMonsterDamage(monster,amount,false,.4,undefined,'physical',false),
+    summon:(source,x,z)=>{
+      if(!this.floorData)return;
+      const room=this.floorData.rooms.find(r=>r.id===source.roomId);if(!room)return;
+      const spot=findEncounterRoomPosition(this.floorData,room,x,z);if(!spot)return;
+      const def=MonsterSpawner.definitionById(this.floor<=20?'ash_wanderer':'lost_soldier');if(!def)return;
+      const m=MonsterSpawner.createActor(def,spot.x,spot.z,this.floorData);m.roomId=source.roomId;m.state='chase';
+      m.maxHealth=monsterHealth(def.health,this.floor)*.55;m.health=m.maxHealth;m.group.userData.pressureXp=0;m.group.userData.pressureLoot=false;
+      MonsterSpawner.attachLateModel(m,this.floorData);this.monsters.push(m);this.scene.add(m.group);
+    },
+    message:(title,sub)=>this.hud.showCenterMessage(title,sub,1.8),
+  };
   private chapterRituals = new ChapterRituals(this.scene);
   private finalBossController = new FinalBossController(this.scene);
   private readonly sanctumHost: SanctumHost = {
@@ -1205,7 +1225,7 @@ export class Game {
     try {
     await loading.step(5, '准备关卡');
     this.currentFloorSeed = (this.seed ^ Math.imul(this.floor, 0x9e3779b9)) >>> 0;
-    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 6;
+    const generationVersion = resume ? (resume.mapGenerationVersion ?? 1) : 7;
     const data = generateFloor(this.currentFloorSeed, this.floor, generationVersion);
     data.generationVersion = generationVersion;
     this.floorData = data;
@@ -1261,6 +1281,7 @@ export class Game {
     this.foundryPractice.setup(data, this.scene);
     this.sanctumRng = new RNG(this.currentFloorSeed ^ 0x71bc3);
     this.chapterRituals.setup(data, resume?.runtime?.usedRituals);
+    this.lateChapter.setup(data,resume?.runtime?.lateChapter);
     if (resume?.floorProgress && savedMonsters) {
       this.restoreMonsters(savedMonsters);
       const resumedRooms = new Map<string, number>();
@@ -1380,11 +1401,9 @@ export class Game {
         monsterCount: wave.length,
       });
       const encounter = encounterById(room.encounterId);
-      const chapter = ((this.floorData?.generationVersion ?? 1) >= 5) ? (ruinsEncounterForRoom(this.floor, room.id!) ?? sanctumEncounterForRoom(this.floor, room.id!) ?? foundryOpeningEncounter(this.floor, room.id!)) : undefined;
-      this.hud.showCenterMessage(encounter?.name ?? ROOM_LABELS[room.kind!], chapter ? `屏障已封闭 · ${chapter.intent}` : encounter
-        ? `屏障已封闭 · ${encounter.intent}`
-        : room.required ? '屏障已封闭 · 清除本房守卫后解锁' : '屏障已封闭 · 清除后解锁并获得奖励', encounter ? 3 : 1.5);
+      this.hud.showCenterMessage(encounter?.name ?? ROOM_LABELS[room.kind!], '', encounter ? 3 : 1.5);
     }
+    this.lateChapter.completeTrialWaves(this.encounters.lockedRoomIds,this.monsters,this.lateHost);
     const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
     if (room || completedRooms.length) this.world.setEncounterBarriers(this.encounters.lockedRoomIds);
     for (const cleared of completedRooms) {
@@ -1506,6 +1525,8 @@ export class Game {
     this.oathGatekeeper.clear();
     this.sanctumController.clear();
     this.chapterRituals.clear();
+    this.lateChapter.clear();
+    this.enemyRecovery.clear();
     this.bossController.clearWarnings();
     this.foundryBossController.clear();
     this.finalBossController.clear();
@@ -2487,6 +2508,7 @@ export class Game {
   private doBasicAttack(stats: DerivedStats): void {
     this.controller.faceAim();
     const aim = this.basicAimDirection();
+    this.lateChapter.hitDevices(this.player.position,aim,3.2,this.encounters?.lockedRoomIds??[],this.monsters,this.lateHost);
     const weapon = this.equipment.get('weapon');
     const attackSpeed = Math.max(0.15, Math.min(3.5, stats.baseAttackSpeed * (1 + stats.attackSpeedBonus)));
     this.attackAnimTimer = Math.max(0.12, Math.min(0.28, 0.34 / attackSpeed));
@@ -2942,7 +2964,8 @@ export class Game {
 
   private updateMonsters(dt: number): void {
     if (!this.floorData) return;
-    for (const monster of this.monsters) monster.group.userData.aggression = this.aggression.multiplier;
+    for (const monster of this.monsters) { monster.group.userData.aggression = this.aggression.multiplier; monster.movementAttempted=false; }
+    this.lateChapter.updateFrame(dt,this.encounters?.lockedRoomIds??[],this.monsters);
     EnemyTactics.beginFrame(this.monsters, this.player, this.floorData, this.projectiles, dt);
     this.encounterMechanics.update(dt, this.monsters, this.player, this.floorData, this.mechanicHost);
     if (this.isGameplayPaused() || !this.player.alive) return;
@@ -2958,6 +2981,13 @@ export class Game {
         continue;
       }
 
+      if(this.lateChapter.handles(monster)) {
+        monster.position.y=lateGroundHeight(this.floorData,monster.position.x,monster.position.z);
+        monster.update(dt,this.elapsed);
+        if(monster.dead){this.onMonsterKilled(monster,false,false);continue;}
+        this.lateChapter.update(dt,monster,this.player,this.monsters,this.lateHost);
+        this.keepMonsterInBounds(monster);continue;
+      }
       if (this.sanctumController.handles(monster)) {
         monster.update(dt, this.elapsed);
         if (monster.dead) { this.onMonsterKilled(monster, false, false); continue; }
@@ -2992,6 +3022,7 @@ export class Game {
         MonsterAI.update(monster, dt, this.player, this.floorData);
       }
       this.encounterMechanics.afterAI(monster);
+      if(hasLateContent(this.floorData))monster.position.y=lateGroundHeight(this.floorData,monster.position.x,monster.position.z);
       monster.update(dt, this.elapsed);
       this.keepMonsterInBounds(monster);
       if (wasAliveBeforeUpdate && monster.dead) {
@@ -3021,6 +3052,7 @@ export class Game {
       }
     }
 
+    this.enemyRecovery.update(dt,this.floorData,this.monsters,this.player.position,this.encounters?.lockedRoomIds??[]);
   }
 
   private keepMonsterInBounds(monster: Monster): void {
@@ -3209,12 +3241,14 @@ export class Game {
 
   private applyMonsterDamage(monster: Monster, damage: number, crit: boolean, impact = 1, directSource?: THREE.Vector3, element: ElementType = 'physical', canLeech = true, setSource?: string): void {
     if (monster.dead) return;
+    this.lateChapter.onHit(monster);
+    damage*=this.lateChapter.damageMultiplier(monster,directSource);
     if (canLeech && this.equipment.hasSpecial('executeFullHealth') && this.player.health >= this.player.maxHealth) damage *= 1.25;
     if (directSource) damage = this.encounterMechanics.onDirectHit(monster, directSource, damage);
     if (monster.def.id === 'oath_gatekeeper') damage *= this.oathGatekeeper.damageMultiplier(monster, directSource);
     if (this.sanctumController.handles(monster)) damage *= this.sanctumController.damageMultiplier(monster);
     if (monster.def.id === 'furnace_regent') damage *= this.foundryBossController.damageMultiplier;
-    if (monster.def.id === 'ruins_warden') damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
+    if (monster.def.id === 'ruins_warden' && !this.lateChapter.handles(monster)) damage = Math.max(1, Math.round(damage * this.finalBossController.damageMultiplier));
     damage = Math.max(1, Math.round(damage));
     const actualDamage = Math.min(monster.health, damage);
     const killed = monster.takeDamage(damage);
@@ -3242,6 +3276,9 @@ export class Game {
   }
 
   private onMonsterKilled(monster: Monster, crit: boolean, allowEquipmentProcs = true): void {
+    if(this.floorData&&hasLateContent(this.floorData)&&monster.def.behavior==='boss'){
+      for(const other of this.monsters)if(other!==monster&&other.roomId===monster.roomId&&!other.dead){other.dead=true;other.health=0;other.state='death';other.velocity.set(0,0,0);}
+    }
     this.reaper.onKill(monster);
     if (monster.def.id === 'oath_gatekeeper') this.oathGatekeeper.clear();
     if (this.sanctumController.handles(monster)) this.sanctumController.onDeath(monster, this.sanctumHost);
@@ -3582,6 +3619,8 @@ export class Game {
     if (!this.floorData) return null;
     const p = this.player.position;
     const candidates: { label: string; distance: number }[] = [];
+    const lateLabel=this.lateChapter.label(p,this.encounters?.lockedRoomIds??[],this.monsters);
+    if(lateLabel)candidates.push({label:lateLabel,distance:1});
     const altar = this.chapterRituals.nearby(p, this.encounters?.lockedRoomIds ?? []);
     if (altar) candidates.push({ label: '开启葬仪', distance: altar.position.distanceTo(p) });
     const merchant = this.floorData.merchant;
@@ -3617,6 +3656,9 @@ export class Game {
   private tryInteract(): boolean {
     if (!this.floorData || this.isGameplayPaused() || !this.player.alive) return false;
     const label = this.interactionLabel();
+    if(label && label===this.lateChapter.label(this.player.position,this.encounters?.lockedRoomIds??[],this.monsters)){
+      const ok=this.lateChapter.interact(this.player.position,this.encounters?.lockedRoomIds??[],this.monsters,this.lateHost);if(ok)this.saveGame();return ok;
+    }
     if (label === '开启葬仪') {
       if (this.chapterRituals.activate(this.player.position, this.encounters?.lockedRoomIds ?? [])) {
         this.hud.showCenterMessage('葬仪已开启', '青色范围只伤敌人 · 每台仅一次', 1.2);
@@ -3625,7 +3667,7 @@ export class Game {
       }
       return false;
     }
-    if (label?.startsWith('启动') && ['启动过载试炼', '启动旧军械挑战', '启动无名者安葬'].includes(label)) {
+    if (label?.startsWith('启动') && ['启动过载试炼', '启动旧军械挑战', '启动无名者安葬','启动熄灯巡猎','启动两旗破关'].includes(label)) {
       this.trialActivationRequested=true;
       this.updateEncounters();
       this.saveGame();
@@ -4435,6 +4477,7 @@ export class Game {
         aggression: this.aggression.snapshot(),
         oathGatekeeper: this.monsters.some(m => m.def.id === 'oath_gatekeeper' && !m.dead) ? this.oathGatekeeper.snapshot() : undefined,
         usedRituals: this.chapterRituals.snapshot(),
+        lateChapter: this.lateChapter.snapshot(),
         setState: this.setRuntime.snapshot(),
         deathReaper: this.reaper.snapshot(),
         bossWeaponCooldown: this.bossWeapons.snapshot(),

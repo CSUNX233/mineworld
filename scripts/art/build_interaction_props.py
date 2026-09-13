@@ -63,7 +63,8 @@ def crate(x,y,z,w=.4,d=.43,h=.4):
     box(x,y,z+h/2,w,d,h,3)
     for k in range(3):box(x,y-d/2-.006,z+(k+.5)*h/3,w-.025,.04,h/3-.01)
     for side in [-1,1]:
-        box(x+side*(w/2-.025),y,z+h/2,.05,d+.025,h+.02)
+        # Raise the edge strips above the crate sides; coplanar outer faces flicker in WebGL.
+        box(x+side*(w/2-.017),y,z+h/2,.05,d+.025,h+.02)
         for zz in [.035,h-.035]:box(x+side*(w/2-.025),y-d/2-.034,z+zz,.065,.03,.07,2)
     beam((x-w*.4,y-d/2-.03,z+.035),(x+w*.4,y-d/2-.03,z+h-.035),.055,.025)
     beam((x+w*.4,y-d/2-.05,z+.035),(x-w*.4,y-d/2-.05,z+h-.035),.055,.025)

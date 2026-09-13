@@ -1,3 +1,7 @@
+import { LATE_MONSTERS } from '../data/LateMonsters';
+import { lateEncounter, hasLateContent } from '../data/LateChapter';
+import { createDeepChapterProp } from '../world/DeepChapterAssets';
+import { lateGroundHeight } from '../world/LateElevation';
 import { cloneData } from '../utils/cloneData';
 import { canSealEncounterRoom } from '../world/EncounterBarriers';
 import { GLOBAL_MONSTER_STAT_MULTIPLIER } from '../data/DifficultyBalance';
@@ -15,12 +19,27 @@ import { BlockKind } from '../world/Block';
 import { Monster } from './Monster';
 import { attachMechanicVisual } from './MechanicVisual';
 
-const MONSTER_DEFS = [...monsterData as unknown as MonsterDefinition[], ...RUINS_MONSTERS, ...SANCTUM_MONSTERS];
+const MONSTER_DEFS = [...monsterData as unknown as MonsterDefinition[], ...RUINS_MONSTERS, ...SANCTUM_MONSTERS, ...LATE_MONSTERS];
 
 export class MonsterSpawner {
+  /** Build only the model that will actually be displayed. */
+  static createActor(def:MonsterDefinition,x:number,z:number,data:FloorData):Monster {
+    const appearance=hasLateContent(data)?createDeepChapterProp(data.floor,`enemy_${def.id}`):null;
+    const monster=new Monster(def,x,z,appearance);
+    if(hasLateContent(data))monster.position.y=lateGroundHeight(data,x,z);
+    return monster;
+  }
+
+  static attachLateModel(monster:Monster,data:FloorData):void {
+    if(!hasLateContent(data)||monster.group.getObjectByName('late-enemy-model'))return;
+    const mesh=createDeepChapterProp(data.floor,`enemy_${monster.def.id}`);
+    if(mesh)monster.replaceAppearance(mesh);
+    monster.position.y=lateGroundHeight(data,monster.position.x,monster.position.z);
+  }
+
   static spawnEncounter(floor: FloorData, room: Room, player: { x: number; z: number }, rng: RNG): Monster[] {
     const teaching = (floor.generationVersion ?? 0) >= 3 && room.template === 'pressure-ring';
-    const revised = (floor.generationVersion ?? 0) >= 5 ? (ruinsEncounterForRoom(floor.floor, room.id!) ?? sanctumEncounterForRoom(floor.floor, room.id!) ?? foundryOpeningEncounter(floor.floor, room.id!)) : undefined;
+    const revised = hasLateContent(floor) ? lateEncounter(floor.floor,room.id!) : (floor.generationVersion ?? 0) >= 5 ? (ruinsEncounterForRoom(floor.floor, room.id!) ?? sanctumEncounterForRoom(floor.floor, room.id!) ?? foundryOpeningEncounter(floor.floor, room.id!)) : undefined;
     const chapter = (floor.generationVersion ?? 0) >= 4 ? ENCOUNTERS.find(e => e.template === room.template && e.minFloor <= floor.floor) : undefined;
     if (chapter) room.encounterId = chapter.id;
     if (teaching) room.encounterId = 'pressure_lesson';
@@ -42,8 +61,9 @@ export class MonsterSpawner {
     return spots.map((spot, i) => {
       const choices = pool.filter(def => this.roleForDefinition(def) === roles[i]);
       const def = revised?.monsterIds[i] ? this.definitionById(revised.monsterIds[i])! : chapter?.monsterIds?.[i] ? this.definitionById(chapter.monsterIds[i])! : teaching ? this.definitionById('valve_overseer')! : bossRoom && i === 0 ? this.bossForFloor(floor.floor)! : rng.pick(choices.length ? choices : pool);
-      const monster = new Monster(def, spot.x + .5, spot.z + .5);
+      const monster = this.createActor(def, spot.x + .5, spot.z + .5, floor);
       attachMechanicVisual(monster);
+      this.attachLateModel(monster,floor);
       monster.roomId = room.id!;
       monster.maxHealth = monsterHealth(def.health, floor.floor, def.behavior === 'boss');
       monster.health = monster.maxHealth;
@@ -63,7 +83,7 @@ export class MonsterSpawner {
         && Math.hypot(c.x+.5-player.x,c.z+.5-player.z)>3
         && wave.every(m => Math.hypot(m.position.x-c.x-.5,m.position.z-c.z-.5)>1.5));
       if (!spot) break;
-      const donor = donors[i], extra = new Monster(donor.def, spot.x+.5, spot.z+.5);
+      const donor = donors[i], extra = this.createActor(donor.def, spot.x+.5, spot.z+.5, floor);
       extra.roomId = donor.roomId; extra.state = 'chase';
       extra.maxHealth = donor.maxHealth; extra.health = extra.maxHealth;
       const xp = this.baseXp(donor, floor.floor);
@@ -76,7 +96,7 @@ export class MonsterSpawner {
     }
   }
   static availableForFloor(floor: number): MonsterDefinition[] {
-    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss' && !['valve_overseer','ram_beast','chain_smith','prism_sentry'].includes(def.id) && !SANCTUM_MONSTERS.some(s => s.id === def.id));
+    return MONSTER_DEFS.filter((def) => def.minFloor <= floor && def.behavior !== 'boss' && !['valve_overseer','ram_beast','chain_smith','prism_sentry'].includes(def.id) && !SANCTUM_MONSTERS.some(s => s.id === def.id) && !LATE_MONSTERS.some(s => s.id === def.id));
   }
 
   static bossForFloor(floor: number): MonsterDefinition | null {
@@ -108,7 +128,7 @@ export class MonsterSpawner {
   }
 
   static baseAttack(monster: Monster, floor: number): number {
-    return monsterAttack(monster.def.attack, floor, monster.def.behavior === 'boss') * (monster.def.id === 'boss' ? 1.1 : 1);
+    return monsterAttack(monster.def.attack, floor, monster.def.behavior === 'boss') * (monster.def.id === 'boss' ? 1.1 : 1) * (floor === 25 && monster.def.behavior === 'boss' ? 1.15 : 1);
   }
 
   static spawnMinionAt(floorData: FloorData, position: { x: number; z: number }, rng: RNG, meleeOnly = false): Monster | null {
@@ -117,7 +137,7 @@ export class MonsterSpawner {
     const spot = this.findNearestWalkable(floorData, position.x, position.z);
     if (!spot) return null;
     const def = rng.pick(pool);
-    const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
+    const monster = this.createActor(def, spot.x + 0.5, spot.z + 0.5, floorData);
     attachMechanicVisual(monster);
     monster.maxHealth = monsterHealth(def.health, floorData.floor);
     monster.health = monster.maxHealth;
@@ -130,11 +150,12 @@ export class MonsterSpawner {
     if (!def) return null;
     const spot = this.findNearestWalkable(floorData, saved.x, saved.z);
     if (!spot) return null;
-    const monster = new Monster(def, spot.x + 0.5, spot.z + 0.5);
+    const monster = this.createActor(def, spot.x + 0.5, spot.z + 0.5, floorData);
     attachMechanicVisual(monster);
     if (saved.elite && saved.eliteModifiers.length > 0) monster.setElite(saved.eliteModifiers);
     monster.statuses = cloneData(saved.statuses ?? []);
     monster.roomId = saved.roomId ?? '';
+    this.attachLateModel(monster,floorData);
     const previousScale = Number.isFinite(saved.difficultyStatMultiplier) && saved.difficultyStatMultiplier! > 0 ? saved.difficultyStatMultiplier! : 1;
     const ratio = GLOBAL_MONSTER_STAT_MULTIPLIER / previousScale;
     monster.maxHealth = Math.max(1, Math.round(saved.maxHealth * ratio));

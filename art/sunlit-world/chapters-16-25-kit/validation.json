@@ -1,0 +1,173 @@
+{
+  "maps": [
+    {
+      "floor": 16,
+      "rooms": 7,
+      "reachable": true
+    },
+    {
+      "floor": 17,
+      "rooms": 7,
+      "reachable": true
+    },
+    {
+      "floor": 18,
+      "rooms": 7,
+      "reachable": true
+    },
+    {
+      "floor": 19,
+      "rooms": 8,
+      "reachable": true
+    },
+    {
+      "floor": 20,
+      "rooms": 5,
+      "reachable": true
+    },
+    {
+      "floor": 21,
+      "rooms": 7,
+      "reachable": true
+    },
+    {
+      "floor": 22,
+      "rooms": 7,
+      "reachable": true
+    },
+    {
+      "floor": 23,
+      "rooms": 7,
+      "reachable": true
+    },
+    {
+      "floor": 24,
+      "rooms": 8,
+      "reachable": true
+    },
+    {
+      "floor": 25,
+      "rooms": 5,
+      "reachable": true
+    }
+  ],
+  "devices": [
+    {
+      "kind": "lamp",
+      "activated": true,
+      "used": 1
+    },
+    {
+      "kind": "mirror",
+      "activated": true,
+      "used": 1
+    },
+    {
+      "kind": "eye",
+      "activated": true,
+      "used": 1
+    },
+    {
+      "kind": "banner",
+      "activated": true,
+      "used": 1
+    },
+    {
+      "kind": "redirector",
+      "activated": true,
+      "used": 0
+    },
+    {
+      "kind": "seal",
+      "activated": true,
+      "used": 1
+    }
+  ],
+  "monsters": [
+    {
+      "id": "ash_wanderer",
+      "casts": 0,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "shade_hunter",
+      "casts": 2,
+      "hiddenObserved": true,
+      "model": true
+    },
+    {
+      "id": "facet_mage",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "eye_keeper",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "rift_weaver",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "crystal_guard",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "lost_soldier",
+      "casts": 0,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "banner_captain",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "seal_engine",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "seal_scribe",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "lock_arbalist",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    },
+    {
+      "id": "linked_guard",
+      "casts": 2,
+      "hiddenObserved": false,
+      "model": true
+    }
+  ],
+  "stairs": {
+    "peak": 0.8,
+    "exitHeight": 0.1
+  },
+  "realEntry": true,
+  "dash": {
+    "firstStep": 0.7272727272727337,
+    "travel": 8,
+    "hits": 1
+  },
+  "jumpWave": true,
+  "trialOnce": true,
+  "cleanup": true
+}

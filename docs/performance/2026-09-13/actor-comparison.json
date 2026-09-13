@@ -1,0 +1,66 @@
+{
+  "oldObjects": 168,
+  "newObjects": 96,
+  "rows": [
+    {
+      "id": "ash_wanderer",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "shade_hunter",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "facet_mage",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "eye_keeper",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "rift_weaver",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "crystal_guard",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "lost_soldier",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "banner_captain",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "seal_engine",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "seal_scribe",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "lock_arbalist",
+      "before": 14,
+      "after": 8
+    },
+    {
+      "id": "linked_guard",
+      "before": 14,
+      "after": 8
+    }
+  ]
+}

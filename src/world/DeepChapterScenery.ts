@@ -1,3 +1,4 @@
+import { createLateScenery } from './LateChapterScenery';
 import * as THREE from 'three';
 import type { FloorData, Room } from '../types';
 import { BlockKind } from './Block';
@@ -18,6 +19,7 @@ function hash(seed: number, x: number, z: number): number {
 
 /** Visual-only dressing of the generated grid, including irregular masks and real corridors. */
 export function createDeepChapterScenery(data: FloorData, excluded: Set<string>): THREE.Group | null {
+  if(data.floor>=16)return createLateScenery(data,excluded);
   const kit = deepChapterKit(data.floor), style = deepChapterStyle(data.floor);
   if (!style || !kit) return null;
   const foundry = style.chapter === 'foundry';

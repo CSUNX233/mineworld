@@ -1,4 +1,4 @@
-import { monsterAggression } from './EnemyIntent';
+import { monsterAggression, monsterPursuitRate } from './EnemyIntent';
 import { findEncounterRoomPosition, getEncounterBarriers } from '../world/EncounterBarriers';
 import * as THREE from 'three';
 import { decorateTelegraph, disposeTelegraphArt } from '../ui/CombatArt';
@@ -105,7 +105,8 @@ export class BossController {
     );
     const distance = toPlayer.length();
     if (distance > boss.def.attackRange && distance < boss.def.detectRadius) {
-      const speed = boss.def.speed * boss.speedMultiplier * boss.slowMultiplier;
+      boss.movementAttempted=true;
+      const speed = boss.def.speed * boss.speedMultiplier * boss.slowMultiplier * monsterPursuitRate(boss);
       toPlayer.normalize();
       boss.position.addScaledVector(toPlayer, speed * dt);
       boss.velocity.copy(toPlayer).multiplyScalar(speed);

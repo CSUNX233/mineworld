@@ -33,6 +33,9 @@ const MAX_VISUALS = 48;
 export class Effects {
   private particles: Particle[] = [];
   private visuals: Visual[] = [];
+  private freeParticles: Particle[] = [];
+  private freeSprites: Visual[] = [];
+  private freePlanes: Visual[] = [];
   private particleGeometry = new THREE.BoxGeometry(1, 1, 1);
   private planeGeometry = new THREE.PlaneGeometry(1, 1);
   particleScale = 1;
@@ -113,28 +116,19 @@ export class Effects {
     const right = new THREE.Vector3(forward.z, 0, -forward.x);
     const count = Math.min(9, Math.max(0, MAX_PARTICLES - this.particles.length));
     for (let i = 0; i < count; i++) {
-      const material = new THREE.MeshBasicMaterial({
-        color: 0x8ed4ff,
-        transparent: true,
-        opacity: 0.8,
-        depthWrite: false,
-      });
-      const mesh = new THREE.Mesh(this.particleGeometry, material);
+      const particle=this.takeParticle(0x8ed4ff,.8,false);
+      const mesh=particle.mesh;
       mesh.scale.set(0.1, 0.1, 0.38 + Math.random() * 0.2);
       mesh.position.copy(position).addScaledVector(forward, -0.2 - Math.random() * 0.8);
       mesh.position.addScaledVector(right, (Math.random() - 0.5) * 0.7);
       mesh.position.y += (Math.random() - 0.5) * 0.4;
       mesh.rotation.y = Math.atan2(forward.x, forward.z);
-      const velocity = forward.clone().multiplyScalar(-3 - Math.random() * 2);
+      const velocity = particle.velocity.copy(forward).multiplyScalar(-3 - Math.random() * 2);
       velocity.y += (Math.random() - 0.5) * 1.5;
       const life = 0.28 + Math.random() * 0.12;
-      this.particles.push({
-        mesh,
-        velocity,
-        life,
-        maxLife: life,
-        spin: new THREE.Vector3(Math.random() * 8, Math.random() * 8, Math.random() * 8),
-      });
+      particle.life=particle.maxLife=life;
+      particle.spin.set(Math.random()*8,Math.random()*8,Math.random()*8);
+      this.particles.push(particle);
       this.scene.add(mesh);
     }
 
@@ -201,7 +195,7 @@ export class Effects {
       material.opacity = Math.max(0, particle.life / particle.maxLife);
       if (particle.life <= 0) {
         this.scene.remove(particle.mesh);
-        material.dispose();
+        this.freeParticles.push(particle);
         this.particles.splice(i, 1);
       }
     }
@@ -226,23 +220,60 @@ export class Effects {
       visual.material.opacity = visual.baseOpacity * fadeIn * Math.pow(1 - progress, 0.72);
       if (visual.life <= 0) {
         this.scene.remove(visual.object);
-        visual.material.dispose();
+        this.recycleVisual(visual);
         this.visuals.splice(i, 1);
       }
     }
   }
 
   clear(): void {
-    this.particles.forEach((particle) => {
-      this.scene.remove(particle.mesh);
-      (particle.mesh.material as THREE.Material).dispose();
-    });
-    this.visuals.forEach((visual) => {
-      this.scene.remove(visual.object);
-      visual.material.dispose();
-    });
-    this.particles = [];
-    this.visuals = [];
+    for (const particle of this.particles) { particle.mesh.removeFromParent(); this.freeParticles.push(particle); }
+    for (const visual of this.visuals) { visual.object.removeFromParent(); this.recycleVisual(visual); }
+    this.particles.length = 0; this.visuals.length = 0;
+  }
+
+  /** Full teardown only; changing rooms keeps bounded pools warm. Shared textures are borrowed. */
+  dispose(): void {
+    this.clear();
+    for (const p of this.freeParticles) (p.mesh.material as THREE.Material).dispose();
+    for (const v of [...this.freeSprites, ...this.freePlanes]) v.material.dispose();
+    this.freeParticles.length=0;this.freeSprites.length=0;this.freePlanes.length=0;
+    this.particleGeometry.dispose();this.planeGeometry.dispose();
+  }
+
+  private takeParticle(color:number,opacity=1,depthWrite=true):Particle {
+    const particle=this.freeParticles.pop() ?? {
+      mesh:new THREE.Mesh(this.particleGeometry,new THREE.MeshBasicMaterial({transparent:true})),
+      velocity:new THREE.Vector3(),spin:new THREE.Vector3(),life:0,maxLife:0,
+    };
+    const material=particle.mesh.material as THREE.MeshBasicMaterial;
+    material.color.setHex(color);material.opacity=opacity;material.depthWrite=depthWrite;
+    particle.mesh.quaternion.identity();particle.mesh.scale.setScalar(1);particle.mesh.visible=true;
+    particle.velocity.set(0,0,0);particle.spin.set(0,0,0);
+    return particle;
+  }
+
+  private recycleVisual(visual:Visual):void {
+    visual.swing=undefined;
+    (visual.object instanceof THREE.Sprite ? this.freeSprites : this.freePlanes).push(visual);
+  }
+
+  private takeVisual(sprite:boolean,name:EffectTexture,color=0xffffff,opacity=1):Visual {
+    const pool=sprite?this.freeSprites:this.freePlanes;
+    let visual=pool.pop();
+    if(!visual){
+      const material:EffectMaterial=sprite
+        ? new THREE.SpriteMaterial({transparent:true,alphaTest:.04,depthWrite:false,toneMapped:false})
+        : new THREE.MeshBasicMaterial({transparent:true,alphaTest:.04,depthWrite:false,toneMapped:false,side:THREE.DoubleSide});
+      visual={object:sprite?new THREE.Sprite(material as THREE.SpriteMaterial):new THREE.Mesh(this.planeGeometry,material as THREE.MeshBasicMaterial),
+        material,life:0,maxLife:0,startScale:new THREE.Vector3(),endScale:new THREE.Vector3(),velocity:new THREE.Vector3(),spin:0,baseOpacity:1,fadeIn:0};
+    }
+    const texture=effectTexture(name);
+    if(!visual.material.map)visual.material.needsUpdate=true;
+    visual.material.map=texture;visual.material.color.setHex(color);visual.material.opacity=opacity;
+    if(sprite)(visual.material as THREE.SpriteMaterial).rotation=0;
+    visual.object.quaternion.identity();visual.object.visible=true;visual.object.renderOrder=3;visual.swing=undefined;
+    return visual;
   }
 
   private emitDebris(position: THREE.Vector3, color: number, count: number, speed: number): void {
@@ -250,23 +281,19 @@ export class Effects {
     const actualCount = Math.min(requested, Math.max(0, MAX_PARTICLES - this.particles.length));
     for (let i = 0; i < actualCount; i++) {
       const size = 0.08 + Math.random() * 0.12;
-      const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
-      const mesh = new THREE.Mesh(this.particleGeometry, material);
+      const particle=this.takeParticle(color);
+      const mesh=particle.mesh;
       mesh.scale.setScalar(size);
       mesh.position.copy(position);
-      const velocity = new THREE.Vector3(
+      const velocity = particle.velocity.set(
         (Math.random() - 0.5) * speed,
         Math.random() * speed,
         (Math.random() - 0.5) * speed,
       );
       const life = 0.45 + Math.random() * 0.4;
-      this.particles.push({
-        mesh,
-        velocity,
-        life,
-        maxLife: life,
-        spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10),
-      });
+      particle.life=particle.maxLife=life;
+      particle.spin.set(Math.random()*10,Math.random()*10,Math.random()*10);
+      this.particles.push(particle);
       this.scene.add(mesh);
     }
   }
@@ -288,20 +315,12 @@ export class Effects {
     } = {},
   ): void {
     if (this.visuals.length >= MAX_VISUALS) return;
-    const material = new THREE.SpriteMaterial({
-      map: effectTexture(name),
-      color: options.color ?? 0xffffff,
-      transparent: true,
-      opacity: options.opacity ?? 1,
-      alphaTest: 0.04,
-      depthWrite: false,
-      rotation: options.rotation ?? 0,
-      toneMapped: false,
-    });
-    const sprite = new THREE.Sprite(material);
+    const visual=this.takeVisual(true,name,options.color,options.opacity);
+    const sprite=visual.object as THREE.Sprite;
+    (visual.material as THREE.SpriteMaterial).rotation=options.rotation??0;
     sprite.position.copy(position);
     sprite.renderOrder = 3;
-    this.addVisual(sprite, material, size, life, options);
+    this.addVisual(visual, size, life, options);
   }
 
   private addPlane(
@@ -322,13 +341,13 @@ export class Effects {
     } = {},
   ): void {
     if (this.visuals.length >= MAX_VISUALS) return;
-    const material = this.makePlaneMaterial(name, options.color, options.opacity);
-    const mesh = new THREE.Mesh(this.planeGeometry, material);
+    const visual=this.takeVisual(false,name,options.color,options.opacity);
+    const mesh=visual.object as THREE.Mesh;
     mesh.position.copy(position);
     mesh.rotation.y = options.rotationY ?? 0;
     mesh.rotation.z = options.rotationZ ?? 0;
     mesh.renderOrder = 3;
-    this.addVisual(mesh, material, size, life, options);
+    this.addVisual(visual, size, life, options);
   }
 
   private addGroundPlane(
@@ -348,31 +367,17 @@ export class Effects {
     } = {},
   ): void {
     if (this.visuals.length >= MAX_VISUALS) return;
-    const material = this.makePlaneMaterial(name, options.color, options.opacity);
-    const mesh = new THREE.Mesh(this.planeGeometry, material);
+    const visual=this.takeVisual(false,name,options.color,options.opacity);
+    const mesh=visual.object as THREE.Mesh;
     mesh.position.copy(position);
     mesh.rotation.x = -Math.PI / 2;
     mesh.rotation.z = options.rotationZ ?? 0;
     mesh.renderOrder = 2;
-    this.addVisual(mesh, material, size, life, options);
-  }
-
-  private makePlaneMaterial(name: EffectTexture, color?: number, opacity = 1): THREE.MeshBasicMaterial {
-    return new THREE.MeshBasicMaterial({
-      map: effectTexture(name),
-      color: color ?? 0xffffff,
-      transparent: true,
-      opacity,
-      alphaTest: 0.04,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      toneMapped: false,
-    });
+    this.addVisual(visual, size, life, options);
   }
 
   private addVisual(
-    object: THREE.Mesh | THREE.Sprite,
-    material: EffectMaterial,
+    visual: Visual,
     size: number,
     life: number,
     options: {
@@ -384,22 +389,13 @@ export class Effects {
       spin?: number;
     },
   ): void {
-    const startScale = new THREE.Vector3().setScalar(size * (options.startScale ?? 1));
-    const endScale = new THREE.Vector3().setScalar(size * (options.endScale ?? 1));
-    object.scale.copy(startScale);
-    this.visuals.push({
-      object,
-      material,
-      life,
-      maxLife: life,
-      startScale,
-      endScale,
-      velocity: options.velocity?.clone() ?? new THREE.Vector3(),
-      spin: options.spin ?? 0,
-      baseOpacity: options.opacity ?? 1,
-      fadeIn: options.fadeIn ?? 0,
-    });
-    this.scene.add(object);
+    visual.startScale.setScalar(size * (options.startScale ?? 1));
+    visual.endScale.setScalar(size * (options.endScale ?? 1));
+    visual.object.scale.copy(visual.startScale);
+    visual.life=visual.maxLife=life;
+    if(options.velocity)visual.velocity.copy(options.velocity);else visual.velocity.set(0,0,0);
+    visual.spin=options.spin??0;visual.baseOpacity=options.opacity??1;visual.fadeIn=options.fadeIn??0;
+    this.visuals.push(visual);this.scene.add(visual.object);
   }
 
   private closestElementTexture(color: number): EffectTexture {

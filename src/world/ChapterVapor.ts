@@ -16,7 +16,7 @@ export function createChapterVapor(floor:number, lights:readonly {x:number;y:num
   const ranked=pools.map(p=>({p,d:lights.length?Math.min(...lights.map(light=>(light.x-p.x)**2+(light.z-p.z)**2)):0})).sort((a,b)=>a.d-b.d);
   for(const {p} of ranked){
     if(selected.some(q=>(q.x-p.x)**2+(q.z-p.z)**2<8**2))continue;
-    selected.push(p);emitters.push({...p,y:indoor?.1:-.1,smoke:indoor,color:indoor?0xa09184:ruins?0xc4cfb7:0xabc5c0});
+    selected.push(p);emitters.push({...p,y:floor>=16?-2.2:indoor?.1:-.1,smoke:indoor,color:floor>=21?0xd2dfeb:floor>=16?0xb5a5c9:indoor?0xa09184:ruins?0xc4cfb7:0xabc5c0});
     if(selected.length>=(low?5:10))break;
   }
   const geometry=new THREE.PlaneGeometry(1,1),count=emitters.length*2;

@@ -361,7 +361,7 @@ export class HUD {
   }
 
   showCenterMessage(title: string, subtitle = '', duration = 2.4): void {
-    this.centerMessage.innerHTML = `<div style="font-size:30px;font-weight:bold;color:#fff">${title}</div><div style="margin-top:6px;font-size:15px;color:#cbd6e4">${subtitle}</div>`;
+    this.centerMessage.innerHTML = `<div style="font-size:30px;font-weight:bold;color:#fff">${title}</div>${subtitle ? `<div style="margin-top:6px;font-size:15px;color:#cbd6e4">${subtitle}</div>` : ''}`;
     this.centerMessage.style.opacity = '1';
     this.messageDuration = duration;
     this.messageTimer = 0;

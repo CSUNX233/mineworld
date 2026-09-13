@@ -1,3 +1,5 @@
+import { lateRoomSpec, lateTheme, isLateChapter } from '../data/LateChapter';
+import { createLateLayout } from './LateLayout';
 import { createFoundryLayout } from './FoundryLayout';
 import { foundryRoomSpec, foundryThemeForFloor, isFoundrySlice } from '../data/FoundryChapter';
 import { ruinsRoomSpec, ruinsThemeForFloor, isRuinsChapter, type ChapterRoomSpec } from '../data/RuinsChapter';
@@ -73,7 +75,7 @@ function nearestRoomCell(cells: { x: number; z: number }[], x: number, z: number
 
 function buildRoom(node: LayoutNode, rng: RNG, chapterFloor?: number, modern = false, spaciousBoss = false): SpatialRoom {
   const spec: ChapterRoomSpec | undefined = chapterFloor === undefined ? undefined :
-    (modern && isRuinsChapter(chapterFloor) ? ruinsRoomSpec(chapterFloor,node.id) :
+    (modern && isLateChapter(chapterFloor) ? lateRoomSpec(chapterFloor,node.id) : modern && isRuinsChapter(chapterFloor) ? ruinsRoomSpec(chapterFloor,node.id) :
       modern && isSanctumChapter(chapterFloor) ? sanctumRoomSpec(chapterFloor,node.id) : foundryRoomSpec(chapterFloor,node.id));
   const dimensions = spec?.width !== undefined && spec.depth !== undefined
     ? { width: spec.width, depth: spec.depth }
@@ -189,18 +191,19 @@ function openCellNear(
 }
 
 /** Versions 2–5 retain their maps; version 6 expands the lord arena without moving saved floors. */
-function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 | 5 | 6 = 2): FloorData {
+function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 | 5 | 6 | 7 = 2): FloorData {
   const rng = new RNG(seed);
   const foundry = (version === 3 && floor === 6) || (version >= 4 && isFoundrySlice(floor));
   const ruins = version >= 5 && isRuinsChapter(floor), sanctum = version >= 5 && isSanctumChapter(floor);
-  const layout = foundry ? createFoundryLayout(rng, floor) : ruins || sanctum ? createChapterMapLayout(rng,floor) : createMapLayout(rng);
-  const spaciousBoss = version >= 6 && floor === 20;
+  const late = version >= 7 && isLateChapter(floor);
+  const layout = late ? createLateLayout(rng,floor) : foundry ? createFoundryLayout(rng, floor) : ruins || sanctum ? createChapterMapLayout(rng,floor) : createMapLayout(rng);
+  const spaciousBoss = version === 6 && floor === 20;
   if (spaciousBoss) {
     const exit = layout.nodes.find(node => node.kind === 'exit')!;
     exit.cx = Math.max(...layout.nodes.filter(node => node !== exit).map(node => node.cx)) + 18;
     exit.shape = 'rect';
   }
-  const rooms = layout.nodes.map(node => buildRoom(node, rng, foundry || ruins || sanctum ? floor : undefined,version >= 5,spaciousBoss));
+  const rooms = layout.nodes.map(node => buildRoom(node, rng, foundry || ruins || sanctum || late ? floor : undefined,version >= 5,spaciousBoss));
   const size = Math.max(48, ...rooms.map(room => Math.max(room.x + room.width, room.z + room.depth) + 3));
   const grid = Array.from({ length: size }, () => Array<number>(size).fill(BlockKind.Wall));
   const protectedCells = new Set<string>();
@@ -215,6 +218,12 @@ function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 | 
     carveConnection(grid, roomCenterCell(from), roomCenterCell(to), protectedCells, rng);
   }
 
+  if (late) {
+    for (const key of [...protectedCells]) {
+      const [x,z]=key.split(',').map(Number);
+      for (let dz=-1;dz<=1;dz++) for(let dx=-1;dx<=1;dx++) if(grid[z+dz]?.[x+dx]!==undefined&&x+dx>0&&z+dz>0&&x+dx<size-1&&z+dz<size-1) grid[z+dz][x+dx]=BlockKind.Floor;
+    }
+  }
   for (const room of rooms) addRoomObstacles(room, grid, protectedCells);
   for (const room of rooms) room.entrances = collectEntrances(room, grid);
 
@@ -244,7 +253,7 @@ function generateSpatialFloor(seed: number, floor: number, version: 2 | 3 | 4 | 
   return {
     generationVersion: version, layoutKind: layout.kind,
     size, grid, rooms, spawn, portal, chests, merchant,
-    connections: layout.edges, theme: foundry ? foundryThemeForFloor(floor) : ruins ? ruinsThemeForFloor(floor) : sanctum ? sanctumThemeForFloor(floor) : RUINS_THEME, seed, floor,
+    connections: layout.edges, theme: late ? lateTheme(floor) : foundry ? foundryThemeForFloor(floor) : ruins ? ruinsThemeForFloor(floor) : sanctum ? sanctumThemeForFloor(floor) : RUINS_THEME, seed, floor,
   };
 }
 
@@ -305,9 +314,9 @@ export function generateLegacyFloor(seed: number, floor: number): FloorData {
     theme: themes[Math.min(themes.length - 1, Math.floor(Math.max(0, floor - 1) / 5))], seed, floor };
 }
 
-export function generateFloor(seed: number, floor: number, generationVersion: number = 6): FloorData {
+export function generateFloor(seed: number, floor: number, generationVersion: number = 7): FloorData {
   if (generationVersion === 1) return generateLegacyFloor(seed, floor);
-  const spatialVersion = generationVersion === 6 ? 6 : generationVersion === 3 ? 3 : generationVersion === 4 ? 4 : generationVersion === 5 ? 5 : 2;
+  const spatialVersion = generationVersion >= 7 ? 7 : generationVersion === 6 ? 6 : generationVersion === 3 ? 3 : generationVersion === 4 ? 4 : generationVersion === 5 ? 5 : 2;
   return generateSpatialFloor(seed, floor, spatialVersion);
 }
 

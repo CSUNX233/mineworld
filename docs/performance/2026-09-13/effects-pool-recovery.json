@@ -1,0 +1,28 @@
+{
+  "pool": {
+    "stableWarmObjects": 54,
+    "repeatedBursts": 20,
+    "noNewObjectsAfterWarmup": true,
+    "resetChecks": true,
+    "particleCap": 160,
+    "visualCap": 48,
+    "disposedMaterials": 210,
+    "sharedTexturesPreserved": true
+  },
+  "recovery": {
+    "triggeredAfterThreeSeconds": true,
+    "sameRoomLegalGround": true,
+    "heightCorrect": true,
+    "keepsDistance": true,
+    "cooldown": true,
+    "noFalsePositives": [
+      "idle",
+      "casting",
+      "frozen",
+      "moving",
+      "other-room"
+    ],
+    "noSafeGroundWaits": true,
+    "actualBlockedPursuit": true
+  }
+}

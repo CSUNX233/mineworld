@@ -241,13 +241,15 @@
 #ui-root .touch-attack .touch-aim-thumb { border: 0; background-color: transparent; background-size: contain; background-repeat: no-repeat; background-position: center; border-radius: 0; }
 .touch-move-zone { position: absolute; left: 0; bottom: 0; width: min(42vw, 300px); height: 52%; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
 @media (orientation: portrait) { .touch-move-zone { width: 45vw; height: 42%; } }
-#ui-root .touch-button.touch-inventory {
+#ui-root .touch-button.touch-inventory,
+#ui-root .touch-button.touch-skill-book {
   border: 0 !important; border-image: none !important;
   background: transparent !important; box-shadow: none !important;
   outline: none; overflow: visible;
 }
 #ui-root .touch-inventory .sunlit-icon { inset: 4%; width: 92%; height: 92%; }
-#ui-root .touch-inventory:focus-visible { outline: 2px solid #70f5dc; outline-offset: 2px; }
+#ui-root .touch-inventory:focus-visible,
+#ui-root .touch-skill-book:focus-visible { outline: 2px solid #70f5dc; outline-offset: 2px; }
 
 /* Generated round utility buttons retain the existing accessible hit targets. */
 #ui-root .touch-button.touch-pause, #ui-root .touch-button.touch-view-art {

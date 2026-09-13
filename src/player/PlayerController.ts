@@ -1,3 +1,4 @@
+import { lateGroundHeight } from '../world/LateElevation';
 import { isMobileDevice } from '../utils/mobile';
 import * as THREE from 'three';
 import type { FloorData } from '../types';
@@ -321,9 +322,10 @@ export class PlayerController {
       else p.velocity.z = 0;
     }
 
+    const ground = lateGroundHeight(floor,p.position.x,p.position.z);
     const newY = p.position.y + dy;
-    if (newY <= 0) {
-      p.position.y = 0;
+    if (newY <= ground || (p.onGround && p.velocity.y <= 0 && ground > 0)) {
+      p.position.y = ground;
       p.velocity.y = 0;
       p.onGround = true;
     } else {

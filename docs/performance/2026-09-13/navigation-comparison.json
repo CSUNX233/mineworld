@@ -1,0 +1,72 @@
+{
+  "directions": 4096,
+  "roomChecks": 11722,
+  "beforeMs": 87.70000007748604,
+  "afterMs": 24.299999982118607,
+  "scenarios": [
+    {
+      "floor": 5,
+      "mode": "open"
+    },
+    {
+      "floor": 5,
+      "mode": "locked"
+    },
+    {
+      "floor": 5,
+      "mode": "unlocked"
+    },
+    {
+      "floor": 5,
+      "mode": "grid-change"
+    },
+    {
+      "floor": 10,
+      "mode": "open"
+    },
+    {
+      "floor": 10,
+      "mode": "locked"
+    },
+    {
+      "floor": 10,
+      "mode": "unlocked"
+    },
+    {
+      "floor": 10,
+      "mode": "grid-change"
+    },
+    {
+      "floor": 18,
+      "mode": "open"
+    },
+    {
+      "floor": 18,
+      "mode": "locked"
+    },
+    {
+      "floor": 18,
+      "mode": "unlocked"
+    },
+    {
+      "floor": 18,
+      "mode": "grid-change"
+    },
+    {
+      "floor": 25,
+      "mode": "open"
+    },
+    {
+      "floor": 25,
+      "mode": "locked"
+    },
+    {
+      "floor": 25,
+      "mode": "unlocked"
+    },
+    {
+      "floor": 25,
+      "mode": "grid-change"
+    }
+  ]
+}

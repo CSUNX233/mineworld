@@ -1,4 +1,4 @@
-import { monsterAggression } from './EnemyIntent';
+import { monsterAggression, monsterPursuitRate } from './EnemyIntent';
 import * as THREE from 'three';
 import type { ElementType, FloorData } from '../types';
 import type { Monster } from './Monster';
@@ -155,7 +155,7 @@ export class OathGatekeeperController {
     // Track during recovery as well, while an announced attack still keeps its locked direction.
     const desired = Math.atan2(player.position.z - boss.position.z, player.position.x - boss.position.x);
     const difference = Math.atan2(Math.sin(desired - this.state.angle), Math.cos(desired - this.state.angle));
-    this.state.angle += Math.max(-activeDt * 5, Math.min(activeDt * 5, difference));
+    this.state.angle += Math.max(-activeDt * 5 * monsterPursuitRate(boss), Math.min(activeDt * 5 * monsterPursuitRate(boss), difference));
     boss.faceToward(boss.position.x + Math.cos(this.state.angle), boss.position.z + Math.sin(this.state.angle));
     if (this.state.cooldown > 0) return;
     // On the frame the phase-transition delay ends, reserve the next cast for

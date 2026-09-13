@@ -114,7 +114,7 @@ export interface FloorTheme {
 }
 
 export interface FloorData {
-  generationVersion?: 1 | 2 | 3 | 4 | 5 | 6;
+  generationVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   layoutKind?: string;
   merchant?: { x: number; z: number };
   connections?: [string, string][];
@@ -186,10 +186,11 @@ export interface SaveData {
   craftingSequence?: number;
   shopMaterialPurchases?: string[];
   setPreference?: string;
-  mapGenerationVersion?: 1 | 2 | 3 | 4 | 5 | 6;
+  mapGenerationVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   mapLayoutKind?: string;
   runTalents?: RunTalentState;
   runtime?: {
+    lateChapter?: import('./monsters/LateChapterController').LateSnapshot;
     relicDrops?: { item: Item; x: number; z: number }[];
     bossWeaponCooldown?: number;
     deathReaper?: import('./items/DeathReaper').DeathReaperState;

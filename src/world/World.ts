@@ -139,7 +139,7 @@ export class World {
     for (const room of data.rooms) {
       if (!room.kind || room.kind === 'start' || room.kind === 'exit') continue;
       // The central statue is the trial's interaction landmark, not a floor ring.
-      if (room.template === 'ruins-trial') continue;
+      if (room.template === 'ruins-trial'||(data.generationVersion??1)>=7&&data.floor>=16) continue;
       const marker = new THREE.Mesh(new THREE.RingGeometry(0.9,1.12,32),
         new THREE.MeshBasicMaterial({color:ROOM_COLORS[room.kind],transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide}));
       marker.rotation.x = -Math.PI/2;

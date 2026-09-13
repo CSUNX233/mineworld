@@ -1,7 +1,7 @@
 import { EnemyTactics } from './EnemyTactics';
 import { MonsterAI } from './MonsterAI';
 import { directionToPlayer } from '../world/Navigation';
-import { monsterAggression } from './EnemyIntent';
+import { monsterAggression, monsterPursuitRate } from './EnemyIntent';
 import * as THREE from 'three';
 import type { ElementType, FloorData, Room } from '../types';
 import type { Monster } from './Monster';
@@ -391,6 +391,7 @@ export class SanctumController {
       target = { x: monster.position.x, z: monster.position.z };
     }
     let dx = target.x-monster.position.x, dz = target.z-monster.position.z;
+    if(dx*dx+dz*dz>.0001)monster.movementAttempted=true;
     if (!EnemyTactics.lineClear(monster.position, target, floor, .4)) {
       const next = directionToPlayer(floor, monster.position.x, monster.position.z, target.x, target.z);
       if (!next) return;
@@ -399,7 +400,7 @@ export class SanctumController {
     const length = Math.hypot(dx, dz);
     const direction = EnemyTactics.movementDirection(monster, length > .01 ? dx/length : 0, length > .01 ? dz/length : 0, floor);
     MonsterAI.moveWithAvoidance(monster, dt, direction.x, direction.z,
-      monster.def.speed*monster.speedMultiplier*monster.slowMultiplier, floor);
+      monster.def.speed*monster.speedMultiplier*monster.slowMultiplier*monsterPursuitRate(monster), floor);
   }
 
   private finish(runtime: Runtime, cooldown: number): void {

@@ -1,3 +1,4 @@
+import { monsterPursuitRate } from './EnemyIntent';
 import type { FloorData } from '../types';
 import type { Player } from '../player/Player';
 import type { Monster } from './Monster';
@@ -49,11 +50,12 @@ export class MonsterAI {
   }
 
   private static speed(monster: Monster): number {
-    return monster.def.speed*monster.speedMultiplier*monster.slowMultiplier*(monster.def.behavior === 'charger' ? 1.25 : 1);
+    return monster.def.speed*monster.speedMultiplier*monster.slowMultiplier*monsterPursuitRate(monster)*(monster.def.behavior === 'charger' ? 1.25 : 1);
   }
 
   private static pursue(monster: Monster, dt: number, target: {x:number;z:number}, floor: FloorData): void {
     let dx = target.x-monster.position.x,dz = target.z-monster.position.z;
+    if(dx*dx+dz*dz>=.12*.12)monster.movementAttempted=true;
     if (!EnemyTactics.lineClear(monster.position,target,floor,.4)) {
       const next = directionToPlayer(floor,monster.position.x,monster.position.z,target.x,target.z);
       if (!next) { monster.velocity.set(0,0,0); return; }
@@ -104,6 +106,7 @@ export class MonsterAI {
   static moveWithAvoidance(monster: Monster, dt: number, dirX: number, dirZ: number, speed: number, floor: FloorData): void {
     const length = Math.hypot(dirX,dirZ);
     if (dt <= 0 || speed <= 0 || length < .001) { monster.velocity.set(0,0,0); return; }
+    monster.movementAttempted=true;
     dirX /= length; dirZ /= length;
     const oldX = monster.position.x,oldZ = monster.position.z,travel = speed*dt,steps = Math.max(1,Math.ceil(travel/.18)),step = travel/steps;
     for (let i = 0; i < steps; i++) {
