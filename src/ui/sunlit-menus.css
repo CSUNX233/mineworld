@@ -22,25 +22,30 @@
   background: linear-gradient(#07192728, #07192766), url('/assets/ui/sunlit/menu-art/pause-menu.webp') center / cover no-repeat;
 }
 #ui-root .sunlit-title-screen > .panel {
-  width: min(440px, 86vw); padding: 16px 12px;
+  width: min(760px, 92vw); padding: 16px 12px;
   background: transparent !important;
   border: 0 !important; border-image: none !important;
   color: #fff0ce; box-shadow: none; overflow: visible;
 }
 #ui-root .sunlit-title-screen .sunlit-brand-title {
   color: #ffe1a0; font-size: clamp(42px, 6.8vw, 84px); line-height: 1.1;
-  margin: 0 0 30px; letter-spacing: -1px;
+  margin: 0 0 30px; letter-spacing: -1px; white-space: nowrap;
   text-shadow: 0 3px 0 #142837, 0 7px 18px #071521, 0 0 24px #e7af3760;
 }
 #ui-root .sunlit-title-screen .sunlit-brand-title::before,
 #ui-root .sunlit-title-screen .sunlit-brand-title::after { display: none; }
+.sunlit-title-wordmark {
+  display: block; width: 100%; height: auto; max-height: 28vh;
+  object-fit: contain; margin: 0 auto;
+  filter: drop-shadow(0 4px 8px #07152188);
+}
 #ui-root .sunlit-title-screen .sunlit-menu-button {
   width: min(300px, 100%); min-height: 48px; margin: 6px auto; display: block;
 }
 .sunlit-exit-hint { color: #fff0d1; font-size: 12px; text-align: center; line-height: 1.5; text-shadow: 0 1px 3px #000; }
 @media (max-height: 480px) {
   #ui-root .sunlit-title-screen > .panel { padding: 8px; width: min(430px, 70vw); }
-  #ui-root .sunlit-title-screen .sunlit-brand-title { font-size: clamp(40px, 7vw, 68px); margin-bottom: 22px; }
+  #ui-root .sunlit-title-screen .sunlit-brand-title { font-size: clamp(30px, 5.5vw, 56px); margin-bottom: 22px; }
   #ui-root .sunlit-title-screen .sunlit-menu-button { min-height: 44px; margin: 5px auto; }
 }
 .sunlit-talent-overlay { z-index: 240; }

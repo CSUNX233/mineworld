@@ -586,8 +586,17 @@ export class Game {
     overlay.classList.add('sunlit-title-screen');
 
     const title = document.createElement('h1');
-    title.textContent = 'MineWorld';
+    title.textContent = '深渊，请等一下';
     title.className = 'sunlit-brand-title';
+    const titleArt = document.createElement('img');
+    titleArt.className = 'sunlit-title-wordmark';
+    titleArt.alt = '深渊，请等一下';
+    titleArt.src = '/assets/ui/sunlit/menu-art/title.webp';
+    titleArt.width = 1600;
+    titleArt.height = 542;
+    titleArt.fetchPriority = 'high';
+    titleArt.onerror = () => { title.textContent = '深渊，请等一下'; };
+    title.replaceChildren(titleArt);
     panel.appendChild(title);
 
     const startButton = this.makeMenuButton('开始游戏');
@@ -640,6 +649,7 @@ export class Game {
 
   private playOpeningStory(): void {
     if (!this.envelope?.activeRun) return;
+    this.audio.menu('menu');
     this.running = false; this.paused = true; this.input.reset(); this.removeStartMenu();
     const story = new OpeningStory(() => {
       this.setStartMenuBackHandler(null);

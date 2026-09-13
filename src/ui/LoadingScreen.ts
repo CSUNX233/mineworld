@@ -46,7 +46,7 @@ export class LoadingScreen {
     this.progress.setAttribute('aria-label', '关卡准备进度');
     const title = document.createElement('strong');
     title.className = 'game-loading-title';
-    title.textContent = 'MineWorld';
+    title.textContent = '深渊，请等一下';
     this.tip = document.createElement('div');
     this.tip.className = 'game-loading-tip';
     const tips = [...(isMobileDevice() ? ['左下区域按住即可移动；快速双击且不拖动可跳跃。', '拖动攻击键调整方向，技能拖远后松手可以取消施放。'] : ['按住鼠标左键连续攻击，使用技能槽上的数字键施放技能。', '按 C 切换人称，第三人称可用滚轮调整镜头距离。']), ...COMMON_TIPS];
