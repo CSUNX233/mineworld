@@ -1,6 +1,6 @@
 # 《深渊，请等一下》Android 包
 
-当前最新包为 `releases/abysswait-1.0.2-release.apk`（versionCode 3），包含角色美术图标、首次隐私提示、主菜单政策入口和撤回同意功能，沿用原签名。默认构建脚本也更新到此版本；下文的首包校验数据仅对应保留的 1.0.0。完整提审待办见 [TapTap首发待办](TapTap首发待办.md)，尤其还需处理隐私政策和平台要求的防沉迷，不能把签名检查通过等同于提审条件已齐全。
+当前最新包为 `releases/abysswait-1.0.4-release.apk`（versionCode 5），包含移动端按键自定义、双指镜头缩放、天赋界面及拖动优化、冲刺与技能反馈、品质播报，以及 25 层通关与旧档主线补记修复，沿用原包名和签名。默认构建脚本也更新到此版本；下文的首包校验数据仅对应保留的 1.0.0。完整提审待办见 [TapTap首发待办](TapTap首发待办.md)，尤其还需处理隐私政策和平台要求的防沉迷，不能把签名检查通过等同于提审条件已齐全。
 
 ## 应用身份
 
@@ -19,10 +19,10 @@
 
 ```powershell
 npm ci # 仅首次安装依赖或锁文件变更后需要
-npm run android:release # 重打当前默认版本 1.0.2 / 3
+npm run android:release # 重打当前默认版本 1.0.4 / 5
 # 后续版本：versionCode 必须递增，继续使用原来的私钥。
 Set-Location D:\34229\mineworld
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1 -VersionName 1.0.3 -VersionCode 4
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1 -VersionName 1.0.5 -VersionCode 6
 ```
 
 其他电脑可用脚本的 `-JavaPath` 和 `-SdkPath` 指定工具路径，恢复签名配置时调整 `storeFile` 的私钥路径。如网络需要代理，请只在本机配置 Java/Gradle 代理，不把私人网络配置写入仓库。
@@ -58,6 +58,6 @@ APK 后续覆盖升级需保持包名、签名、`https://localhost` 本地来�
 
 ## 日常更新打包
 
-在 PowerShell 执行上面的显式版本命令即可：脚本会自动构建网页、同步全部资源、生成正式签名 APK 并校验签名。下一次用 1.0.3 / 4，再下一次用 1.0.4 / 5；versionCode 必须大于已经发布的所有包，不要只改显示版本号。显式参数不会自动更改脚本默认版本，后续发布始终传两个版本参数。无需先推送 GitHub，包内使用当前本地源码。
+在 PowerShell 执行上面的显式版本命令即可：脚本会自动构建网页、同步全部资源、生成正式签名 APK 并校验签名。下一次用 1.0.4 / 5，再下一次用 1.0.5 / 6；versionCode 必须大于已经发布的所有包，不要只改显示版本号。显式参数不会自动更改脚本默认版本，后续发布始终传两个版本参数。无需先推送 GitHub，包内使用当前本地源码。
 
 更新给玩家时覆盖安装，不要卸载旧版；包名、签名和本地来源保持不变。保管好 D:/34229/abysswait-signing 整个签名目录。构建失败时不要上传之前遗留的 APK，确认控制台出现 Release APK 和签名成功。

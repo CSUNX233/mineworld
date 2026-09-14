@@ -1,0 +1,17 @@
+[
+  {
+    "name": "horizontal",
+    "path": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-5f9f3500-468d-40de-8224-061ee72b23f0.png",
+    "prompt": "Create a NEW horizontal game cover, aspect ratio 460:215, requested resolution 1840x860 or higher. Exact Chinese title 深渊，请等一下 in the approved cream gold teal pixel wordmark style, large readable in upper center. No other text. Main masked teal-hood wanderer left-center and a modest low-poly skeleton enemy right-center in mossy golden ruins, cyan portal, warm light. Cohesive fresh illustration, no collage, no app icon. Preserve simple faceted pixel-textured game assets, no photorealism. Composition must remain readable when reduced to 460x215."
+  },
+  {
+    "name": "vertical",
+    "path": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-b6c3eb3a-dff7-45a4-88fe-90459ab173d3.png",
+    "prompt": "Create a NEW VERTICAL portrait game cover, aspect ratio 2:3, requested resolution 1200x1800 or higher. Exact Chinese title 深渊，请等一下 using approved cream gold dark-teal pixel lettering in upper third, can be arranged in two balanced lines but keep exact wording. No other text. Full-body original teal-hood masked wanderer in center, ivory segmented mask amber eye slit, right hand sword left hand small cyan flame; mossy modular ruin arches framing, cyan portal behind, small skeleton silhouette below-right. Warm gold and teal palette, chunky low-poly pixel game aesthetic. Strong tall composition, no screenshot or collage, no app icon. Do not stretch a landscape image."
+  },
+  {
+    "name": "wallpaper",
+    "path": "C:\\Users\\34229\\.codex\\generated_images\\01a088e8-70ce-7442-b58b-03c018c4670b\\exec-90fc92e8-489a-4203-848d-a376894f7636.png",
+    "prompt": "Create a NEW ultrawide game-library background wallpaper, aspect ratio 3840:1240 (about 3.1:1), requested output 3840x1240 or larger. ABSOLUTELY NO TEXT, NO LETTERING, NO LOGO, NO WORDMARK, NO APP ICON, NO BADGES. Reference title image is irrelevant to this wallpaper; do not reproduce it. Original teal short-hood ivory segmented mask amber-eyed wanderer standing on right-middle, sword in right hand, small cyan flame in left, original low-poly pixel-textured mossy ruin courtyard and cyan portal behind on right. LEFT 38% is quiet shadowed stone paving, subdued ruin walls and mist, no characters, no treasure chest, no important focal elements, intended behind UI cards. Right 60% holds readable warm golden highlights, character and portal. Full width naturally composed environment, no panorama stretching. Refined but restrained lighting, simple faceted geometry, no hyperrealism or overblown cinematic effects."
+  }
+]

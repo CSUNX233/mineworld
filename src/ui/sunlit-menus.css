@@ -250,7 +250,6 @@
 .run-talent-header h2 { margin: 0 0 5px; font-size: 24px; text-align: left; }
 .run-talent-summary { margin: 0; color: var(--sunlit-muted); }
 .run-talent-summary strong { color: #16716d; }
-.run-talent-cadence { margin: 8px 0 14px; padding: 9px 11px; border-left: 4px solid var(--sunlit-teal); background: rgba(40, 127, 128, .11); color: #3d514e; overflow-wrap: anywhere; }
 #ui-root .run-talent-reset,
 #ui-root .run-talent-action { min-height: 44px; padding: 8px 12px; font: inherit; font-weight: 800; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
 #ui-root .run-talent-reset { flex: 0 1 205px; }

@@ -6,8 +6,11 @@
 .meta-tree-detail-heading { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
 .meta-tree-detail-heading h3 { flex: 1; }
 #ui-root .meta-tree-detail-heading .meta-tree-detail-close { width: auto; min-width: 80px; min-height: 40px; margin: 0; padding: 6px; font-size: 12px; }
-.meta-tree-viewport { touch-action: none; }
-.meta-tree-node { touch-action: none; }
+/* Native two-axis touch panning keeps momentum off the game's JavaScript frame loop.
+   Apply to nodes too: starting a swipe on a node must behave like starting on empty space. */
+#ui-root .meta-tree-viewport { touch-action: pan-x pan-y; scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
+#ui-root .meta-tree-viewport .meta-tree-node { touch-action: pan-x pan-y; }
+.meta-tree-board { user-select: none; -webkit-user-select: none; }
 .meta-tree-progress { font-weight: 700; }
 .meta-tree-controls { display: contents; }
 

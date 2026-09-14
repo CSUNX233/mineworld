@@ -148,6 +148,21 @@ export class RunManager {
     return true;
   }
 
+  /** Repair only the two objective flags omitted by the version-7 late boss layouts. */
+  static repairLateBossObjectives(run: RunState, floor: number, generationVersion: number, cleared: readonly string[]): boolean {
+    if (generationVersion < 7) return false;
+    let changed = false;
+    const restore = (id: string) => {
+      if (run.completedObjectives.includes(id)) return;
+      run.completedObjectives.push(id);
+      // Keep recorded investment samples; do not invent historical gear or grant room loot again.
+      changed = true;
+    };
+    if (floor > 20 && run.completedObjectives.includes('20-room-1')) restore('20-room-4');
+    if ((floor === 20 || floor === 25) && cleared.includes('room-4')) restore(`${floor}-room-4`);
+    return changed;
+  }
+
   static finish(
     envelope: SaveEnvelopeV3,
     outcome: RunOutcome,

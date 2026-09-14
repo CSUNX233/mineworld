@@ -94,13 +94,19 @@ export function buildMetaTalentTree(envelope: SaveEnvelopeV3, unlock: (id:string
   toolbar.append(action('回到主干',()=>{closeDetail();requestAnimationFrame(()=>viewport.scrollTo({left:440-viewport.clientWidth/2,top:220,behavior:'smooth'}));}));
   let drag: {id:number;x:number;y:number;left:number;top:number;moved:boolean} | null = null;
   let suppressClick = false;
-  viewport.addEventListener('pointerdown',event=>{if(!event.isPrimary||event.button!==0)return;suppressClick=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,moved:false};});
+  // Let touch scrolling run on the browser compositor, including inertia and tap cancellation.
+  // Pointer capture / per-event scroll writes are only needed for mouse and pen dragging.
+  viewport.addEventListener('pointerdown',event=>{
+    if(event.pointerType==='touch'){suppressClick=false;return;}
+    if(!event.isPrimary||event.button!==0)return;
+    suppressClick=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,moved:false};
+  });
   viewport.addEventListener('pointermove',event=>{if(!drag||drag.id!==event.pointerId)return;if(!drag.moved&&Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<8)return;if(!drag.moved){drag.moved=true;viewport.setPointerCapture(event.pointerId);viewport.classList.add('is-dragging');}event.preventDefault();viewport.scrollLeft=drag.left-event.clientX+drag.x;viewport.scrollTop=drag.top-event.clientY+drag.y;});
   const endDrag=(event:PointerEvent)=>{if(!drag||drag.id!==event.pointerId)return;suppressClick=drag.moved;drag=null;viewport.classList.remove('is-dragging');if(viewport.hasPointerCapture(event.pointerId))viewport.releasePointerCapture(event.pointerId);};viewport.addEventListener('pointerup',endDrag);viewport.addEventListener('pointercancel',endDrag);viewport.addEventListener('lostpointercapture',()=>{drag=null;viewport.classList.remove('is-dragging');});
   viewport.addEventListener('pointerleave',()=>{if(drag&&!drag.moved)drag=null;});
   viewport.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopPropagation();suppressClick=false;}},true);
   root.addEventListener('keydown',event=>{if(event.key==='Escape'&&root.classList.contains('is-detail-open')){event.preventDefault();event.stopPropagation();closeDetail();buttons.get(selectedId)?.focus({preventScroll:true});}});
-  viewport.addEventListener('scroll',()=>{savedScroll={left:viewport.scrollLeft,top:viewport.scrollTop};});
+  viewport.addEventListener('scroll',()=>{savedScroll={left:viewport.scrollLeft,top:viewport.scrollTop};}, {passive:true});
   const scroll = savedScroll;
   requestAnimationFrame(()=>{viewport.scrollLeft=scroll?.left ?? Math.max(0,440-viewport.clientWidth/2);viewport.scrollTop=scroll?.top ?? 220;});
   select(META_NODES.find(n=>n.id===selectedId) ?? META_NODES.find(n=>n.id==='camp_trunk_1')!,!matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches);

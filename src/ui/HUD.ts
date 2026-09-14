@@ -1,3 +1,5 @@
+import type { Rarity } from '../types';
+import { AnnouncementQueue } from './AnnouncementQueue';
 import { pixelText, setPixelText } from './PixelNumbers';
 import { STATUSES } from '../data/elements';
 import { createUiIcon } from './UiAssets';
@@ -49,7 +51,7 @@ export class HUD {
   private xpFill: HTMLDivElement;
   private levelText: HTMLDivElement;
   private infoText: HTMLDivElement;
-  private centerMessage: HTMLDivElement;
+  private announcements: AnnouncementQueue;
   private comboText: HTMLDivElement;
   private lowHealth: HTMLDivElement;
   private crosshair: HTMLDivElement;
@@ -61,8 +63,6 @@ export class HUD {
   private buildIndicator = document.createElement('div');
   private damageLayer: HTMLDivElement;
   private muteButton: HTMLDivElement;
-  private messageTimer = 0;
-  private messageDuration = 0;
   private combo = 0;
   private comboTimer = 0;
   private skillSignature = '';
@@ -221,10 +221,9 @@ export class HUD {
     this.muteButton.onclick = () => this.onMuteToggle?.();
     this.container.appendChild(this.muteButton);
 
-    this.centerMessage = document.createElement('div');
-    this.centerMessage.className = 'center-message';
-    this.centerMessage.style.opacity = '0';
-    this.container.appendChild(this.centerMessage);
+    const announcement = document.createElement('div');
+    this.announcements = new AnnouncementQueue(announcement);
+    this.container.appendChild(announcement);
 
     this.comboText = document.createElement('div');
     this.comboText.style.position = 'absolute';
@@ -285,6 +284,7 @@ export class HUD {
       skills.forEach((skill) => {
       const box = document.createElement('div');
       box.className = 'sunlit-skill';
+      box.dataset.skillId = skill.id ?? '';
       box.appendChild(createUiIcon(skill.id ?? 'fireball'));
       const overlay = document.createElement('div');
       overlay.className = 'sunlit-skill-overlay';
@@ -361,16 +361,15 @@ export class HUD {
   }
 
   showCenterMessage(title: string, subtitle = '', duration = 2.4): void {
-    this.centerMessage.innerHTML = `<div style="font-size:30px;font-weight:bold;color:#fff">${title}</div>${subtitle ? `<div style="margin-top:6px;font-size:15px;color:#cbd6e4">${subtitle}</div>` : ''}`;
-    this.centerMessage.style.opacity = '1';
-    this.messageDuration = duration;
-    this.messageTimer = 0;
+    this.announcements.push(title, subtitle, duration);
   }
 
-  showLootMessage(text: string, color: string | number): void {
-    this.showCenterMessage(text, '', 1.8);
-    this.centerMessage.style.color =
-      typeof color === 'number' ? `#${color.toString(16).padStart(6, '0')}` : color;
+  showRoomMessage(title: string): void { this.announcements.push(title, '', 1.5, 'room'); }
+  showFloorMessage(title: string, subtitle = '', duration = 2.4): void { this.announcements.push(title, subtitle, duration, 'floor'); }
+  showLootMessage(text: string, color: string | number, rarity?: Rarity): void {
+    const emphasis = rarity ? { common: 0, magic: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 }[rarity] : 0;
+    this.announcements.push(text, '', emphasis >= 3 ? 2.4 : 1.6, emphasis >= 3 || text.startsWith('传说现世') ? 'legendary' : 'loot',
+      typeof color === 'number' ? `#${color.toString(16).padStart(6, '0')}` : color, emphasis);
   }
 
   setCombo(combo: number): void {
@@ -408,12 +407,7 @@ export class HUD {
       bars[i].style.width = this.barValues[i] + '%';
     }
 
-    if (this.messageTimer < this.messageDuration) {
-      this.messageTimer += dt;
-      if (this.messageTimer >= this.messageDuration) {
-        this.centerMessage.style.opacity = '0';
-      }
-    }
+    this.announcements.update(dt);
     if (this.combo > 1) {
       this.comboTimer -= dt;
       if (this.comboTimer <= 0) {

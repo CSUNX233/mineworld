@@ -211,7 +211,7 @@ export class AudioManager {
     const id = m.def.id; const family: SoundEvent = m.def.behavior === 'boss' ? 'boss' : /slime|spit/.test(id) ? 'slime' : /zombie|skeleton|mourner|burial|grave|bell/.test(id) ? 'undead' : /shadow|void|abyss|ghost|lich/.test(id) ? 'demon' : 'beast';
     this.play(family, m.position, kind === 'death' ? .85 : .7);
   }
-  skill(id: string): void { const e: SoundEvent = id === 'guard_counter' ? 'guard' : id === 'seismic_slam' ? 'earth' : /company|soul/.test(id) ? 'soul' : id === 'frost_nova' ? 'frost' : id === 'lightning_chain' ? 'lightning' : /fire|flame|ember|detonate/.test(id) ? 'fire' : 'swing'; this.play(e); }
+  skill(id: string): void { const e: SoundEvent = id === 'dash' ? 'dash' : id === 'whirlwind' ? 'meleeSkill' : id === 'guard_counter' ? 'guard' : id === 'seismic_slam' ? 'earth' : /company|soul/.test(id) ? 'soul' : id === 'frost_nova' ? 'frost' : id === 'lightning_chain' ? 'lightning' : /fire|flame|ember|detonate/.test(id) ? 'fire' : 'swing'; this.play(e); }
   projectile(element: string, point: Point): void { this.play(element === 'fire' ? 'fireHit' : element === 'frost' ? 'frost' : element === 'lightning' ? 'lightning' : element === 'shadow' ? 'soul' : 'earth', point, .6); }
   hit(crit = false, element = 'physical', point?: Point): void { const e: SoundEvent = element === 'fire' ? 'fireHit' : element === 'frost' ? 'frost' : element === 'lightning' ? 'lightning' : element === 'shadow' ? 'soul' : 'hit'; this.play(e, point, crit ? 1.15 : 1); if (point) this.play('enemyHurt', point); }
   private dropTimer: ReturnType<typeof setTimeout> | null = null;

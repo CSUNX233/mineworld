@@ -16,6 +16,7 @@ export class HeroSkillVisual {
   readonly flame = new THREE.Group();
   castTime = 0;
   slashTime = 0;
+  dashTime = 0;
   private readonly duration = .58;
   private readonly slashDuration = .34;
   private readonly sprites: THREE.Sprite[] = [];
@@ -50,6 +51,8 @@ export class HeroSkillVisual {
     this.fire.color.setHex(colors.flame);
     this.glow.color.setHex(colors.glow);
     this.castTime = this.duration;
+    this.dashTime = skill.id === 'dash' ? .28 : 0;
+    this.slashTime = 0;
     if (skill.tags.includes('melee') && !skill.tags.includes('defense')) {
       this.slashTime=this.slashDuration;
     }
@@ -57,6 +60,7 @@ export class HeroSkillVisual {
   }
   update(dt: number): void {
     this.castTime=Math.max(0,this.castTime-dt);
+    this.dashTime=Math.max(0,this.dashTime-dt);
     this.slashTime=Math.max(0,this.slashTime-dt);
     this.refresh();
   }
@@ -71,10 +75,16 @@ export class HeroSkillVisual {
       const cycle=(age*2.6+i*.23)%1;
       sprite.position.set(i===0 ? 0 : Math.sin(i*2.4+age*9)*.025,
         i===0 ? 0 : cycle*.065, i===0 ? 0 : Math.cos(i*2.4)*.016);
-      const size=i===0 ? .13 : (.08+(i%2)*.03)*(1-cycle*.5);
+      const size=i===0 ? .25 : (.14+(i%2)*.045)*(1-cycle*.5);
       sprite.scale.set(size*strength,size*(i===0 ? 1 : 1.5)*strength,1);
     }
   }
+  get castAmount(): number {
+    if (this.castTime <= 0) return 0;
+    const age = this.duration - this.castTime;
+    return Math.min(1, .35 + age / .07) * Math.min(1, this.castTime / .22);
+  }
+  get dashAmount(): number { return Math.min(1, this.dashTime / .1); }
   /** Starts at contact, follows through, then returns; no gameplay wind-up delay. */
   get slashAmount(): number {
     if(this.slashTime<=0)return 0;
@@ -84,7 +94,7 @@ export class HeroSkillVisual {
   attach(socket: THREE.Object3D | undefined): void {
     if(socket && this.flame.parent!==socket)socket.add(this.flame);
   }
-  reset(): void {this.castTime=this.slashTime=0;this.flame.visible=false;}
+  reset(): void {this.castTime=this.slashTime=this.dashTime=0;this.flame.visible=false;}
   dispose(): void {
     this.reset();this.flame.removeFromParent();this.flame.clear();
     this.fire.dispose();this.glow.dispose(); // textures belong to the shared combat-art cache.

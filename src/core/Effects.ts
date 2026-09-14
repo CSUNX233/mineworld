@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { effectTexture } from '../ui/CombatArt';
+import type { ElementType } from '../types';
 
 type EffectTexture = 'impact' | 'fire' | 'ice' | 'lightning' | 'smoke' | 'shockwave' | 'shadow';
 type EffectMaterial = THREE.MeshBasicMaterial | THREE.SpriteMaterial;
@@ -39,6 +40,25 @@ export class Effects {
   particleScale = 1;
 
   constructor(private scene: THREE.Scene) {}
+
+  skillCast(position: THREE.Vector3, element: ElementType, defense: boolean): void {
+    const colors = { physical: 0xffdda0, fire: 0xff833d, frost: 0x83dcff, lightning: 0xc9a3ff, shadow: 0xbd8aff, poison: 0x9add70 };
+    this.addGroundPlane('shockwave', position.clone().add(new THREE.Vector3(0, .07, 0)), defense ? 1.9 : 1.25, defense ? .65 : .32,
+      { color: colors[element], startScale: .4, endScale: 1.3, opacity: .8 });
+  }
+
+  /** Short pooled streaks follow actual movement, so a blocked dash cannot draw through walls. */
+  dashRibbon(from: THREE.Vector3, groundEnd: THREE.Vector3): void {
+    const dx = groundEnd.x - from.x, dz = groundEnd.z - from.z, length = Math.hypot(dx, dz);
+    if (length < .025 || length > 2 || this.particles.length >= MAX_PARTICLES) return;
+    const particle = this.takeParticle(0xb9edff, .7, false);
+    particle.mesh.position.set((from.x + groundEnd.x) * .5, from.y, (from.z + groundEnd.z) * .5);
+    particle.mesh.scale.set(.13, .18, length + .2);
+    particle.mesh.rotation.set(0, Math.atan2(dx, dz), 0);
+    particle.velocity.set(0, 0, 0); particle.spin.set(0, 0, 0);
+    particle.life = particle.maxLife = .16;
+    this.particles.push(particle); this.scene.add(particle.mesh);
+  }
 
   burst(position: THREE.Vector3, color: number, count = 14, speed = 4): void {
     this.emitDebris(position, color, count, speed);

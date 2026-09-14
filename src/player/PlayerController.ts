@@ -160,8 +160,10 @@ export class PlayerController {
     return this.player.position.clone().add(new THREE.Vector3(0, this.firstPerson ? 1.62 : 1.25, 0));
   }
 
+  get isDashing(): boolean { return this.dashTime > 0; }
+
   dash(direction: THREE.Vector3): void {
-    this.dashVelocity.copy(direction).multiplyScalar(17);
+    this.dashVelocity.set(direction.x, 0, direction.z).normalize().multiplyScalar(17);
     this.dashTime = 0.18;
   }
 
@@ -219,15 +221,19 @@ export class PlayerController {
       ? Math.min(factor, status.slowMultiplier ?? 1) : factor, 1);
     const speed = stats.moveSpeed * (p.sprinting ? 1.65 : 1) * 5.5 * slow;
     const targetVelocity = moveDir.multiplyScalar(speed);
-    if (this.dashTime > 0) {
-      targetVelocity.add(this.dashVelocity);
-      this.dashTime -= dt;
-      if (this.dashTime <= 0) this.dashVelocity.set(0, 0, 0);
+    const dashing = this.dashTime > 0;
+    if (dashing) {
+      // A directional burst must not be ramped up like walking or cancelled by opposite input.
+      const activeDt = Math.min(dt, this.dashTime), fraction = dt > 0 ? activeDt / dt : 1;
+      p.velocity.x = this.dashVelocity.x * fraction + targetVelocity.x * (1 - fraction);
+      p.velocity.z = this.dashVelocity.z * fraction + targetVelocity.z * (1 - fraction);
+      this.dashTime = Math.max(0, this.dashTime - activeDt);
+      p.yaw = Math.atan2(this.dashVelocity.x, this.dashVelocity.z);
+    } else {
+      const groundLambda = this.touchDevice ? (p.moving ? 40 : 60) : p.moving ? 24 : 38;
+      p.velocity.x = damp(p.velocity.x, targetVelocity.x, groundLambda, dt);
+      p.velocity.z = damp(p.velocity.z, targetVelocity.z, groundLambda, dt);
     }
-
-    const groundLambda = this.touchDevice ? (p.moving ? 40 : 60) : p.moving ? 24 : 38;
-    p.velocity.x = damp(p.velocity.x, targetVelocity.x, groundLambda, dt);
-    p.velocity.z = damp(p.velocity.z, targetVelocity.z, groundLambda, dt);
 
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     if (this.input.wasPressed('Space')) this.jumpBuffer = 0.12;
@@ -250,6 +256,10 @@ export class PlayerController {
       p.position.y += p.velocity.y * dt;
     }
 
+    if (dashing && this.dashTime === 0) {
+      // End the burst without an extra friction-dependent slide.
+      p.velocity.x = targetVelocity.x; p.velocity.z = targetVelocity.z; this.dashVelocity.set(0, 0, 0);
+    }
     this.updateCamera(realDt, floorData);
   }
 

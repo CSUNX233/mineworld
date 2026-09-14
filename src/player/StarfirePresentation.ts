@@ -63,6 +63,7 @@ export class StarfirePresentation {
   private visualMoving = 0;
   private visualLanding = 0;
   private swingProgress = -1;
+  private swingAngle = 0;
   private skillVisual: HeroSkillVisual | null = null;
   private readonly slashAxis = new THREE.Vector3(0,0,1);
   constructor(private parent: THREE.Group, private onReady: () => void) {
@@ -253,14 +254,32 @@ export class StarfirePresentation {
       }
       this.fpRoot.position.y = -1.55 + Math.sin(this.phase*Math.PI*4)*.008*this.visualMoving - this.visualLanding*.035;
     }
-    const arm=(this.fp ? this.fpBones : this.bones).get(this.fp ? 'forearmR' : 'upper_armR');
+    const activeBones = this.fp ? this.fpBones : this.bones;
+    const cast = this.skillVisual?.castAmount ?? 0;
+    const dash = this.skillVisual?.dashAmount ?? 0;
+    const leftArm = activeBones.get(this.fp ? 'forearmL' : 'upper_armL');
+    if (leftArm && cast > 0) {
+      leftArm.quaternion.multiply(this.q.setFromAxisAngle(this.axis, -cast * (this.fp ? .4 : .9)));
+      leftArm.quaternion.multiply(this.q.setFromAxisAngle(this.slashAxis, cast * .22));
+    }
+    const arm=activeBones.get(this.fp ? 'forearmR' : 'upper_armR');
     const slash=this.skillVisual?.slashAmount ?? 0;
-    if(arm && slash>0) {
+    if (arm && dash > 0) {
+      arm.quaternion.multiply(this.q.setFromAxisAngle(this.axis, -dash * (this.fp ? .9 : 1.5)));
+      const wrist = activeBones.get('handR');
+      wrist?.quaternion.multiply(this.q.setFromAxisAngle(this.axis, dash * .35));
+    } else if(arm && slash>0) {
       const strike=this.fp ? this.fpBones.get('handR')! : arm;
       strike.quaternion.multiply(this.q.setFromAxisAngle(this.axis,-slash*.6));
       strike.quaternion.multiply(this.q.setFromAxisAngle(this.slashAxis,-slash*1.2));
     } else if(arm && this.swingProgress>=0) {
-      arm.quaternion.multiply(this.q.setFromAxisAngle(this.axis,-Math.sin(this.swingProgress*Math.PI)*.65));
+      // Fast outward stroke followed by a slower eased recovery, with alternating diagonals.
+      const t = Math.max(0, Math.min(1, this.swingProgress));
+      const phase = t < .28 ? t / .28 : 1 - (t - .28) / .72;
+      const weight = phase * phase * (3 - 2 * phase);
+      const staff = this.kind === 'staff';
+      arm.quaternion.multiply(this.q.setFromAxisAngle(this.axis, -weight * (staff ? .55 : .95)));
+      if (!staff) arm.quaternion.multiply(this.q.setFromAxisAngle(this.slashAxis, this.swingAngle * weight * .8));
     }
     (this.fp ? this.fpRoot : this.root)?.updateMatrixWorld(true);
   }
@@ -268,8 +287,9 @@ export class StarfirePresentation {
   swing(progress: number, angle: number): void {
     if (!this.root) return;
     this.swingProgress = progress;
+    this.swingAngle = angle;
     this.poseVisible();
-    void angle;
+
   }
   dispose(): void {
     if (this.disposed) return; this.disposed = true;

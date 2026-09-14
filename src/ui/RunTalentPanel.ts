@@ -272,16 +272,14 @@ export function buildRunTalentPanel(
   if (!reset.disabled) reset.addEventListener('click', onReset);
   header.append(headingBlock, reset);
 
-  const cadence = document.createElement('p');
-  cadence.className = 'run-talent-cadence';
-  cadence.textContent = '获取节奏：开局 1 点；等级 2 / 4 / 6 / 8 / 10 各 1 点；完整完成第 5 / 10 / 15 / 20 层的两条 Boss 主线各 1 点。25 层预计共 10 点。';
-
   const tabs = document.createElement('div');
+  tabs.className = 'run-talent-tabs';
   tabs.setAttribute('role', 'tablist');
   tabs.setAttribute('aria-label', '天赋流派');
   tabs.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(68px,1fr));gap:8px;margin:0 0 12px;overflow-x:auto;position:sticky;top:0;z-index:2;padding:4px;background:rgba(34,59,86,.94)';
 
   const content = document.createElement('div');
+  content.className = 'run-talent-content';
   content.style.cssText = 'max-height:min(62dvh,680px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px';
   const pages = new Map<RunTalentGroup, HTMLElement>();
   const buttons = new Map<RunTalentGroup, HTMLButtonElement>();
@@ -315,6 +313,6 @@ export function buildRunTalentPanel(
   }
   selectGroup(activeTalentGroup);
 
-  panel.append(header, cadence, tabs, content);
+  panel.append(header, tabs, content);
   return panel;
 }

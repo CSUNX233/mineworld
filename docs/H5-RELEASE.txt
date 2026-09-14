@@ -1,0 +1,34 @@
+《深渊，请等一下》H5 浏览器版
+
+本包为静态网站成品，包含 HTML、JavaScript、样式、模型、贴图、音乐、音效和隐私政策。服务器不需要 Node.js 后端或数据库。
+
+一、部署游玩
+解压 ZIP，将里面的 index.html、assets、audio 等全部文件上传到静态网站根目录。推荐使用 HTTPS。
+本版本部分资源使用根路径，必须部署在域名根目录，不要放到 /game/ 等子目录。
+访问网站首页即可游玩。Cloudflare Pages 可上传解压后的完整目录。
+保持资源目录结构，不要只上传 index.html。
+
+二、本机浏览器预览
+不要直接双击 index.html：file:// 会受到浏览器模块与资源跨域限制。
+如果电脑安装了 Python，在解压目录打开终端运行：
+python -m http.server 8080 --bind 127.0.0.1
+然后访问 http://127.0.0.1:8080/
+关闭终端或按 Ctrl+C 即可停止服务。
+
+如果已安装 Node.js，也可以在解压目录运行：
+npx --yes serve . -l tcp://127.0.0.1:8080
+首次执行该命令需要下载 serve 工具。
+
+三、设备和存档
+使用支持 WebGL 2 的现代浏览器；手机优先横屏，支持触屏摇杆。
+首次进入需阅读隐私说明。浏览器存档保存在当前网站来源下，不与 APK 自动互通。
+不同域名、协议或端口会使用不同存档空间；更新网站请保持原来的地址。
+不要清除网站数据，否则会删除本地存档和营地研究。
+
+四、后续重新打包
+在源码项目根目录使用 PowerShell：
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-h5.ps1 -VersionName 1.0.3
+输出目录为 releases。H5 包不需要 Android SDK 或 Android 签名。
+
+工作室：桑尼工作室
+联系邮箱：1977975227@qq.com

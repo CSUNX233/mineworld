@@ -134,15 +134,6 @@ canvas {
   }
 }
 
-.center-message {
-  position: absolute;
-  left: 50%;
-  top: 34%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  text-shadow: 0 3px 8px #000;
-  pointer-events: none;
-}
 
 .touch-controls {
   display: none;
@@ -257,10 +248,6 @@ html.mobile-ui button {
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45) !important;
 }
 
-.mobile-ui .center-message {
-  top: 38%;
-  font-size: 0.82em;
-}
 
 .mobile-ui .panel {
   max-width: 96vw;

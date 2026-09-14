@@ -1,3 +1,4 @@
+import { showSkillFeedback } from '../ui/SkillFeedback';
 import { EnemyRecovery } from '../monsters/EnemyRecovery';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -336,7 +337,6 @@ export class Game {
     raiseCompany: () => {
       if (!this.floorData) return false;
       const result = this.summonSystem.raise(this.floorData, this.player, this.summonConfig());
-      if (!result.ok) this.hud.showCenterMessage('无法补编', result.message, 1.5);
       return result.ok;
     },
     sacrificeSummon: () => {
@@ -1311,7 +1311,7 @@ export class Game {
     this.player.mana = Math.min(this.player.maxMana, this.player.mana);
     this.recordResourceSnapshot('session_ready');
     if (!this.saveGame()) return;
-    this.hud.showCenterMessage(`第 ${this.floor} 层`, `${this.floorData?.theme.name ?? ''} · 敌人攻势：${this.aggression.label}`, 3);
+    this.hud.showFloorMessage(`第 ${this.floor} 层`, `${this.floorData?.theme.name ?? ''} · 敌人攻势：${this.aggression.label}`, 3);
     if (this.newcomer.needsViewChoice) { this.showNewPlayerScreen('view'); return; }
     this.requestPointerLock();
   }
@@ -1478,6 +1478,11 @@ export class Game {
 
   private updateEncounters(): boolean {
     if (!this.encounters || !this.floorData) return false;
+    const activeRun = this.envelope?.activeRun;
+    if (activeRun && RunManager.repairLateBossObjectives(activeRun, this.floor,
+      this.floorData.generationVersion ?? 1, this.encounters.state.cleared)) {
+      if (!this.saveGame()) return true;
+    }
     if (this.floor === BASIC_RUN_DEFINITION.floorCount && this.envelope?.activeRun && hasVictoryObjectives(this.envelope.activeRun)) {
       this.finishRun('victory');
       return true;
@@ -1502,7 +1507,7 @@ export class Game {
         monsterCount: wave.length,
       });
       const encounter = encounterById(room.encounterId);
-      this.hud.showCenterMessage(encounter?.name ?? ROOM_LABELS[room.kind!], '', encounter ? 3 : 1.5);
+      this.hud.showRoomMessage(encounter?.name ?? ROOM_LABELS[room.kind!]);
     }
     this.lateChapter.completeTrialWaves(this.encounters.lockedRoomIds,this.monsters,this.lateHost);
     const completedRooms = this.encounters.complete(new Set(this.monsters.filter(m => !m.dead).map(m => m.roomId)));
@@ -1765,7 +1770,11 @@ export class Game {
       const movementStartZ = this.player.position.z;
       if (!this.inventoryUI.open && !this.skillOpen) {
         const wasGrounded = this.player.onGround;
+        const wasDashing = this.controller.isDashing;
         this.controller.update(dt, this.floorData, stats, rawDt);
+        if (wasDashing) this.effects.dashRibbon(
+          new THREE.Vector3(movementStartX, this.player.position.y + .85, movementStartZ), this.player.position);
+
         this.updatePlayerVisibility();
         if (!wasGrounded && this.player.onGround) this.audio.play('land');
       }
@@ -2048,6 +2057,20 @@ export class Game {
     showSensitivity();
     panel.appendChild(lookSensitivity);
 
+    if (this.mobile && this.touchControls) {
+      const controlsTitle = document.createElement('h3'); controlsTitle.textContent = '操控';
+      panel.insertBefore(controlsTitle, lookLabel);
+      const customize = this.makeMenuButton('自定义按键位置');
+      customize.onclick = () => {
+        overlay.style.visibility = 'hidden';
+        const close = this.touchControls!.editLayout(() => {
+          this.mobileBack.unregister('touch-layout'); overlay.style.visibility = '';
+        });
+        this.mobileBack.register('touch-layout', close);
+      };
+      panel.append(customize);
+    }
+
     const followRow = document.createElement('label');
     followRow.className = 'sunlit-toggle-row';
     followRow.textContent = '前进时自动回正镜头';
@@ -2207,7 +2230,8 @@ export class Game {
       const talents = this.makeMenuButton('查看局内天赋');
       talents.onclick = () => this.showAttributeAllocation();
       panel.appendChild(talents);
-      const next = this.makeMenuButton(`继续深入 · 第 ${this.floor + 1} 层`);
+      const next = this.makeMenuButton(this.floor >= BASIC_RUN_DEFINITION.floorCount
+        ? '通关结算，返回营地' : `继续深入 · 第 ${this.floor + 1} 层`);
       next.onclick = () => {
         this.closeFloorRest();
         this.advanceFloor();
@@ -2414,7 +2438,8 @@ export class Game {
     const close = this.makeMenuButton('关闭');
     close.classList.add('is-secondary');
     close.onclick = () => { this.closeAttributeAllocation(); this.requestPointerLock(); };
-    panel.append(skills, close);
+    const footer = document.createElement('div'); footer.className = 'run-talent-footer';
+    footer.append(skills, close); panel.append(footer);
   }
 
   private allocateRunTalent(id: string): void {
@@ -2812,9 +2837,9 @@ export class Game {
 
   private tryUseSkill(skill: SkillState, stats: DerivedStats): void {
     if (!this.isSkillUnlocked(skill.id)) return;
-    if (skill.cooldownRemaining > 0 || this.player.mana < skill.manaCost) return;
+    if (skill.cooldownRemaining > 0) { this.audio.play('skillNotReady'); return; }
+    if (this.player.mana < skill.manaCost) return;
     if (skill.id === 'detonate' && !this.detonationTargets().length) {
-      this.hud.showCenterMessage('没有可引爆的目标', '先用火球点燃视线内的敌人', 1.2);
       return;
     }
     this.controller.faceAim();
@@ -2831,15 +2856,17 @@ export class Game {
         this.player.mana = Math.min(this.player.maxMana, this.player.mana + skill.manaCost);
         skill.cooldownRemaining = 0;
         this.skillCooldowns[skill.id] = 0;
-        if (cast.reason !== 'summon-rejected') this.hud.showCenterMessage('无法施放',
-          cast.reason === 'no-summon' ? '先召唤编队，再选择献祭时机' : '朝向近处可见的敌人', 1.5);
         return;
       }
     }
     this.audio.skill(skill.id);
     this.recordBuildSkillUse(skill.id);
     const presentationSkill = skillById(skill.id);
-    if (presentationSkill) this.player.presentation.playSkill(presentationSkill);
+    if (presentationSkill) {
+      this.player.presentation.playSkill(presentationSkill);
+      showSkillFeedback(this.uiRoot, presentationSkill);
+      this.effects.skillCast(this.player.position, presentationSkill.element, presentationSkill.tags.includes('defense'));
+    }
     if (skill.id === 'whirlwind') this.useWhirlwind(stats, skill);
     if (skill.id === 'dash') this.useDash(stats, skill);
     if (skill.id === 'fireball') this.useFireball(stats, skill);
@@ -3219,7 +3246,6 @@ export class Game {
     if (beforeShield > 0 && this.player.shield <= 0) this.audio.play('shieldBreak');
     else if (this.player.health < beforeVitality - beforeShield) this.audio.hurt();
     this.controller.addShake(0.16);
-    this.hud.showCenterMessage('受到攻击', '', 0.35);
   }
 
   private spawnChapterMourner(position: THREE.Vector3, source: Monster): void {
@@ -3596,7 +3622,9 @@ export class Game {
         if (red) {
           this.redLootCooldown = 1.5;
           this.controller.addShake(.08);
-          this.hud.showLootMessage(`传说现世 · ${drop.item.name}`, this.rarityColor(drop.item.rarity));
+          this.hud.showLootMessage(drop.item.name, this.rarityColor(drop.item.rarity), drop.item.rarity);
+        } else if (drop.item.rarity === 'epic') {
+          this.hud.showLootMessage(`极品掉落 · ${drop.item.name}`, this.rarityColor(drop.item.rarity), drop.item.rarity);
         }
       }
       return;
@@ -3709,7 +3737,7 @@ export class Game {
       if (this.inventory.add(drop.item)) {
         this.recordItemAcquired(drop.item, 'loot_pickup');
         this.audio.pickup();
-        this.hud.showLootMessage(`获得 ${drop.item.name}`, this.rarityColor(drop.item.rarity));
+        this.hud.showLootMessage(`获得 ${drop.item.name}`, this.rarityColor(drop.item.rarity), drop.item.rarity);
         return true;
       } else {
         if (this.fullInventoryNoticeCooldown <= 0) {
@@ -3824,7 +3852,7 @@ export class Game {
         this.changeGold(gold, 'chest', { chest: key });
         if (this.inventory.add(item)) {
           this.recordItemAcquired(item, 'chest');
-          this.hud.showLootMessage(`宝箱：${item.name} + ${gold} 金币`, this.rarityColor(item.rarity));
+          this.hud.showLootMessage(`宝箱：${item.name} + ${gold} 金币`, this.rarityColor(item.rarity), item.rarity);
         } else {
           this.spawnDrop(new THREE.Vector3(chest.x + 0.5, 0, chest.z + 0.5), { kind: 'item', item });
           this.hud.showCenterMessage('背包已满', '宝箱装备已掉落在地面', 1.4);
@@ -3839,6 +3867,10 @@ export class Game {
   private async advanceFloor(): Promise<void> {
     if (this.loadingFloor) return;
     if (this.floor >= BASIC_RUN_DEFINITION.floorCount) {
+      if (!this.envelope?.activeRun || !hasVictoryObjectives(this.envelope.activeRun)) {
+        this.hud.showCenterMessage('尚未完成通关目标', '请确认主线战斗房与最终 Boss 均已清理', 3);
+        return;
+      }
       this.finishRun('victory');
       return;
     }
@@ -3847,7 +3879,7 @@ export class Game {
     this.player.heal(this.player.maxHealth * 0.25);
     this.player.addMana(this.player.maxMana * 0.5);
     if (!await this.generateCurrentFloor()) return;
-    this.hud.showCenterMessage(`第 ${this.floor} 层`, `${this.floorData?.theme.name ?? ''} · 敌人攻势：${this.aggression.label}`, 3);
+    this.hud.showFloorMessage(`第 ${this.floor} 层`, `${this.floorData?.theme.name ?? ''} · 敌人攻势：${this.aggression.label}`, 3);
     this.audio.portal();
     this.saveGame();
   }

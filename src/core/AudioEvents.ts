@@ -2,6 +2,8 @@ export interface SoundCue { clips: string[]; volume: number; interval: number; p
 const cue = (clips: string[], volume = .7, interval = 100, priority = 2, max = 2): SoundCue => ({ clips, volume, interval, priority, max });
 export const SOUND_CUES = {
   swing: cue(['original-swosh-01','original-swosh-14'], .7, 110),
+  dash: cue(['original-swosh-14'], .85, 220, 6, 1),
+  meleeSkill: cue(['original-swosh-01'], .85, 200, 5, 1),
   hit: cue(['original-blood1','original-blood2'], .9, 65, 4, 3),
   enemyHurt: cue(['23a5271cf','e97164bef'], .45, 350, 2, 1),
   hurt: cue(['original-blood2','original-blood1'], 1, 220, 8),
@@ -25,6 +27,7 @@ export const SOUND_CUES = {
   uiConfirm: cue(['c4f1500d9'], .65, 140, 6),
   uiBack: cue(['12522674e'], .55, 140, 5),
   uiError: cue(['84e1e5435'], .6, 400, 6),
+  skillNotReady: cue(['84e1e5435'], .38, 550, 5, 1),
   equip: cue(['1683e6278'], .65, 180, 5),
   unequip: cue(['e253d41a0'], .65, 180, 5),
   forge: cue(['original-froge'], .7, 700, 5, 1),

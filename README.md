@@ -8,7 +8,7 @@
 
 > 上图为游戏宣传美术，非实机截图。项目处于持续开发与移动端发布准备阶段。
 
-[立即游玩](https://mineworld-rose.vercel.app/) · [Cloudflare 入口](https://mineworld-c5z.pages.dev/) · [隐私政策](https://mineworld-rose.vercel.app/privacy.html) · [反馈问题](https://github.com/CSUNX233/mineworld/issues)
+[立即游玩](https://mineworld-rose.vercel.app/) · [Cloudflare 入口](https://mineworld-c5z.pages.dev/) · [隐私政策](https://mineworld-c5z.pages.dev/privacy) · [反馈问题](https://github.com/CSUNX233/mineworld/issues)
 
 ## 在深渊里做什么
 
@@ -28,7 +28,7 @@
 
 ## Android 版本
 
-当前本地签名包：**1.0.2 / versionCode 3**，包名 `com.csunx233.abysswait`。
+当前本地签名包：**1.0.4 / versionCode 5**，包名 `com.csunx233.abysswait`。
 
 - Capacitor 封装，游戏资源随 APK 提供；Android 7.0 及以上，需要支持 WebGL 2 的较新系统 WebView。
 - 当前无内购、广告、注册账号或云存档。首次隐私说明和政策全文已接入。
@@ -43,10 +43,10 @@
 
 ```powershell
 Set-Location D:\34229\mineworld
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1 -VersionName 1.0.3 -VersionCode 4
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1 -VersionName 1.0.4 -VersionCode 5
 ```
 
-脚本自动构建网页、同步 Android 资源、生成签名 APK 并验证签名。产物为 `releases/abysswait-1.0.3-release.apk`。每次发布增加 `VersionCode`，继续使用原签名；私钥、密码和 APK 不提交到 Git。
+脚本自动构建网页、同步 Android 资源、生成签名 APK 并验证签名。产物为 `releases/abysswait-1.0.4-release.apk`。每次发布增加 `VersionCode`，继续使用原签名；私钥、密码和 APK 不提交到 Git。
 
 ## 本地运行
 

@@ -1,3 +1,4 @@
+import { applyTouchPositions, openTouchLayoutEditor, type LayoutControl } from './TouchLayoutEditor';
 import { JoystickTapJump } from './JoystickTapJump';
 import { skillUsesDirectionalAim } from '../data/skills';
 import type { InputManager } from '../core/InputManager';
@@ -111,10 +112,18 @@ export class TouchControls {
   private skillOverlays: HTMLDivElement[] = [];
   private activePointer: number | null = null;
   private joystickRect: DOMRect | null = null;
-  private joystickRest: { left: string; top: string; bottom: string } | null = null;
+  private joystickRest: { left: string; top: string; bottom: string; translate: string } | null = null;
   private sprintHeld = false;
   private activeLookPointer: { pointerId: number; lastX: number; lastY: number } | null = null;
   private mobile = isMobileDevice();
+  private firstPerson = false;
+  private cameraTouches = new Map<number, { x: number; y: number }>();
+  private pinchDistance = 0;
+  private resetCameraGesture(): void { this.cameraTouches.clear(); this.pinchDistance = 0; this.activeLookPointer = null; }
+  private cameraTouchDistance(): number {
+    if (this.cameraTouches.size !== 2) return 0;
+    const [a, b] = [...this.cameraTouches.values()]; return Math.hypot(a.x - b.x, a.y - b.y);
+  }
 
   constructor(parent: HTMLElement, private input: InputManager, private callbacks: TouchCallbacks) {
     this.root = document.createElement('div');
@@ -175,6 +184,8 @@ export class TouchControls {
       this.activeLookPointer = null;
       this.input.reset();
     }
+    if (!enabled || this.firstPerson !== firstPerson) this.resetCameraGesture();
+    this.firstPerson = firstPerson;
     this.enabled = enabled;
     this.root.style.display = this.mobile && enabled ? 'block' : 'none';
     if (this.viewButton) {
@@ -329,7 +340,9 @@ export class TouchControls {
       if (!this.enabled || pointer !== null) return;
       key = button.dataset.key ?? '';
       if (!attack && !key) { this.callbacks.onSkillBarPress(); return; }
-      if (!attack && button.getAttribute('aria-disabled') === 'true') return;
+      if (!attack && button.getAttribute('aria-disabled') === 'true') {
+        this.callbacks.onSkillPress(key); this.callbacks.onSkillRelease(key); return;
+      }
       this.cancelAim?.();
       if (!attack && !skillUsesDirectionalAim(button.dataset.icon ?? '')) {
         this.callbacks.onAimEnd(true);
@@ -357,7 +370,7 @@ export class TouchControls {
       if (attack) holdTimer = setTimeout(() => {
         holdTimer = null;
         if (pointer !== null) { attackStarted = true; this.callbacks.onAttackPress(); }
-      }, 120);
+      }, 70);
     });
     const move = (event: PointerEvent) => {
       if (event.pointerId !== pointer) return;
@@ -509,6 +522,27 @@ export class TouchControls {
     return button;
   }
 
+  private layoutControls(): LayoutControl[] {
+    return [
+      { id: 'move', label: '移动', element: this.joystick },
+      { id: 'attack', label: '攻击', element: this.attackButton },
+      ...this.skillButtons.map((element, i) => ({ id: `skill-${i}`, label: `技能 ${i + 1}`, element })),
+      ...this.utilityButtons.map((element, i) => ({ id: `utility-${i}`, label: ['背包', '视角', '技能配置'][i], element })),
+      { id: 'pause', label: '暂停', element: this.pauseButton },
+      { id: 'interact', label: '交互', element: this.interactButton },
+    ];
+  }
+
+  editLayout(onClose: () => void): () => void {
+    this.onSuspend();
+    const display = this.root.style.display, interaction = this.interactButton.style.display;
+    this.root.style.display = 'block'; this.interactButton.style.display = 'flex';
+    this.applyLayout(getLayout());
+    const close = openTouchLayoutEditor(this.layoutControls(), () => { this.applyLayout(getLayout()); onClose(); });
+    this.root.style.display = display; this.interactButton.style.display = interaction;
+    return close;
+  }
+
   private applyLayout(layout: TouchLayout): void {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -582,6 +616,10 @@ export class TouchControls {
     this.interactButton.style.height = '44px';
     this.interactButton.style.borderRadius = '8px';
     this.interactButton.style.fontSize = '14px';
+    const display = this.root.style.display, interaction = this.interactButton.style.display;
+    this.root.style.display = 'block'; this.interactButton.style.display = 'flex';
+    applyTouchPositions(this.layoutControls());
+    this.root.style.display = display; this.interactButton.style.display = interaction;
   }
 
   private onJoystickDown(event: PointerEvent): void {
@@ -589,7 +627,8 @@ export class TouchControls {
     if (!this.enabled || this.activePointer !== null) return;
     event.stopPropagation();
     const size = this.joystick.getBoundingClientRect();
-    this.joystickRest = { left: this.joystick.style.left, top: this.joystick.style.top, bottom: this.joystick.style.bottom };
+    this.joystickRest = { left: this.joystick.style.left, top: this.joystick.style.top, bottom: this.joystick.style.bottom, translate: this.joystick.style.translate };
+    this.joystick.style.translate = 'none';
     // Anchor at the finger so a press never starts movement before an intentional drag.
     this.joystick.style.left = (event.clientX - size.width / 2) + 'px';
     this.joystick.style.top = (event.clientY - size.height / 2) + 'px';
@@ -672,6 +711,14 @@ export class TouchControls {
       return;
     }
 
+    if (!this.firstPerson) {
+      if (this.cameraTouches.size >= 2) return;
+      this.cameraTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.cameraTouches.size === 2) {
+        event.preventDefault(); this.pinchDistance = this.cameraTouchDistance();
+        this.activeLookPointer = null; this.input.mouseDeltaX = 0; this.input.mouseDeltaY = 0; return;
+      }
+    }
     if (this.activeLookPointer) return;
 
     if (this.isCameraLookArea(event.clientX)) {
@@ -684,6 +731,15 @@ export class TouchControls {
   };
 
   private onWindowPointerMove = (event: PointerEvent): void => {
+    const point = this.cameraTouches.get(event.pointerId);
+    if (point) {
+      point.x = event.clientX; point.y = event.clientY;
+      if (this.enabled && !this.firstPerson && this.cameraTouches.size === 2) {
+        event.preventDefault(); const distance = this.cameraTouchDistance();
+        if (this.pinchDistance > 0) this.input.wheelDelta += (this.pinchDistance - distance) / 55;
+        this.pinchDistance = distance; return;
+      }
+    }
     if (
       !this.activeLookPointer ||
       this.activeLookPointer.pointerId !== event.pointerId ||
@@ -702,12 +758,14 @@ export class TouchControls {
   };
 
   private onWindowPointerUp = (event: PointerEvent): void => {
+    this.cameraTouches.delete(event.pointerId); this.pinchDistance = 0;
     if (this.activeLookPointer?.pointerId === event.pointerId) {
       this.activeLookPointer = null;
     }
   };
 
   private onWindowPointerCancel = (event: PointerEvent): void => {
+    this.cameraTouches.delete(event.pointerId); this.pinchDistance = 0;
     if (this.activeLookPointer?.pointerId === event.pointerId) this.activeLookPointer = null;
   };
 
@@ -719,13 +777,13 @@ export class TouchControls {
     if (!this.mobile) return;
     this.cancelAim?.();
     this.onJoystickUp();
-    this.activeLookPointer = null;
+    this.resetCameraGesture();
     this.input.reset();
     this.applyLayout(getLayout());
   };
 
   private onSuspend = (): void => {
-    this.cancelAim?.(); this.onJoystickUp(); this.activeLookPointer = null; this.input.reset();
+    this.cancelAim?.(); this.onJoystickUp(); this.resetCameraGesture(); this.input.reset();
   };
   private onVisibilityChange = (): void => { if (document.hidden) this.onSuspend(); };
 
